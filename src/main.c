@@ -38,10 +38,13 @@ static const int8_t DX[4] = {1, -1, 0, 0};
 static const int8_t DY[4] = {0, 0, 1, -1};
 
 // ---------- palettes & graphics (generated from strings) ----------
-static const palette_color_t bpal[12] = {
+static const palette_color_t bpal[24] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
   RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31), // 1: HUD text
-  RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8)};   // 2: gold title logo
+  RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: gold title logo
+  RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(21,14,6),    // 3: ant eye, land + rock
+  RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(4,16,6),     // 4: ant eye, water
+  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(4,16,6)};    // 5: ant eye, red / black ants
 static const palette_color_t spal[12] = {
   RGB(0,0,0), RGB(2,2,2),   RGB(14,14,14), RGB(31,31,31),
   RGB(0,0,0), RGB(26,3,3),  RGB(31,12,8),  RGB(31,31,31),
@@ -152,6 +155,7 @@ static void help_draw(void) {          // lives on window rows 3-17; pausing sli
   put_str(1, 8, "SEL A EMBEZZLE FOOD");
   put_str(1, 9, "SEL B FAST FORWARD");
   put_str(1, 10, "START PAUSE HELP");
+  put_str(1, 11, "SEL START ANT EYE");
   put_str(1, 12, "KILL THE RED QUEEN");
   put_str(1, 13, "P = POPULARITY");
   put_str(0, 14, "ELECTION EVERY 1 MIN");
@@ -558,6 +562,118 @@ static void title(void) {
   initrand(seed);
 }
 
+// ---------- ANT EYE: first-person 3D view from a black ant (The Sentinel '86 style) ----------
+// SELECT+START. 20 columns x 12 window tile rows live in VRAM bank 1 and are redrawn from a ray march over the
+// heightmap: checkerboard land, blue water, brown hills, red/black ant posts and tall queen towers.
+#define VX 20
+#define VR 12
+#define VY0 2           // window row of the first view row (HUD above, help text below)
+#define VN 24           // ray steps, half a cell each
+static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
+static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
+// pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
+static const uint8_t PMAP[3][7] = {{0, 1, 2, 3, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0}, {0, 3, 3, 3, 0, 1, 2}};
+static int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
+static uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
+
+static void view_init(void) {
+  uint8_t d, n; int16_t v;
+  for (d = 0; d < 7; d++) for (n = 1; n <= VN; n++) {
+    v = ((int16_t)(((int8_t)d - 3) * 4 - 3) * 16) / n;
+    OFF[d][n] = v > 64 ? 64 : v < -64 ? -64 : (int8_t)v;
+  }
+}
+
+static void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) {
+  int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
+  uint8_t n, x, y, h, o, col, lim = VR * 8, lb;
+  rx = (int16_t)SIN16[(vang + 4) & 15] * 32 - (int16_t)SIN16[vang] * t;
+  ry = (int16_t)SIN16[vang] * 32 + (int16_t)SIN16[(vang + 4) & 15] * t;
+  rx >>= 4; ry >>= 4;                                // one step = half a cell forward
+  for (n = 0; n < VR * 8; n++) cls[n] = 0;
+  for (n = 1; n <= VN && lim; n++) {
+    px += rx; py += ry;
+    if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
+    x = (uint8_t)(px >> 8); y = (uint8_t)(py >> 8);
+    h = hgt[y][x];
+    yt = 48 - OFF[h + 3 - eh][n];
+    lb = lim;
+    if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
+      a = yt < 0 ? 0 : yt;
+      col = h == 0 ? 4 : h == 3 ? 3 : ((x + y) & 1) ? 1 : 2;
+      for (r = a; r < lb; r++) cls[r] = col;
+      lim = (uint8_t)a;
+    }
+    o = occ[y][x];
+    if (o && !(x == vx && y == vy) && (uint8_t)(px - 64) < 128 && (uint8_t)(py - 64) < 128) {   // centre of the cell only
+      a = BBH[n]; if (o > 2) a <<= 1;
+      a = yt - a;                                    // top row of the post
+      e = yt < lb ? yt : lb;
+      if (a < 0) a = 0;
+      col = (o & 1) ? 6 : 5;
+      for (r = a; r < e; r++) cls[r] = col;
+      if (a < lim) lim = (uint8_t)a;
+    }
+  }
+}
+
+static void view_render(uint8_t vx, uint8_t vy) {
+  uint8_t c, r, k, v, p, m, i, eh = hgt[vy][vx], tl[16];
+  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = ant[i].team + 1;
+  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = 3 + i;
+  VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
+  for (c = 0; c < VX; c++) {
+    view_col(c, vx, vy, eh);
+    for (r = 0; r < VR; r++) {
+      m = 0;
+      for (k = 0; k < 8; k++) { v = cls[r * 8 + k]; if (v == 4) m |= 1; else if (v > 4) m |= 2; }
+      p = (m & 2) ? 2 : (m & 1) ? 1 : 0;             // palette: ants > water > plain land
+      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; tl[k * 2] = (v & 1) ? 0xFF : 0; tl[k * 2 + 1] = (v & 2) ? 0xFF : 0; }
+      set_bkg_data(c * VR + r, 1, tl);
+      set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
+    }
+  }
+  VBK_REG = VBK_TILES;
+  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = 0;
+  for (i = 0; i < 2; i++) occ[nesty[i]][nestx[i]] = 0;
+}
+
+static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
+
+static void eye(void) {                              // time stands still while you look through a black ant's eyes
+  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0;
+  for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
+  HIDE_SPRITES;
+  VBK_REG = VBK_TILES;
+  for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
+  for (y = 14; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
+  put_str(0, 14, "A:NEXT ANT B:GO HERE");
+  put_str(0, 15, "L/R TURN START BACK");
+  put_str(1, 16, "TIME STANDS STILL");
+  prev = joypad();
+  while (1) {
+    if (go) {
+      if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; }
+      view_render(vx, vy); move_win(7, 0); go = 0;
+    }
+    vsync(); music_update();
+    k = joypad(); p = k & ~prev; prev = k;
+    if (p & J_START) break;
+    if (p & J_B) { cx = vx; cy = vy; break; }          // transfer: the cursor jumps to where you were looking from
+    if (p & J_A) { i = 0; do { vi = (vi == MAXA) ? 0 : vi + 1; } while (!vok(vi) && ++i <= MAXA); sfx_food(); go = 1; }
+    if (k & (J_LEFT | J_RIGHT)) {
+      if (rep == 0 || (rep >= 8 && !(rep & 3))) { vang = (vang + ((k & J_RIGHT) ? 1 : 15)) & 15; go = 1; }
+      if (rep < 250) rep++;
+    } else rep = 0;
+  }
+  VBK_REG = VBK_ATTRIBUTES;                          // give the view cells back to the HUD palette
+  for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, 1);
+  VBK_REG = VBK_TILES;
+  win_clear(); help_draw(); hdirty = 1;
+  move_win(7, 128); SHOW_SPRITES;
+  waitpadup();
+}
+
 static void play(void) {
   uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 4, ki = 0, paused = 0, selused = 0, selprev = 0, n;
   while (!over) {
@@ -565,6 +681,7 @@ static void play(void) {
     music_update();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
     k = joypad(); p = k & ~prev; prev = k;
+    if ((p & J_START) && (k & J_SELECT) && !paused) { selused = 1; eye(); continue; }   // SELECT+START: ant eye
     if (p & J_START) {                 // START: pause + help screen
       paused ^= 1;
       if (paused) { move_win(7, 0); HIDE_SPRITES; } else { move_win(7, 128); SHOW_SPRITES; }
@@ -626,7 +743,8 @@ void main(void) {
   set_bkg_data(TT, 13, buf);
   for (i = 0; i < 3; i++) mk(sp + i * 16, SP[i]);
   set_sprite_data(0, 3, sp);
-  set_bkg_palette(0, 3, bpal);
+  set_bkg_palette(0, 6, bpal);
+  view_init();
   set_sprite_palette(0, 3, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
