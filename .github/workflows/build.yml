@@ -17,7 +17,21 @@ jobs:
           tar xzf gbdk.tar.gz
       - name: Build
         run: make GBDK_HOME="$PWD/gbdk"
+      - name: ROM report
+        run: |
+          python3 - <<'PY'
+          d = open('build/empire-ants.gbc','rb').read()
+          print('ROM bytes:', len(d), 'banks:', len(d)//0x4000)
+          for b in range(len(d)//0x4000):
+              c = d[b*0x4000:(b+1)*0x4000]
+              print('bank', b, 'used', max((i for i,v in enumerate(c) if v not in (0,255)), default=-1)+1, '/ 16384')
+          print('header: type %02x romsize %02x ramsize %02x' % (d[0x147], d[0x148], d[0x149]))
+          PY
+          ls build
+          grep -iE "_main|_dippinn_logo_play|^ *_?(CODE|HOME)|bank" build/empire-ants.map | head -40 || true
       - uses: actions/upload-artifact@v4
         with:
           name: empire-ants
-          path: build/empire-ants.gbc
+          path: |
+            build/empire-ants.gbc
+            build/empire-ants.map
