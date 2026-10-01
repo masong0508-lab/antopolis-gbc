@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    name: Build antopolis.gbc
+    name: Build empire-ants.gbc
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,5 +19,5 @@ jobs:
         run: make GBDK_HOME="$PWD/gbdk"
       - uses: actions/upload-artifact@v4
         with:
-          name: antopolis-gbc
-          path: build/antopolis.gbc
+          name: empire-ants
+          path: build/empire-ants.gbc

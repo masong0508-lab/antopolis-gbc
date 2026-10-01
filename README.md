@@ -1,4 +1,7 @@
-# ANTOPOLIS (GBC)
+# EMPIRE-ANTS (GBC)
+
+*The ruler of you*
+
 Populous x SimAnt for Game Boy Color, GBDK-2020. Every graphic (terrain, ants, queens, even the font) is generated in code, so there are no asset files.
 
 ## Play
@@ -34,7 +37,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 - **Music & sound:** a 4-channel chiptune loop (arpeggio, lead, wave-channel bass and noise drums; A minor, 112 BPM, 8 bars) plays on the title screen and during the game, and keeps playing while paused. Sound effects briefly borrow channels from it: blips for raise/lower/flood, food delivered, hatching, fights and queen hits. The music stops for the short win/lose jingles.
 
 ## Build
-`make GBDK_HOME=/path/to/gbdk` -> `build/antopolis.gbc` (CGB-only ROM).
+`make GBDK_HOME=/path/to/gbdk` -> `build/empire-ants.gbc` (CGB-only ROM).
 
 ## Status
 **Not yet built with real GBDK or run on hardware/emulator**: the build environment had no GBDK. The CI workflow (`.github/workflows/build.yml`) builds the ROM and uploads it as an artifact.

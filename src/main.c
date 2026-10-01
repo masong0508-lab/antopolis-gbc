@@ -1,4 +1,4 @@
-// ANTOPOLIS - Populous x SimAnt for Game Boy Color (GBDK-2020)
+// EMPIRE-ANTS - Populous x SimAnt x Tropico for Game Boy Color (GBDK-2020)
 // 32x32 scrolling world, queen ants, sound. All graphics generated in code.
 #include <gb/gb.h>
 #include <gb/cgb.h>
@@ -19,6 +19,7 @@
 #define BT 128          // first terrain tile
 #define BAR_F 134       // mana bar tiles (free slots after the 6 terrain tiles)
 #define BAR_E 135
+#define TT 176          // first title-logo tile (13 tiles of 3D lettering)
 #define FT 136          // first font tile (40 glyphs)
 
 typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
@@ -37,9 +38,10 @@ static const int8_t DX[4] = {1, -1, 0, 0};
 static const int8_t DY[4] = {0, 0, 1, -1};
 
 // ---------- palettes & graphics (generated from strings) ----------
-static const palette_color_t bpal[8] = {
+static const palette_color_t bpal[12] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
-  RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31)};// 1: HUD text
+  RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31), // 1: HUD text
+  RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8)};   // 2: gold title logo
 static const palette_color_t spal[12] = {
   RGB(0,0,0), RGB(2,2,2),   RGB(14,14,14), RGB(31,31,31),
   RGB(0,0,0), RGB(26,3,3),  RGB(31,12,8),  RGB(31,31,31),
@@ -104,6 +106,44 @@ static void put_num(uint8_t x, uint8_t y, uint8_t n) {
   if (n > 99) n = 99;
   put_char(x, y, '0' + n / 10); put_char(x + 1, y, '0' + n % 10);
 }
+// ---------- 3D "perspective" title lettering: EmpIre-antS ----------
+// 3x5 font glyphs stretched 2x wide, extruded 2 px down-right in two darker shades (gold -> brown -> dark);
+// the first E and last S are double height so the word reads Empire-antS with towering end caps.
+static uint8_t cv[16][8];
+static void mk_3d(uint8_t *d, uint16_t g, uint8_t tall, uint8_t part) {
+  uint8_t gx, gy, k, x, y, r, c, v, lo, hi, sy = tall ? 2 : 1, y0 = tall ? 3 : 8;
+  for (r = 0; r < 16; r++) for (c = 0; c < 8; c++) cv[r][c] = 0;
+  for (k = 3; k--; )                                    // extrusion layers 2, 1 then front face 0 (back to front)
+    for (gy = 0; gy < 5; gy++) for (gx = 0; gx < 3; gx++)
+      if ((g >> (3 * (4 - gy))) & (4 >> gx))
+        for (y = 0; y < sy; y++) for (x = 0; x < 2; x++) cv[y0 + gy * sy + y + k][gx * 2 + x + k] = 3 - k;
+  for (r = 0; r < 8; r++) {
+    lo = hi = 0;
+    for (c = 0; c < 8; c++) { v = cv[part * 8 + r][c]; lo = (lo << 1) | (v & 1); hi = (hi << 1) | (v >> 1); }
+    d[r * 2] = lo; d[r * 2 + 1] = hi;
+  }
+}
+static void title_tiles(uint8_t *b) {                   // 13 tiles: E top/bottom, S top/bottom, then M P I R E - A N T
+  static const char SM[10] = "MPIRE-ANT";
+  uint8_t i;
+  mk_3d(b,      FONT[gi('E')], 1, 0); mk_3d(b + 16, FONT[gi('E')], 1, 1);
+  mk_3d(b + 32, FONT[gi('S')], 1, 0); mk_3d(b + 48, FONT[gi('S')], 1, 1);
+  for (i = 0; i < 9; i++) mk_3d(b + (4 + i) * 16, SM[i] == '-' ? 0700 : FONT[gi(SM[i])], 0, 1);
+}
+static void logo_cells(uint8_t x0, uint8_t y0, uint8_t pal) {
+  uint8_t i;
+  VBK_REG = VBK_ATTRIBUTES;
+  for (i = 0; i < 11; i++) { set_win_tile_xy(x0 + i, y0, pal); set_win_tile_xy(x0 + i, y0 + 1, pal); }
+  VBK_REG = VBK_TILES;
+}
+static void title_logo(uint8_t x0, uint8_t y0) {
+  static const uint8_t R2[11] = {1, 4, 5, 6, 7, 8, 9, 10, 11, 12, 3};   // bottom row: E, M P I R E - A N T, S
+  uint8_t i;
+  for (i = 0; i < 11; i++) { set_win_tile_xy(x0 + i, y0, FT); set_win_tile_xy(x0 + i, y0 + 1, TT + R2[i]); }
+  set_win_tile_xy(x0, y0, TT); set_win_tile_xy(x0 + 10, y0, TT + 2);
+  logo_cells(x0, y0, 2);                                // gold palette
+}
+
 static void help_draw(void) {          // lives on window rows 3-17; pausing slides the window up to cover the screen
   put_str(7, 3, "PAUSED");
   put_str(1, 5, "A   RAISE LAND");
@@ -493,8 +533,9 @@ static void title(void) {
   DISPLAY_OFF;
   HIDE_SPRITES;
   win_clear();
-  put_str(5, 1, "ANTOPOLIS");
-  put_str(0, 3, "VIVA EL PRESIDENTE!");
+  title_logo(4, 1);
+  put_str(2, 3, "THE RULER OF YOU");
+  put_str(1, 4, "VIVA EL PRESIDENTE!");
   put_str(3, 5, "A   RAISE LAND");
   put_str(3, 6, "B   LOWER LAND");
   put_str(3, 7, "SEL FLOOD 3X3");
@@ -512,6 +553,7 @@ static void title(void) {
   music_start();
   while (!((k = joypad()) & J_START)) { vsync(); seed += DIV_REG + 1; music_update(); }   // seed from how long you wait
   sandbox = (k & J_SELECT) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
+  logo_cells(4, 1, 1);                 // give the logo cells back to the HUD palette
   waitpadup();
   initrand(seed);
 }
@@ -580,9 +622,11 @@ void main(void) {
   set_bkg_data(BAR_F, 2, buf);
   for (i = 0; i < 40; i++) mk_glyph(buf + i * 16, FONT[i]);
   set_bkg_data(FT, 40, buf);
+  title_tiles(buf);
+  set_bkg_data(TT, 13, buf);
   for (i = 0; i < 3; i++) mk(sp + i * 16, SP[i]);
   set_sprite_data(0, 3, sp);
-  set_bkg_palette(0, 2, bpal);
+  set_bkg_palette(0, 3, bpal);
   set_sprite_palette(0, 3, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
