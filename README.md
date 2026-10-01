@@ -42,7 +42,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 ## Disasters and perks (roguelike)
 - **Disasters:** every so often (after the first ~12 s; never in sandbox or the tutorial) a random 3x3 patch of the map is hit, for both colonies alike: a **flash flood** sinks every tile one level, an **earthquake** shakes each tile up or down. Nests are safe. Ants on tiles that hit water drown. They come more often on HARD and less often on EASY.
 - **Perks:** after every election that is not a coup, the HUD offers two random perks: `A:xxxxxxx B:xxxxxxx` (about 10 s to choose; press **A** or **B** to take that one, otherwise it is lost). Perks last for the rest of the run and are saved with the game:
-  `FLOOD 4` flood costs 4 MP | `FASTEGG` your ants hatch from 2 food | `MANA UP` mana trickles twice as fast | `CALM` popularity sinks slower and disasters are rarer | `QUEENUP` +1 queen HP | `SLOWRED` red ants hatch from 1 more food.
+  `FLOOD 4` flood costs 4 MP | `FASTEGG` your ants hatch from 2 food | `MANA UP` mana trickles twice as fast | `QUEENUP` +1 queen HP.
 - Old saves still load (perks live in unused bits of the save flag byte).
 
 ## Levels, saves and records

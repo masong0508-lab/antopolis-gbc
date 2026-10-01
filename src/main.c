@@ -66,13 +66,11 @@ static void set_rules(uint8_t d) {
   hcost[0] = 3; hcost[1] = DIF[d].hc;          // food per hatched ant
   thr[0] = 8;   thr[1] = DIF[d].thr;           // colony size at which soldiers start marching
   qmax[0] = DIF[d].q0; qmax[1] = DIF[d].q1;    // queen HP
-  fcost = 8;                                   // perks (bits 0..5) tweak the rules on top of the level
+  fcost = 8;                                   // perks (bits 0..3) tweak the rules on top of the level
   if (perk & 1) fcost = 4;                     // FLOOD 4:  flood costs 4 MP
   if (perk & 2) hcost[0] = 2;                  // FASTEGG:  your ants hatch from 2 food
   if (perk & 4) trk >>= 1;                     // MANA UP:  mana trickles twice as fast
-  if (perk & 8) drn = (drn << 1) | 1;          // CALM:     popularity sinks slower (and disasters come less often)
-  if (perk & 16) qmax[0]++;                    // QUEENUP:  one more queen HP
-  if (perk & 32) hcost[1]++;                   // SLOWRED:  red ants hatch from 1 more food
+  if (perk & 8) qmax[0]++;                     // QUEENUP:  one more queen HP
 }
 
 // ---------- palettes & graphics (generated from strings) ----------
@@ -220,28 +218,21 @@ static void title_logo(uint8_t x0, uint8_t y0) {
 #define HR 13                                      // help lines visible at once
 static const char HELP[] =
   "#CONTROLS\n"
-  "A      RAISE LAND\n"
-  "B      LOWER LAND\n"
-  "SEL    FLOOD 3X3 8MP\n"
+  "A RAISE  B LOWER\n"
+  "SEL    FLOOD 3X3\n"
   "SEL A  EMBEZZLE\n"
   "SEL B  FAST FORWARD\n"
   "SEL START  ANT EYE\n"
   "START  PAUSE:RESUME\n"
-  "PAUSED A  SAVE GAME\n"
-  "PAUSED B  QUIT\n"
+  "PAUSED A SAVE B QUIT\n"
   "\n"
   "#GOAL\n"
   "KILL THE RED QUEEN\n"
-  "BEFORE THEY KILL\n"
-  "YOURS\n"
   "\n"
   "#MANA\n"
-  "EDITS COST 1 MP\n"
-  "FLOOD COSTS 8 MP\n"
-  "REFILLS: TRICKLE,\n"
-  "FOOD HOME, ELECTIONS\n"
-  "SEL A SWAPS 2 FOOD\n"
-  "FOR 4 MP: P DOWN 5\n"
+  "EDIT 1 MP FLOOD 8 MP\n"
+  "FROM TRICKLE, FOOD\n"
+  "HOME AND ELECTIONS\n"
   "\n"
   "#HUD\n"
   "MP MANA  F FOOD\n"
@@ -251,15 +242,12 @@ static const char HELP[] =
   "#ELECTIONS\n"
   "EVERY MINUTE:\n"
   "P 50 UP  8 MP AID\n"
-  "P UNDER 25  COUP:\n"
-  "FOOD HALVED MP LOST\n"
-  "NO COUP: PICK A PERK\n"
-  "WITH A OR B BUTTON\n"
+  "P UNDER 25  COUP\n"
+  "NO COUP: PERK A OR B\n"
   "\n"
   "#DISASTERS\n"
-  "FLASH FLOODS AND\n"
-  "QUAKES HIT ANYONE\n"
-  "CALM PERK: FEWER\n";
+  "FLOODS AND QUAKES\n"
+  "HIT BOTH COLONIES\n";
 static uint8_t htop, hlines;                       // first visible line, total lines
 static uint16_t hdp;                               // which visible rows currently have the gold palette
 static void help_draw(void) {
@@ -664,7 +652,7 @@ static uint8_t save_scan(uint8_t apply) {
   sram_open(SAV_AT);
   ok = (sr() == SAVE_MAGIC);
   RD(gdiff);
-  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = b >> 2; }
+  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = (b >> 2) & 15; }
   RD(stock[0]); RD(stock[1]); RD(qhp[0]); RD(qhp[1]); RD(hatched[0]); RD(hatched[1]);
   RD(cx); RD(cy); RD(mana); RD(appr); RD(tk);
   b = sr(); k = sr(); if (apply) etk = b | ((uint16_t)k << 8);
@@ -714,15 +702,15 @@ static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = ne
 // ---------- popularity + elections ----------
 static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
 static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
-// 6 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
-static const char PN[] = "FLOOD 4FASTEGGMANA UPCALM   QUEENUPSLOWRED";
+// 4 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
+static const char PN[] = "FLOOD 4FASTEGGMANA UPQUEENUP";
 static char pbuf[20];
 static void offer(void) {                          // two different perks you do not own yet
   uint8_t i;
-  if (perk == 63) return;
-  do pa = rand() & 7; while (pa > 5 || ((perk >> pa) & 1));
+  if (perk == 15) return;
+  do pa = rand() & 3; while ((perk >> pa) & 1);
   pb = pa;
-  do pb = pb > 4 ? 0 : pb + 1; while ((perk >> pb) & 1);      // next free perk after pa (pa itself if it is the last one)
+  do pb = (pb + 1) & 3; while ((perk >> pb) & 1);             // next free perk after pa (pa itself if it is the last one)
   pbuf[0] = 'A'; pbuf[1] = ':'; pbuf[9] = ' '; pbuf[10] = 'B'; pbuf[11] = ':';
   for (i = 0; i < 7; i++) { pbuf[2 + i] = PN[pa * 7 + i]; pbuf[12 + i] = PN[pb * 7 + i]; }
   pbuf[19] = 0;
@@ -731,7 +719,7 @@ static void offer(void) {                          // two different perks you do
 static void pick(uint8_t i) {
   perk |= (uint8_t)(1 << i); pend = 0;
   set_rules(gdiff);                                // re-derive the rules with the new perk
-  if (i == 4 && qhp[0]) qhp[0]++;                  // QUEENUP also heals the new point
+  if (i == 3 && qhp[0]) qhp[0]++;                  // QUEENUP also heals the new point
   sfx_mana(); say("PERK TAKEN!");
 }
 // 3x3 patch around (px,py): every tile sinks one level (FLASH FLOOD, and the player's flood). q = EARTHQUAKE: each tile goes up or down.
@@ -1248,108 +1236,70 @@ static const char *const THINT[TN] = {0, "TRY: MOVE THE CURSOR", "TRY: PRESS A: 
 static const char *const TCARD[TN] = {
  "WELCOME RULER!\n"
   "YOU RULE THE BLACK\n"
-  "ANTS OF EMPIRE ANTS\n"
-  "YOU CANT GIVE THEM\n"
-  "ORDERS: INSTEAD YOU\n"
-  "SHAPE THE LAND AND\n"
-  "THEY WALK AROUND IT\n"
+  "ANTS. SHAPE THE LAND\n"
+  "AND THEY WALK ON IT\n"
   "\n"
   "GOAL: KILL THE RED\n"
   "QUEEN BEFORE THEY\n"
   "KILL YOURS\n",
  "1/8 THE CURSOR\n"
   "THE YELLOW FRAME IS\n"
-  "YOUR CURSOR: LAND\n"
-  "TOOLS WORK ON THE\n"
-  "TILE UNDER IT\n"
-  "\n"
-  "D PAD MOVES IT\n"
-  "THE MAP SCROLLS NEAR\n"
-  "THE EDGE\n"
+  "YOUR CURSOR. D PAD\n"
+  "MOVES IT\n"
   "\n"
   "NOW TRY IT!\n",
  "2/8 RAISE LAND\n"
-  "LAND HAS 4 HEIGHTS:\n"
-  "0 WATER   1 SAND\n"
-  "2 GRASS   3 HILL\n"
-  "\n"
-  "A RAISES THE TILE\n"
-  "UNDER THE CURSOR\n"
-  "COST: 1 MANA\n"
+  "0 WATER  1 SAND\n"
+  "2 GRASS  3 HILL\n"
+  "A RAISES TILE: 1 MP\n"
   "ANTS CANT CLIMB MORE\n"
   "THAN 1 STEP: BUILD\n"
-  "RAMPS AND STAIRS!\n"
-  "NESTS CANT BE EDITED\n",
+  "RAMPS!\n",
  "3/8 LOWER LAND\n"
-  "B LOWERS THE TILE\n"
-  "COST: 1 MANA\n"
-  "\n"
-  "LEVEL 0 IS WATER:\n"
-  "ANTS CANT WALK ON IT\n"
-  "AND DROWN IF FLOODED\n"
-  "DIG MOATS TO STOP\n"
-  "RED ANTS: RAISE LAND\n"
-  "TO BRIDGE GAPS\n",
+  "B LOWERS TILE: 1 MP\n"
+  "ANTS CANT WALK ON\n"
+  "WATER: DIG MOATS\n"
+  "AGAINST RED\n",
  "4/8 MANA\n"
-  "MP IS YOUR MANA:\n"
-  "EVERY EDIT COSTS MP\n"
-  "\n"
-  "MP COMES FROM:\n"
+  "MP PAYS FOR EDITS\n"
+  "IT COMES FROM:\n"
   " SLOW TRICKLE\n"
   " FOOD CARRIED HOME\n"
   " ELECTION AID\n"
-  "\n"
-  "SEL A EMBEZZLES 2\n"
-  "FOOD INTO 4 MP BUT\n"
-  "P DROPS BY 5\n",
+  "SEL A: 2 FOOD TO\n"
+  "4 MP BUT P DOWN 5\n",
  "5/8 FLOOD\n"
-  "TAP SELECT ALONE:\n"
-  "LOWERS A 3X3 AREA BY\n"
-  "ONE LEVEL: COST 8 MP\n"
-  "\n"
-  "ANTS ON TILES THAT\n"
-  "HIT LEVEL 0 DROWN:\n"
-  "GREAT AGAINST RED\n"
-  "ARMIES BUT CAREFUL\n"
-  "WITH YOUR OWN!\n",
+  "TAP SELECT: LOWERS A\n"
+  "3X3 AREA FOR 8 MP\n"
+  "ANTS ON NEW WATER\n"
+  "DROWN: CAREFUL WITH\n"
+  "YOUR OWN!\n",
  "6/8 ANT EYE\n"
-  "SEE THE WORLD LIKE\n"
-  "A BLACK ANT:\n"
   "HOLD SELECT AND TAP\n"
-  "START\n"
-  "L R  TURN\n"
-  "U D  WALK\n"
-  "A    NEXT ANT\n"
-  "B    JUMP CURSOR TO\n"
-  "     THIS SPOT\n"
-  "START  BACK\n"
-  "RED POSTS: ENEMIES\n"
-  "TALL: QUEENS\n",
+  "START TO SEE LIKE AN\n"
+  "ANT\n"
+  "L R TURN  U D WALK\n"
+  "A NEXT ANT\n"
+  "B JUMP CURSOR HERE\n"
+  "START  BACK\n",
  "7/8 THE COLONY\n"
-  "BLACK ANTS FIND FOOD\n"
-  "AND CARRY IT HOME\n"
-  "3 FOOD HATCHES A\n"
-  "NEW ANT\n"
+  "ANTS CARRY FOOD HOME\n"
+  "3 FOOD HATCH AN ANT\n"
   "EVERY 4TH IS A\n"
   "SOLDIER: WITH 8 ANTS\n"
-  "THEY MARCH ON THE\n"
-  "RED NEST\n"
-  "ANTS FOLLOW TRAILS:\n"
-  "MAKE EASY PATHS!\n",
+  "THEY MARCH ON RED\n"
+  "ANTS FOLLOW TRAILS\n",
  "8/8 POPULARITY\n"
-  "P IS POPULARITY\n"
-  "FOOD AND NEW ANTS\n"
-  "RAISE P: DEAD ANTS\n"
-  "AND HUNGER CUT IT\n"
-  "\n"
+  "P RISES: FOOD, NEW\n"
+  "ANTS. FALLS: DEAD\n"
+  "ANTS AND HUNGER\n"
   "ELECTION EVERY MIN:\n"
   "P 50 UP: 8 MP AID\n"
-  "P UNDER 25: COUP!\n",
+  "P UNDER 25: COUP!\n"
+  "NO COUP: A OR B\n"
+  "PICKS A PERK\n",
  "READY TO RULE!\n"
   "KILL THE RED QUEEN\n"
-  "TO WIN: LOSE YOURS\n"
-  "AND ITS OVER\n"
-  "\n"
   "START: PAUSE HELP\n"
   "SEL B: FAST FORWARD\n"
   "\n"
