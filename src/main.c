@@ -1465,7 +1465,7 @@ static void play(void) {
 
 void main(void) {
   uint8_t i, x, y;
-  uint8_t buf[40 * 16];
+  static uint8_t buf[40 * 16];                           // static: keep 640 bytes off the small stack
   dippinn_logo_play();                                   // DippInn boot logo (~8 s, START skips)
   add_VBL(snd_isr);                                      // music + jingles tick in the VBlank interrupt from here on
   NR52_REG = 0x80; NR51_REG = 0xFF; NR50_REG = 0x77;     // sound on, all channels, full volume
