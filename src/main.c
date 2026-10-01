@@ -32,6 +32,7 @@ static uint16_t etk;                           // ticks since the last election
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
+static uint8_t tut, tev, tutor, lcx, lcy;      // tutorial: lesson (0 = off), events the player did, from-title flag, last cursor
 // Konami code (in play): infinite mana + food. Ends on A, so it never collides with START (pause).
 static const uint8_t KONAMI[10] = {J_UP, J_UP, J_DOWN, J_DOWN, J_LEFT, J_RIGHT, J_LEFT, J_RIGHT, J_B, J_A};
 static const int8_t DX[4] = {1, -1, 0, 0};
@@ -476,12 +477,12 @@ static void newgame(void) {
 }
 
 static void raise_land(void) {
-  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) { hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); return; }
+  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) { hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); tev |= 2; return; }
   sfx_deny();
   say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] >= 3 ? "ALREADY HIGHEST" : "NEED MANA");
 }
 static void lower_land(void) {
-  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); return; }
+  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); tev |= 4; return; }
   sfx_deny();
   say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] == 0 ? "ALREADY WATER" : "NEED MANA");
 }
@@ -496,7 +497,7 @@ static void offering(void) {
 static void flood(void) {
   int8_t x, y;
   if (mana < 8) { sfx_deny(); say("FLOOD NEEDS 8 MANA"); return; }
-  mana -= 8; sfx_flood();
+  mana -= 8; sfx_flood(); tev |= 8;
   for (y = (int8_t)cy - 1; y <= (int8_t)cy + 1; y++) for (x = (int8_t)cx - 1; x <= (int8_t)cx + 1; x++)
     if (x >= 0 && y >= 0 && x < W && y < H && hgt[y][x] && !is_nest(x, y)) { hgt[y][x]--; draw_cell(x, y); }
 }
@@ -551,12 +552,14 @@ static void title(void) {
   put_str(1, 13, "HOLD SEL: SANDBOX");
   put_str(1, 14, "START IN GAME: HELP");
   put_str(4, 15, "PRESS START");
+  put_str(2, 16, "A: LEARN TO PLAY");
   SCX_REG = 0; SCY_REG = 0;
   move_win(7, 0); SHOW_WIN;
   DISPLAY_ON;
   music_start();
-  while (!((k = joypad()) & J_START)) { vsync(); seed += DIV_REG + 1; music_update(); }   // seed from how long you wait
-  sandbox = (k & J_SELECT) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
+  while (!((k = joypad()) & (J_START | J_A))) { vsync(); seed += DIV_REG + 1; music_update(); }   // seed from how long you wait
+  tutor = (k & J_START) ? 0 : 1;       // A alone = guided tutorial
+  sandbox = ((k & J_START) && (k & J_SELECT)) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
   logo_cells(4, 1, 1);                 // give the logo cells back to the HUD palette
   waitpadup();
   initrand(seed);
@@ -642,6 +645,7 @@ static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team =
 
 static void eye(void) {                              // time stands still while you look through a black ant's eyes
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0;
+  tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   HIDE_SPRITES;
   VBK_REG = VBK_TILES;
@@ -674,8 +678,68 @@ static void eye(void) {                              // time stands still while 
   waitpadup();
 }
 
+// ---------- TUTORIAL: interactive lessons (title screen: press A) ----------
+// Each lesson is a full-screen card (START next, B skip), then - if it has a task - a live hint on the HUD until you do it.
+#define TN 10
+static const uint8_t TEV[TN] = {0, 1, 2, 4, 0, 8, 16, 0, 0, 0};     // event bit that completes each lesson (0 = read only)
+static const char *const THINT[TN] = {0, "TRY: MOVE THE CURSOR", "TRY: PRESS A: RAISE", "TRY: PRESS B: LOWER", 0,
+  "TAP SELECT TO FLOOD", "SEL START: ANT EYE", 0, 0, 0};
+static const char *const TCARD[TN][12] = {
+ {"WELCOME PRESIDENT!", "YOU RULE THE BLACK", "ANTS OF EMPIRE ANTS", "YOU CANT GIVE THEM", "ORDERS: INSTEAD YOU", "SHAPE THE LAND AND",
+  "THEY WALK AROUND IT", "", "GOAL: KILL THE RED", "QUEEN BEFORE THEY", "KILL YOURS"},
+ {"1/8 THE CURSOR", "THE YELLOW FRAME IS", "YOUR CURSOR: LAND", "TOOLS WORK ON THE", "TILE UNDER IT", "", "D PAD MOVES IT",
+  "HOLD TO REPEAT", "THE MAP SCROLLS NEAR", "THE EDGE", "", "NOW TRY IT!"},
+ {"2/8 RAISE LAND", "LAND HAS 4 HEIGHTS:", "0 WATER   1 SAND", "2 GRASS   3 HILL", "", "A RAISES THE TILE", "UNDER THE CURSOR",
+  "COST: 1 MANA", "ANTS CANT CLIMB MORE", "THAN 1 STEP: BUILD", "RAMPS AND STAIRS!", "NESTS CANT BE EDITED"},
+ {"3/8 LOWER LAND", "B LOWERS THE TILE", "COST: 1 MANA", "", "LEVEL 0 IS WATER:", "ANTS CANT WALK ON IT", "AND DROWN IF FLOODED",
+  "DIG MOATS TO STOP", "RED ANTS: RAISE LAND", "TO BRIDGE GAPS"},
+ {"4/8 MANA", "MP IS YOUR MANA:", "EVERY EDIT COSTS MP", "", "MP COMES FROM:", " SLOW TRICKLE", " FOOD CARRIED HOME",
+  " ELECTION AID", "", "SEL A EMBEZZLES 2", "FOOD INTO 4 MP BUT", "P DROPS BY 5"},
+ {"5/8 FLOOD", "TAP SELECT ALONE:", "LOWERS A 3X3 AREA BY", "ONE LEVEL: COST 8 MP", "", "ANTS ON TILES THAT", "HIT LEVEL 0 DROWN:",
+  "GREAT AGAINST RED", "ARMIES BUT CAREFUL", "WITH YOUR OWN!", "MP REFILLED FOR YOU"},
+ {"6/8 ANT EYE", "SEE THE WORLD LIKE", "A BLACK ANT:", "HOLD SELECT AND TAP", "START", "L R  TURN", "A    NEXT ANT",
+  "B    JUMP CURSOR TO", "     THIS SPOT", "START  BACK", "RED POSTS: ENEMIES", "TALL: QUEENS"},
+ {"7/8 THE COLONY", "BLACK ANTS FIND FOOD", "AND CARRY IT HOME", "3 FOOD HATCHES A", "NEW ANT", "EVERY 4TH IS A",
+  "SOLDIER: WITH 8 ANTS", "THEY MARCH ON THE", "RED NEST", "ANTS FOLLOW TRAILS:", "MAKE EASY PATHS!"},
+ {"8/8 POPULARITY", "P IS POPULARITY", "FOOD AND NEW ANTS", "RAISE P: DEAD ANTS", "AND HUNGER CUT IT", "",
+  "ELECTION EVERY MIN:", "P 50 UP: 8 MP AID", "P UNDER 25: COUP!", "COFFERS LOOTED"},
+ {"READY TO RULE!", "KILL THE RED QUEEN", "TO WIN: LOSE YOURS", "AND ITS OVER", "", "START: PAUSE HELP",
+  "SEL B: FAST FORWARD", "", "VIVA EL PRESIDENTE!", "GOOD LUCK!"}};
+
+static void tut_card(uint8_t i) {
+  uint8_t r, k, prev;
+  win_clear();
+  put_str(0, 1, TCARD[i][0]);
+  for (r = 1; r < 12 && TCARD[i][r]; r++) put_str(0, 2 + r, TCARD[i][r]);
+  put_str(0, 16, "START: NEXT  B: SKIP");
+  HIDE_SPRITES; move_win(7, 0);
+  prev = joypad();
+  while (1) {
+    vsync(); music_update();
+    k = joypad();
+    if ((k & ~prev) & J_START) break;
+    if ((k & ~prev) & J_B) { tut = 0; break; }
+    prev = k;
+  }
+  win_clear(); help_draw(); hdirty = 1;
+  move_win(7, 128); SHOW_SPRITES; waitpadup();
+}
+static void tut_enter(void) {                          // show lessons until one needs the player to do something
+  while (tut) {
+    if (tut > TN) { tut = 0; say("GOOD LUCK PRESIDENT!"); sfx_mana(); break; }
+    tut_card(tut - 1);
+    if (!tut) { say("TUTORIAL SKIPPED"); break; }
+    tev = 0; lcx = cx; lcy = cy;
+    if (mana < 10) mana = 10;                          // always enough MP to practise
+    if (tut == 6) mana = MANA_MAX;                     // flood costs 8
+    if (TEV[tut - 1]) break;
+    tut++;
+  }
+}
+
 static void play(void) {
   uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 4, ki = 0, paused = 0, selused = 0, selprev = 0, n;
+  if (tutor) { tut = 1; tut_enter(); }
   while (!over) {
     vsync();
     music_update();
@@ -713,11 +777,18 @@ static void play(void) {
       if (p & J_B) lower_land();
     }
     selprev = k & J_SELECT;
+    if (tut && (cx != lcx || cy != lcy)) { tev |= 1; lcx = cx; lcy = cy; }
+    if (tut && (tev & TEV[tut - 1])) { sfx_mana(); tut++; tut_enter(); }     // task done: next lesson
     if (cheat) { mana = MANA_MAX; stock[0] = 99; appr = 99; }
     if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; appr = 99; }
+    if (tut) { qhp[0] = qhp[1] = QHP; if (appr < 50) appr = 50; }          // no game over mid-lesson
     follow(); scroll_step();
     for (n = ff ? 4 : 1; n; n--) tick_slice();     // fast forward = 4 slices per frame
-    if (++t >= 8) { t = 0; count(ncnt); hud(); }
+    if (++t >= 8) {
+      t = 0; count(ncnt);
+      if (tut && !msgt && THINT[tut - 1]) { msg = THINT[tut - 1]; msgt = 1; }   // keep the lesson goal on the HUD
+      hud();
+    }
     if (!qhp[1]) over = 1; else if (!qhp[0]) over = 2;
     draw_sprites();
   }

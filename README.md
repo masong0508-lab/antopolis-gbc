@@ -5,6 +5,8 @@
 Populous x SimAnt for Game Boy Color, GBDK-2020. Every graphic (terrain, ants, queens, even the font) is generated in code, so there are no asset files.
 
 ## Play
+New here? Press **A** on the title screen for a guided tutorial: short lessons, each followed by a hands-on task.
+
 Guide the **black** colony and kill the **red queen**. Lose your own queen and it's over.
 
 | Button | Action |
