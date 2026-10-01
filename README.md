@@ -52,3 +52,6 @@ Things to check first on a real build:
 
 ## Ideas
 Per-colony AI terraforming, more than one queen/nest per side, scoring, save map seed.
+
+## Boot logo
+The DippInn logo (`src/dippinn_logo*.c/.h`, regenerate with `tools/make_dippinn_logo.py`) plays at power-on; START skips it.

@@ -4,6 +4,7 @@
 #include <gb/cgb.h>
 #include <stdint.h>
 #include <rand.h>
+#include "dippinn_logo.h"
 
 #define W 32            // world size = size of the hardware BG map
 #define H 32
@@ -802,6 +803,7 @@ static void play(void) {
 void main(void) {
   uint8_t i, x, y;
   uint8_t buf[40 * 16], sp[3 * 16];
+  dippinn_logo_play();                                   // DippInn boot logo (~8 s, START skips)
   NR52_REG = 0x80; NR51_REG = 0xFF; NR50_REG = 0x77;     // sound on, all channels, full volume
   DISPLAY_OFF;
   for (i = 0; i < 6; i++) mk(buf + i * 16, BG[i]);
