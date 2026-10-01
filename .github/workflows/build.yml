@@ -26,6 +26,9 @@ jobs:
               c = d[b*0x4000:(b+1)*0x4000]
               print('bank', b, 'used', max((i for i,v in enumerate(c) if v not in (0,255)), default=-1)+1, '/ 16384')
           print('header: type %02x romsize %02x ramsize %02x' % (d[0x147], d[0x148], d[0x149]))
+          last = max(i for i,v in enumerate(d) if v not in (0,255))
+          print('last used byte: 0x%x (must be below 0x8000)' % last)
+          if last >= 0x8000: raise SystemExit('code overflows the 32 KB that is always mapped')
           PY
           ls build
           grep -iE "_main|_dippinn_logo_play|^ *_?(CODE|HOME)|bank" build/empire-ants.map | head -40 || true

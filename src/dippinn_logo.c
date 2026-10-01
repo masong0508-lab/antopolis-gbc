@@ -4,12 +4,10 @@
 //                             a sun sinking behind, fast white clouds in front, slow pink clouds behind the hills.
 //   Phase 2 (161-211):        grey screen + twisting scan line, cut to black
 //   Phase 3 (212-478):        outlined title text fades in, rope underline grows pixel by pixel from the centre, fade out
-#pragma bank 255   // banked; bankpack puts it in bank 2+ (Makefile -Wb-min=2), clear of the spill-over of main code in bank 1
 #include <gb/gb.h>
 #include <stdint.h>
 #include "dippinn_logo.h"
 #include "dippinn_logo_data.h"
-#include "dippinn_logo_data.c"   // data lives in the same bank as the code
 
 typedef uint8_t u8; typedef uint16_t u16; typedef uint32_t u32;
 #ifdef HOST_TEST                                  // tools/host_test: run on a PC against a fake memory map
@@ -257,7 +255,7 @@ static void logo_play(void) {
     hide_all_sprites();
 }
 
-void dippinn_logo_play(void) BANKED {
+void dippinn_logo_play(void) {
     logo_play();                                                       // returns with the LCD off
     rVBK = 0; rSCX = 0; rSCY = 0;
     hide_all_sprites();

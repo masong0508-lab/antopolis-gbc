@@ -10,4 +10,3 @@ extern const unsigned char dl_gr_tiles[];
 extern const unsigned short dl_gr_pal[4];
 extern const unsigned char dl_tx_tiles[], dl_tx_map[], dl_rope_pat[];  // tx_map 20 x 2, rope pattern 4 rows x 4 px
 extern const unsigned short dl_tx_pal[8];
-extern const signed char dl_sin_q7[256];

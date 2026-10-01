@@ -7,5 +7,4 @@
 // It takes over BG, sprites, the palettes, then hands the machine back: LCD off, interrupts
 // as they were (VBlank only), LCDC = BG on / 0x8000 tile data, all other registers untouched. Your own init
 // (tiles, palettes, SPRITES_8x8, DISPLAY_ON ...) just runs afterwards as if the logo had never been there.
-#include <gb/gb.h>
-void dippinn_logo_play(void) BANKED;
+void dippinn_logo_play(void);
