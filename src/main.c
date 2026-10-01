@@ -895,31 +895,47 @@ static void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) {
   }
 }
 
-static void view_render(uint8_t vx, uint8_t vy) {
-  uint8_t c, r, k, v, p, m, i, eh = hgt[vy][vx], tl[16];
-  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = ant[i].team + 1;
-  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = 3 + i;
+static uint8_t tcol[VR * 16];
+static void occ_set(uint8_t on) {                    // mark ants / queen towers on the occupancy map (and clear it again)
+  uint8_t i;
+  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = on ? ant[i].team + 1 : 0;
+  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = on ? 3 + i : 0;
+}
+// Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
+static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
+  uint8_t c, r, k, v, p, m, eh = hgt[vy][vx], *t;
   VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
-  for (c = 0; c < VX; c++) {
+  for (c = c0; c < c1; c++) {
     view_col(c, vx, vy, eh);
+    t = tcol;
     for (r = 0; r < VR; r++) {
       m = 0;
       for (k = 0; k < 8; k++) { v = cls[r * 8 + k]; if (v == 4) m |= 1; else if (v > 4) m |= 2; }
       p = (m & 2) ? 2 : (m & 1) ? 1 : 0;             // palette: ants > water > plain land
-      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; tl[k * 2] = (v & 1) ? 0xFF : 0; tl[k * 2 + 1] = (v & 2) ? 0xFF : 0; }
-      set_bkg_data(c * VR + r, 1, tl);
+      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; *t++ = (v & 1) ? 0xFF : 0; *t++ = (v & 2) ? 0xFF : 0; }
       set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
     }
+    set_bkg_data(c * VR, VR, tcol);
   }
   VBK_REG = VBK_TILES;
-  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = 0;
-  for (i = 0; i < 2; i++) occ[nesty[i]][nestx[i]] = 0;
+}
+static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
+static void eye_status(uint8_t vx, uint8_t vy) {
+  put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
+  put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
+  put_str(12, 17, "FACING"); put_str(18, 17, COMPASS[vang >> 1]);
+}
+static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward (dir 1) or back (-1), ants' rules: no cliffs, no water
+  int8_t fx = SIN16[(vang + 4) & 15], fy = SIN16[vang], dx = 0, dy = 0;
+  if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1; else dy = fy < 0 ? -1 : 1;
+  dx *= dir; dy *= dir;
+  if (can_go(*vx, *vy, dx, dy)) { *vx += dx; *vy += dy; }
 }
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
 static void eye(void) {                              // time stands still while you look through a black ant's eyes
-  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0;
+  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirs, last = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   HIDE_SPRITES;
@@ -927,24 +943,34 @@ static void eye(void) {                              // time stands still while 
   for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
   for (y = 14; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
   put_str(0, 14, "A:NEXT ANT B:GO HERE");
-  put_str(0, 15, "L/R TURN START BACK");
-  put_str(1, 16, "TIME STANDS STILL");
+  put_str(0, 15, "L/R TURN  U/D WALK");
+  put_str(0, 16, "START BACK TIME STOP");
+  occ_set(1);                                        // ants cannot move in here: mark them once
+  move_win(7, 0);
   prev = joypad();
   while (1) {
-    if (go) {
-      if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; }
-      view_render(vx, vy); move_win(7, 0); go = 0;
+    if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
+      if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
+      go = 0; vcol = 0; eye_status(vx, vy);
     }
     vsync();
+    if (vcol < VX) { view_cols(vx, vy, vcol, vcol + 4); vcol += 4; }   // 4 columns per frame: the view sweeps in, input stays live
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) { cx = vx; cy = vy; break; }          // transfer: the cursor jumps to where you were looking from
     if (p & J_A) { i = 0; do { vi = (vi == MAXA) ? 0 : vi + 1; } while (!vok(vi) && ++i <= MAXA); sfx_food(); go = 1; }
-    if (k & (J_LEFT | J_RIGHT)) {
-      if (rep == 0 || (rep >= 8 && !(rep & 3))) { vang = (vang + ((k & J_RIGHT) ? 1 : 15)) & 15; go = 1; }
+    dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
+    if (dirs != last) { rep = 0; last = dirs; }
+    if (dirs) {
+      if (rep == 0 || (rep >= 8 && !(rep & 3))) {
+        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; go = 2; }
+        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; go = 2; }
+        else { x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1); if (vx != x || vy != y) go = 2; }
+      }
       if (rep < 250) rep++;
-    } else rep = 0;
+    }
   }
+  occ_set(0);
   win_clear(); hdirty = 1;
   move_win(7, 128); SHOW_SPRITES;
   waitpadup();
@@ -1031,6 +1057,7 @@ static const char *const TCARD[TN] = {
   "HOLD SELECT AND TAP\n"
   "START\n"
   "L R  TURN\n"
+  "U D  WALK\n"
   "A    NEXT ANT\n"
   "B    JUMP CURSOR TO\n"
   "     THIS SPOT\n"
