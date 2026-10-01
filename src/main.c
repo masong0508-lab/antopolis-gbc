@@ -228,9 +228,8 @@ static const char HELP[] =
   "#MANA\n"
   "EDITS COST 1 MP\n"
   "FLOOD COSTS 8 MP\n"
-  "REFILLS FROM TRICKLE\n"
-  "FOOD CARRIED HOME\n"
-  "AND ELECTION AID\n"
+  "REFILLS: TRICKLE,\n"
+  "FOOD HOME, ELECTIONS\n"
   "SEL A SWAPS 2 FOOD\n"
   "FOR 4 MP: P DOWN 5\n"
   "\n"
@@ -242,7 +241,6 @@ static const char HELP[] =
   "A     YOUR ANTS\n"
   "R     RED ANTS\n"
   "P     POPULARITY\n"
-  "FF    FAST FORWARD\n"
   "\n"
   "#ELECTIONS\n"
   "EVERY MINUTE:\n"
@@ -251,21 +249,12 @@ static const char HELP[] =
   "P UNDER 25  COUP:\n"
   "FOOD HALVED MP LOST\n"
   "\n"
-  "#ANTS\n"
-  "THEY FOLLOW TRAILS\n"
-  "BUILD EASY PATHS\n"
-  "3 FOOD HATCH AN ANT\n"
-  "SOLDIERS ATTACK AT 8\n"
-  "\n"
   "#LEVELS\n"
   "L R ON TITLE PICKS\n"
-  "EASY: MORE MP AND\n"
-  "SLOWER P LOSS: RED\n"
-  "HATCHES SLOWER\n"
-  "HARD: LESS MP AND\n"
-  "FASTER P LOSS: RED\n"
-  "HATCHES FASTER AND\n"
-  "ATTACKS EARLY\n";
+  "EASY: MORE MP, SLOW\n"
+  "P LOSS, SLOW RED\n"
+  "HARD: LESS MP, FAST\n"
+  "P LOSS, FAST RED\n";
 static uint8_t htop, hlines;                       // first visible line, total lines
 static uint16_t hdp;                               // which visible rows currently have the gold palette
 static void help_draw(void) {
@@ -1234,7 +1223,6 @@ static const char *const TCARD[TN] = {
   "TILE UNDER IT\n"
   "\n"
   "D PAD MOVES IT\n"
-  "HOLD TO REPEAT\n"
   "THE MAP SCROLLS NEAR\n"
   "THE EDGE\n"
   "\n"
@@ -1282,8 +1270,7 @@ static const char *const TCARD[TN] = {
   "HIT LEVEL 0 DROWN:\n"
   "GREAT AGAINST RED\n"
   "ARMIES BUT CAREFUL\n"
-  "WITH YOUR OWN!\n"
-  "MP REFILLED FOR YOU\n",
+  "WITH YOUR OWN!\n",
  "6/8 ANT EYE\n"
   "SEE THE WORLD LIKE\n"
   "A BLACK ANT:\n"
@@ -1316,8 +1303,7 @@ static const char *const TCARD[TN] = {
   "\n"
   "ELECTION EVERY MIN:\n"
   "P 50 UP: 8 MP AID\n"
-  "P UNDER 25: COUP!\n"
-  "COFFERS LOOTED\n",
+  "P UNDER 25: COUP!\n",
  "READY TO RULE!\n"
   "KILL THE RED QUEEN\n"
   "TO WIN: LOSE YOURS\n"
@@ -1326,7 +1312,6 @@ static const char *const TCARD[TN] = {
   "START: PAUSE HELP\n"
   "SEL B: FAST FORWARD\n"
   "\n"
-  "LONG LIVE THE QUEEN!\n"
   "GOOD LUCK!\n",
 };
 
