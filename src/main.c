@@ -823,6 +823,9 @@ static void follow(void);
 static void newgame(uint8_t load) {
   uint8_t i, k, x, y, ok = 0;
   DISPLAY_OFF;
+  VBK_REG = VBK_ATTRIBUTES;                                     // world = palette 0 on every cell (nothing may leave HUD grey behind)
+  for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
+  VBK_REG = VBK_TILES;
   if (load && save_scan(0)) { save_scan(1); ok = 1; }          // continue the saved game (checked first, so it never half-loads)
   if (ok) slotgame = 1; else { gdiff = diff; norec = (sandbox || tutor) ? 1 : 0; slotgame = 0; }
   if (gdiff > 2) gdiff = 1;
