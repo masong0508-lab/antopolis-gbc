@@ -1,0 +1,30 @@
+name: Build ROM
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sim:
+    name: Host simulator (ASan/UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh tools/hostsim/run.sh 10
+
+  build:
+    name: Build antopolis.gbc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GBDK-2020
+        run: |
+          curl -fsSL -o gbdk.tar.gz https://github.com/gbdk-2020/gbdk-2020/releases/latest/download/gbdk-linux64.tar.gz
+          tar xzf gbdk.tar.gz
+      - name: Build
+        run: make GBDK_HOME="$PWD/gbdk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: antopolis-gbc
+          path: build/antopolis.gbc
