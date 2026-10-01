@@ -17,6 +17,8 @@
 #define OFFER_FOOD 2    // offering (START): food spent ...
 #define OFFER_MANA 4    // ... for this much mana
 #define BT 128          // first terrain tile
+#define BAR_F 134       // mana bar tiles (free slots after the 6 terrain tiles)
+#define BAR_E 135
 #define FT 136          // first font tile (40 glyphs)
 
 typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
@@ -24,7 +26,7 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 static uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat;
+static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff;
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
@@ -50,6 +52,9 @@ static const char *const BG[6][8] = {
  {"22222222","22233222","22333322","23333332","33333333","33333333","23333332","22222222"},
  {"11111111","11333311","13333331","13333331","13333331","13333331","11333311","11111111"},
  {"22222222","22211222","22111122","22111122","22111122","22211222","22222222","22222222"}};
+static const char *const BAR[2][8] = {
+ {"00000000","00000000","33333333","33333333","33333333","33333333","00000000","00000000"},
+ {"00000000","00000000","11111111","11111111","11111111","11111111","00000000","00000000"}};
 // 0 worker ant, 1 cursor, 2 queen
 static const char *const SP[3][8] = {
  {"00000000","00200200","00022000","00111100","01111110","00111100","00200200","02000020"},
@@ -98,24 +103,40 @@ static void put_num(uint8_t x, uint8_t y, uint8_t n) {
   if (n > 99) n = 99;
   put_char(x, y, '0' + n / 10); put_char(x + 1, y, '0' + n % 10);
 }
+static void help_draw(void) {          // lives on window rows 3-15; pausing slides the window up to cover the screen
+  put_str(7, 3, "PAUSED");
+  put_str(1, 5, "A   RAISE LAND");
+  put_str(1, 6, "B   LOWER LAND");
+  put_str(1, 7, "SEL FLOOD 3X3 8MP");
+  put_str(1, 8, "SEL A FOOD TO MANA");
+  put_str(1, 9, "SEL B FAST FORWARD");
+  put_str(1, 10, "START PAUSE HELP");
+  put_str(1, 12, "MP BUYS LAND EDITS");
+  put_str(1, 13, "3 FOOD HATCH 1 ANT");
+  put_str(1, 14, "KILL THE RED QUEEN");
+  put_str(2, 16, "START TO RESUME");
+}
 static void win_clear(void) {
   uint8_t x, y;
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
 }
 static void say(const char *m) { msg = m; msgt = 12; }
 static void hud(void) {
-  put_str(0, 0, "MP:");     put_num(3, 0, mana);
-  put_str(5, 0, " ANT:");   put_num(10, 0, ncnt[0]);
-  put_str(12, 0, " RED:");  put_num(17, 0, ncnt[1]);
+  uint8_t i;
+  put_str(0, 0, "MP:");  put_num(3, 0, mana);
+  for (i = 0; i < 10; i++) set_win_tile_xy(5 + i, 0, mana > 2 * i ? BAR_F : BAR_E);   // mana bar, 2 mana per cell
+  put_str(16, 0, "F:");  put_num(18, 0, stock[0]);
   if (msgt) {                                   // hint overlay: text padded to the full 20 columns
     uint8_t x = 0; const char *m = msg;
     while (x < 20) put_char(x++, 1, *m ? *m++ : ' ');
     msgt--;
     return;
   }
-  put_str(0, 1, "QUEEN:");  put_char(6, 1, '0' + qhp[0]);
-  put_str(7, 1, " FOE:");   put_char(12, 1, '0' + qhp[1]);
-  put_str(13, 1, " F:");    put_num(16, 1, stock[0]);
+  put_str(0, 1, "Q:");   put_char(2, 1, '0' + qhp[0]);
+  put_str(3, 1, " FOE:"); put_char(8, 1, '0' + qhp[1]);
+  put_str(9, 1, " A:");   put_num(12, 1, ncnt[0]);
+  put_str(14, 1, " R:");  put_num(17, 1, ncnt[1]);
+  put_char(19, 1, ff ? 'X' : ' ');                // X = fast forward on
 }
 
 // ---------- sound ----------
@@ -290,11 +311,11 @@ static void newgame(void) {
   stock[0] = stock[1] = 0; qhp[0] = qhp[1] = QHP; hatched[0] = hatched[1] = 0;
   for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
   count(ncnt);
-  cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
+  ff = 0; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
   camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
-  win_clear(); hud();
-  say(sandbox ? "SANDBOX: NO LIMITS" : "A/B LAND SEL FLOOD");
+  win_clear(); help_draw(); hud();
+  say(sandbox ? "SANDBOX: NO LIMITS" : "A/B LAND START HELP");
   move_win(7, 128);                    // window = 2-row HUD at the bottom
   SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
   SHOW_WIN; SHOW_SPRITES;
@@ -368,12 +389,13 @@ static void title(void) {
   put_str(3, 5, "A   RAISE LAND");
   put_str(3, 6, "B   LOWER LAND");
   put_str(3, 7, "SEL FLOOD 3X3");
-  put_str(3, 8, "STA FOOD TO MANA");
+  put_str(3, 8, "SEL A FOOD TO MANA");
   put_str(1, 9, "FEED YOUR QUEEN:");
   put_str(1, 10, "BLACK ANTS BREED");
   put_str(1, 11, "KILL THE RED QUEEN");
   put_str(1, 12, "TO WIN");
   put_str(1, 13, "HOLD SEL: SANDBOX");
+  put_str(1, 14, "START IN GAME: HELP");
   put_str(4, 15, "PRESS START");
   SCX_REG = 0; SCY_REG = 0;
   move_win(7, 0); SHOW_WIN;
@@ -385,11 +407,16 @@ static void title(void) {
 }
 
 static void play(void) {
-  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0, ki = 0;
+  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0, ki = 0, paused = 0, selused = 0, selprev = 0;
   while (!over) {
     vsync();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
     k = joypad(); p = k & ~prev; prev = k;
+    if (p & J_START) {                 // START: pause + help screen
+      paused ^= 1;
+      if (paused) { move_win(7, 0); HIDE_SPRITES; } else { move_win(7, 128); SHOW_SPRITES; }
+    }
+    if (paused) continue;
     dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
     if (dirs != last) { rep = 0; last = dirs; }
     if (dirs) {                        // hold to repeat after a short delay
@@ -406,14 +433,20 @@ static void play(void) {
       if (p == KONAMI[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); say("CHEAT ON! INFINITE"); } }
       else ki = (p == KONAMI[0]) ? 1 : 0;
     }
-    if (p & J_A) raise_land();
-    if (p & J_B) lower_land();
-    if (p & J_SELECT) flood();
-    if (p & J_START) offering();
+    if (k & J_SELECT) {               // SELECT is a modifier: SEL+A offering, SEL+B fast forward, alone (on release) flood
+      if (p & J_SELECT) selused = 0;
+      if (p & J_A) { offering(); selused = 1; }
+      if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); selused = 1; }
+    } else {
+      if (selprev && !selused) flood();
+      if (p & J_A) raise_land();
+      if (p & J_B) lower_land();
+    }
+    selprev = k & J_SELECT;
     if (cheat) { mana = MANA_MAX; stock[0] = 99; }
     if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; }
     follow(); scroll_step();
-    if (++t >= 8) {
+    if (++t >= (ff ? 2 : 8)) {
       t = 0; tick(); count(ncnt); hud();
       if (!qhp[1]) over = 1; else if (!qhp[0]) over = 2;
     }
@@ -432,6 +465,8 @@ void main(void) {
   DISPLAY_OFF;
   for (i = 0; i < 6; i++) mk(buf + i * 16, BG[i]);
   set_bkg_data(BT, 6, buf);
+  for (i = 0; i < 2; i++) mk(buf + i * 16, BAR[i]);
+  set_bkg_data(BAR_F, 2, buf);
   for (i = 0; i < 40; i++) mk_glyph(buf + i * 16, FONT[i]);
   set_bkg_data(FT, 40, buf);
   for (i = 0; i < 3; i++) mk(sp + i * 16, SP[i]);
