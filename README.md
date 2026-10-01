@@ -30,7 +30,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 - **Populous:** terraform. Ants can't climb cliffs (>1 height step) or cross water, so build bridges for your armies and cut paths for the enemy. Nests can't be edited. Flooding drowns ants.
 - **SimAnt:** foragers lay pheromone trails and carry food home. Nests hatch an ant per 3 food, but **only while the queen lives**. Once a colony has 8+ ants, every 4th ant it hatches is a **soldier** that marches on the enemy nest and bites the queen; other ants that reach an enemy nest steal food. Queens have 5 HP and regenerate slowly. Each colony is capped at 17 ants.
 - **HUD** (bottom, on the window layer): top row `MP` mana number + 10-cell mana bar (2 mana per cell) and `F` your food; bottom row `Q` your queen HP, `FOE` enemy queen HP, `A` your ants, `R` red ants, `X` at the far right while fast forward is on.
-- **Sound:** blips for raise/lower/flood, food delivered, hatching, fights and queen hits; short win/lose jingles.
+- **Music & sound:** a 4-channel chiptune loop (arpeggio, lead, wave-channel bass and noise drums; A minor, 112 BPM, 8 bars) plays on the title screen and during the game, and keeps playing while paused. Sound effects briefly borrow channels from it: blips for raise/lower/flood, food delivered, hatching, fights and queen hits. The music stops for the short win/lose jingles.
 
 ## Build
 `make GBDK_HOME=/path/to/gbdk` -> `build/antopolis.gbc` (CGB-only ROM).

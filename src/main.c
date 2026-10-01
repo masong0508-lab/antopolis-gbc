@@ -151,15 +151,19 @@ static const uint16_t LOSE_TUNE[4] = {N_G5, N_E5, N_C5, N_C4};
 static const uint16_t *tune_p;
 static uint8_t jl, ji, jt;
 
+static uint8_t h1, h2, hn;   // music yields a channel for a few frames after a sound effect uses it
 static void ch1(uint8_t sweep, uint16_t f, uint8_t env) {
+  h1 = 14;
   NR10_REG = sweep; NR11_REG = 0x80; NR12_REG = env;
   NR13_REG = (uint8_t)f; NR14_REG = 0x80 | (uint8_t)(f >> 8);
 }
 static void ch2(uint16_t f, uint8_t env) {
+  h2 = 12;
   NR21_REG = 0x80; NR22_REG = env;
   NR23_REG = (uint8_t)f; NR24_REG = 0x80 | (uint8_t)(f >> 8);
 }
 static void noise(uint8_t env, uint8_t poly) {
+  hn = 16;
   NR41_REG = 0; NR42_REG = env; NR43_REG = poly; NR44_REG = 0x80;
 }
 static void sfx_raise(void) { ch1(0x15, N_C5, 0xA1); }
@@ -176,6 +180,68 @@ static void jingle(const uint16_t *n, uint8_t len) { tune_p = n; jl = len; ji = 
 static void jingle_update(void) {
   if (ji >= jl) return;
   if (jt == 0) { ch2(tune_p[ji++], 0xB2); jt = 10; } else jt--;
+}
+
+// ---------- music: 4-channel loop in A minor, 112 BPM, 8 bars (~17 s) ----------
+// ch1 = arpeggio, ch2 = lead, ch3 (wave) = bass, ch4 (noise) = drums. SFX borrow channels via h1/h2/hn.
+#ifndef WAVERAM
+#define WAVERAM ((volatile uint8_t *)0xFF30)
+#endif
+// pulse-channel frequency register for MIDI notes 36 (C2) .. 99; the wave channel plays one octave lower, so bass uses +12
+static const uint16_t NOTE[64] = {
+  44, 157, 263, 363, 457, 547, 631, 711,
+  786, 856, 923, 986, 1046, 1102, 1155, 1205,
+  1253, 1297, 1339, 1379, 1417, 1452, 1486, 1517,
+  1547, 1575, 1602, 1627, 1650, 1673, 1694, 1714,
+  1732, 1750, 1767, 1783, 1798, 1812, 1825, 1837,
+  1849, 1860, 1871, 1881, 1890, 1899, 1907, 1915,
+  1923, 1930, 1936, 1943, 1949, 1954, 1959, 1964,
+  1969, 1974, 1978, 1982, 1985, 1989, 1992, 1995};
+static const uint8_t LEAD[64] = {         // 8 bars x 8 eighth notes, 0 = rest (value = semitones above C2)
+  40,0,45,0,43,40,36,0,   41,0,45,0,48,45,41,0,   40,43,40,36,38,40,43,0,   38,0,43,0,47,0,45,43,
+  40,0,45,0,48,47,45,40,  41,45,48,0,45,41,40,41, 38,43,47,50,47,43,38,0,    40,44,47,0,47,44,40,0};
+// chord roots as semitones above C2
+static const uint8_t BROOT[8] = {9, 5, 12, 7, 9, 5, 7, 4};      // Am F C G Am F G E
+static const uint8_t BPAT[8]  = {0, 0, 12, 0, 7, 0, 12, 7};     // bass pattern relative to the root
+static const uint8_t ARPN[8][3] = {{21,24,28},{17,21,24},{24,28,31},{19,23,26},{21,24,28},{17,21,24},{19,23,26},{16,20,23}};
+static const uint8_t ARPO[4]  = {0, 1, 2, 1};
+static const uint8_t DPOLY[8] = {0x75,0x21,0x43,0x21,0x75,0x21,0x43,0x21};   // kick hat snare hat kick hat snare hat
+static const uint8_t DENV[8]  = {0xA1,0x41,0x81,0x41,0xA1,0x41,0x81,0x41};
+static const uint8_t WAVE[16] = {0x01,0x23,0x45,0x67,0x89,0xAB,0xCD,0xEF,0xFE,0xDC,0xBA,0x98,0x76,0x54,0x32,0x10};  // triangle
+static uint8_t mus_on, mt, ms;
+
+static void music_start(void) {
+  uint8_t i;
+  NR30_REG = 0;                                  // DAC off while loading the waveform
+  for (i = 0; i < 16; i++) WAVERAM[i] = WAVE[i];
+  NR30_REG = 0x80;
+  mt = 7; ms = 0; mus_on = 1;                    // first step plays on the next frame
+}
+static void music_stop(void) {
+  mus_on = 0;
+  NR12_REG = 0; NR22_REG = 0; NR42_REG = 0; NR30_REG = 0;
+}
+static void music_update(void) {                 // call once per frame
+  uint8_t b, e, n; uint16_t f;
+  if (h1) h1--; if (h2) h2--; if (hn) hn--;
+  if (!mus_on || ++mt < 8) return;               // 8 frames per 16th note
+  mt = 0; b = ms >> 4;
+  if (!h1) {                                     // arpeggio on every 16th
+    f = NOTE[ARPN[b][ARPO[ms & 3]]];
+    NR10_REG = 0; NR11_REG = 0x40; NR12_REG = 0x42; NR13_REG = (uint8_t)f; NR14_REG = 0x80 | (uint8_t)(f >> 8);
+  }
+  if (!(ms & 1)) {                               // everything else on eighth notes
+    e = (ms & 15) >> 1;
+    f = NOTE[BROOT[b] + BPAT[e] + 12];           // bass (wave channel, short length for a plucked feel)
+    NR30_REG = 0x80; NR31_REG = 0xC8; NR32_REG = 0x40; NR33_REG = (uint8_t)f; NR34_REG = 0xC0 | (uint8_t)(f >> 8);
+    n = LEAD[(b << 3) + e];
+    if (n && !h2) {                              // lead
+      f = NOTE[n];
+      NR21_REG = 0x80; NR22_REG = 0x83; NR23_REG = (uint8_t)f; NR24_REG = 0x80 | (uint8_t)(f >> 8);
+    }
+    if (!hn) { NR41_REG = 0; NR42_REG = DENV[e]; NR43_REG = DPOLY[e]; NR44_REG = 0x80; }   // drums
+  }
+  ms = (ms + 1) & 127;
 }
 
 // ---------- world ----------
@@ -400,7 +466,8 @@ static void title(void) {
   SCX_REG = 0; SCY_REG = 0;
   move_win(7, 0); SHOW_WIN;
   DISPLAY_ON;
-  while (!((k = joypad()) & J_START)) { vsync(); seed += DIV_REG + 1; }   // seed from how long you wait
+  music_start();
+  while (!((k = joypad()) & J_START)) { vsync(); seed += DIV_REG + 1; music_update(); }   // seed from how long you wait
   sandbox = (k & J_SELECT) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
   waitpadup();
   initrand(seed);
@@ -410,6 +477,7 @@ static void play(void) {
   uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0, ki = 0, paused = 0, selused = 0, selprev = 0;
   while (!over) {
     vsync();
+    music_update();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) {                 // START: pause + help screen
@@ -452,6 +520,7 @@ static void play(void) {
     }
     draw_sprites();
   }
+  music_stop();
   put_str(0, 1, over == 1 ? "YOU WIN! PRESS START" : "COLONY LOST! START  ");
   if (over == 1) jingle(WIN_TUNE, 6); else jingle(LOSE_TUNE, 4);
   while (1) { vsync(); jingle_update(); if (joypad() & J_START) break; }
