@@ -121,22 +121,33 @@ static void win_clear(void) {
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
 }
 static void say(const char *m) { msg = m; msgt = 12; }
-static void hud(void) {
+static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255;
+static void hud(void) {                          // redraws only what changed: window writes are slow, so no full redraw
   uint8_t i;
-  put_str(0, 0, "MP:");  put_num(3, 0, mana);
-  for (i = 0; i < 10; i++) set_win_tile_xy(5 + i, 0, mana > 2 * i ? BAR_F : BAR_E);   // mana bar, 2 mana per cell
-  put_str(16, 0, "F:");  put_num(18, 0, stock[0]);
+  if (hdirty) {                                  // new game: static labels + force every number
+    put_str(0, 0, "MP:"); put_str(16, 0, "F:");
+    hm = hs = hq0 = hq1 = ha = hr = hf = 255; hlab = 0; hdirty = 0;
+  }
+  if (mana != hm) {
+    hm = mana; put_num(3, 0, mana);
+    for (i = 0; i < 10; i++) set_win_tile_xy(5 + i, 0, mana > 2 * i ? BAR_F : BAR_E);   // mana bar, 2 mana per cell
+  }
+  if (stock[0] != hs) { hs = stock[0]; put_num(18, 0, hs); }
   if (msgt) {                                   // hint overlay: text padded to the full 20 columns
     uint8_t x = 0; const char *m = msg;
     while (x < 20) put_char(x++, 1, *m ? *m++ : ' ');
-    msgt--;
+    msgt--; hlab = 0;                           // bottom row labels must be redrawn afterwards
     return;
   }
-  put_str(0, 1, "Q:");   put_char(2, 1, '0' + qhp[0]);
-  put_str(3, 1, " FOE:"); put_char(8, 1, '0' + qhp[1]);
-  put_str(9, 1, " A:");   put_num(12, 1, ncnt[0]);
-  put_str(14, 1, " R:");  put_num(17, 1, ncnt[1]);
-  put_char(19, 1, ff ? 'X' : ' ');                // X = fast forward on
+  if (!hlab) {
+    put_str(0, 1, "Q:"); put_str(3, 1, " FOE:"); put_str(9, 1, " A:"); put_str(14, 1, " R:");
+    hq0 = hq1 = ha = hr = hf = 255; hlab = 1;
+  }
+  if (qhp[0] != hq0) { hq0 = qhp[0]; put_char(2, 1, '0' + hq0); }
+  if (qhp[1] != hq1) { hq1 = qhp[1]; put_char(8, 1, '0' + hq1); }
+  if (ncnt[0] != ha) { ha = ncnt[0]; put_num(12, 1, ha); }
+  if (ncnt[1] != hr) { hr = ncnt[1]; put_num(17, 1, hr); }
+  if (ff != hf) { hf = ff; put_char(19, 1, ff ? 'X' : ' '); }   // X = fast forward on
 }
 
 // ---------- sound ----------
@@ -317,22 +328,32 @@ static void step_ant(Ant *a) {
   }
 }
 
-static void tick(void) {
+// Game logic is sliced: each call (one per frame) moves 1/8 of the ants and decays 4 map rows of pheromone;
+// every 8th call also resolves fights and runs the colony-level work. Each ant still steps once per 8 frames,
+// but the work is spread evenly instead of landing as one big hitch every 8th frame.
+static uint8_t slice;
+static void tick_slice(void) {
   uint8_t i, j, x, y;
+  for (i = slice; i < MAXA; i += 8) {
+    if (!ant[i].alive) continue;
+    if (hgt[ant[i].y][ant[i].x] == 0) { ant[i].alive = 0; continue; }       // drowned
+    step_ant(&ant[i]);
+  }
+  if (slice == 7)                                                          // fights: checked once per cycle, as before
+    for (i = 0; i < MAXA; i++) if (ant[i].alive) for (j = i + 1; j < MAXA; j++)
+      if (ant[j].alive && ant[i].team != ant[j].team && ant[i].x == ant[j].x && ant[i].y == ant[j].y)
+        { if (rand() & 1) ant[i].alive = 0; else ant[j].alive = 0; sfx_fight(); if (!ant[i].alive) break; }
+  if ((tk & 3) == 0) for (y = slice << 2; y < (uint8_t)((slice << 2) + 4); y++) for (x = 0; x < W; x++) if (ph[y][x]) ph[y][x]--;
+  if (++slice < 8) return;
+  slice = 0;
   tk++;
   count(ncnt);
-  for (i = 0; i < MAXA; i++) if (ant[i].alive && hgt[ant[i].y][ant[i].x] == 0) ant[i].alive = 0;  // drowned
-  for (i = 0; i < MAXA; i++) if (ant[i].alive) step_ant(&ant[i]);
-  for (i = 0; i < MAXA; i++) for (j = i + 1; j < MAXA; j++)
-    if (ant[i].alive && ant[j].alive && ant[i].team != ant[j].team && ant[i].x == ant[j].x && ant[i].y == ant[j].y)
-      { if (rand() & 1) ant[i].alive = 0; else ant[j].alive = 0; sfx_fight(); }
   for (i = 0; i < 2; i++) {
     if (!qhp[i]) continue;                         // no queen, no eggs
     if (stock[i] >= 3 && spawn(i)) { stock[i] -= 3; if (i == 0) sfx_spawn(); }
     else if (ncnt[i] == 0 && (tk & 31) == 0) spawn(i);   // emergency egg: never a dead stalemate
     if ((tk & 127) == 0 && qhp[i] < QHP) qhp[i]++; // queens slowly heal
   }
-  if ((tk & 3) == 0) for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (ph[y][x]) ph[y][x]--;
   if ((tk & 7) == 0) for (i = 0; i < 2; i++) {
     x = rand() & (W - 1); y = rand() & (H - 1);
     if (hgt[y][x] && !food[y][x] && !is_nest(x, y)) { food[y][x] = 1; draw_cell(x, y); }
@@ -377,7 +398,7 @@ static void newgame(void) {
   stock[0] = stock[1] = 0; qhp[0] = qhp[1] = QHP; hatched[0] = hatched[1] = 0;
   for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
   count(ncnt);
-  ff = 0; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
+  ff = 0; slice = 0; hdirty = 1; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
   camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); help_draw(); hud();
@@ -474,7 +495,7 @@ static void title(void) {
 }
 
 static void play(void) {
-  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0, ki = 0, paused = 0, selused = 0, selprev = 0;
+  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 4, ki = 0, paused = 0, selused = 0, selprev = 0, n;
   while (!over) {
     vsync();
     music_update();
@@ -514,10 +535,9 @@ static void play(void) {
     if (cheat) { mana = MANA_MAX; stock[0] = 99; }
     if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; }
     follow(); scroll_step();
-    if (++t >= (ff ? 2 : 8)) {
-      t = 0; tick(); count(ncnt); hud();
-      if (!qhp[1]) over = 1; else if (!qhp[0]) over = 2;
-    }
+    for (n = ff ? 4 : 1; n; n--) tick_slice();     // fast forward = 4 slices per frame
+    if (++t >= 8) { t = 0; count(ncnt); hud(); }
+    if (!qhp[1]) over = 1; else if (!qhp[0]) over = 2;
     draw_sprites();
   }
   music_stop();
