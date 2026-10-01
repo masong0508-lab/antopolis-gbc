@@ -11,7 +11,9 @@
 #define H 32
 #define VW 20           // visible world tiles (bottom 2 rows are the HUD window)
 #define VH 16
-#define MAXA 34         // workers (queens + cursor sprites come after these)
+#define MAXA 100        // ant slots: 50 per colony (more than the 40 hardware sprites, so only ants in view get a sprite)
+#define NSPR 37         // hardware sprites 0..36 show the ants on screen; 37, 38 = queens, 39 = cursor
+#define QSPR 37
 #define MANA_MAX 20     // mana cap
 #define MANA_PER_FOOD 1 // tribute: mana per food a black ant carries home
 #define OFFER_FOOD 2    // embezzle (SELECT+A): food spent ...
@@ -612,7 +614,7 @@ static void count(uint8_t *c) {
 #define CFG_AT 0
 #define SAV_AT 64
 #define CFG_MAGIC 0xC5
-#define SAVE_MAGIC 0xA5
+#define SAVE_MAGIC 0xA6   // bumped: the ant list grew, old saves are ignored
 typedef struct { uint8_t w[3], l[3]; uint16_t t[3], s[3]; } Rec;     // per level: wins, losses, fastest win (seconds), best score
 static Rec rec;
 static volatile uint8_t *sp; static uint8_t ssum;
@@ -906,15 +908,20 @@ static void place(uint8_t s, uint8_t x, uint8_t y) {
   else move_sprite(s, 0, 0);
 }
 static void draw_sprites(void) {
-  uint8_t i;
-  for (i = 0; i < MAXA; i++) {
-    if (ant[i].alive) { place(i, ant[i].x, ant[i].y); set_sprite_prop(i, ant[i].team); }
-    else move_sprite(i, 0, 0);
+  uint8_t i, s = 0;
+  int16_t sx, sy;
+  for (i = 0; i < MAXA && s < NSPR; i++) {            // only ants inside the view get one of the NSPR sprites
+    if (!ant[i].alive) continue;
+    sx = (int16_t)ant[i].x * 8 - scx; sy = (int16_t)ant[i].y * 8 - scy;
+    if (sx > -8 && sx < 160 && sy > -8 && sy < 128) {
+      move_sprite(s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(s, ant[i].team); s++;
+    }
   }
+  while (s < NSPR) move_sprite(s++, 0, 0);
   for (i = 0; i < 2; i++) {
-    if (qhp[i]) place(MAXA + i, nestx[i], nesty[i]); else move_sprite(MAXA + i, 0, 0);
+    if (qhp[i]) place(QSPR + i, nestx[i], nesty[i]); else move_sprite(QSPR + i, 0, 0);
   }
-  place(MAXA + 2, cx, cy);
+  place(QSPR + 2, cx, cy);
 }
 
 // ---------- screens ----------
@@ -1482,10 +1489,10 @@ void main(void) {
   VBK_REG = VBK_TILES;
   LCDC_REG = (uint8_t)((LCDC_REG | LCDCF_WIN9C00) & (uint8_t)~LCDCF_BG9C00); // window map 9C00, world map 9800
   SPRITES_8x8;
-  for (i = 0; i < MAXA; i++) set_sprite_tile(i, 0);
-  set_sprite_tile(MAXA, 2);     set_sprite_prop(MAXA, 0);       // black queen
-  set_sprite_tile(MAXA + 1, 2); set_sprite_prop(MAXA + 1, 1);   // red queen
-  set_sprite_tile(MAXA + 2, 1); set_sprite_prop(MAXA + 2, 2);   // cursor
+  for (i = 0; i < NSPR; i++) set_sprite_tile(i, 0);
+  set_sprite_tile(QSPR, 2);     set_sprite_prop(QSPR, 0);       // black queen
+  set_sprite_tile(QSPR + 1, 2); set_sprite_prop(QSPR + 1, 1);   // red queen
+  set_sprite_tile(QSPR + 2, 1); set_sprite_prop(QSPR + 2, 2);   // cursor
   SHOW_BKG;
   while (1) { title(); newgame(loadreq); play(); }
 }
