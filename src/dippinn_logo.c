@@ -118,8 +118,8 @@ static void scene_init(void) {
     vcopy(0x8000, dl_sc_tiles, dl_sc_tile_count * 16);
     vcopy(0x8800, dl_spr_tiles, 16 * 16);                     // sprite tiles 128..143
     for (r = 0; r < 18; r++) vcopy(0x9800 + r * 32, dl_sc_map + r * 32, 32);
-    rVBK = 1;
-    for (r = 0; r < 18; r++) vcopy(0x9800 + r * 32, dl_sc_attr + r * 32, 32);
+    rVBK = 1;                                               // attributes are constant per row: sky pal 0, ridge pal 1, hills pal 2 + priority
+    for (r = 0; r < 18; r++) vfill(0x9800 + r * 32, r < 8 ? 0 : r < 12 ? 1 : 0x82, 32);
     rVBK = 0;
     hide_all_sprites();
     last_lvl = 16; scene_pal(16);
