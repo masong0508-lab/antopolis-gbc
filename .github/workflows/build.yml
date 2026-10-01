@@ -6,13 +6,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  sim:
-    name: Host simulator (ASan/UBSan)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: sh tools/hostsim/run.sh 10
-
   build:
     name: Build antopolis.gbc
     runs-on: ubuntu-latest

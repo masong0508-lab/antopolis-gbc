@@ -12,6 +12,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 | START | start / restart; in play: **offering**, 2 food -> 4 mana |
 
 - **Sandbox:** hold SELECT while pressing START on the title screen: infinite mana, nobody can win or lose. Just terraform and watch the ants.
+- **Konami code** (in play): D-pad Up Up Down Down Left Right Left Right, then B, A gives infinite mana and food for that game.
 - **Mana workflow:** mana is what you terraform with, and it refills along three paths:
   1. **Trickle**: +1 mana every ~4 s, always on.
   2. **Tribute**: every food your black ants carry home gives +1 mana (so building good foraging routes feeds your terraforming).
@@ -32,7 +33,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 `make GBDK_HOME=/path/to/gbdk` -> `build/antopolis.gbc` (CGB-only ROM).
 
 ## Status
-**Not yet built with real GBDK or run on hardware/emulator**: the build environment had no GBDK. What *was* done: the game logic was compiled with gcc against hand-written GBDK stubs and run under ASan/UBSan (`tools/hostsim/run.sh`): idle play, random button-mashing and a full-map camera sweep, plus a balance test across many maps (with an idle player the two colonies win about equally often; roughly half of idle games stalemate because terrain blocks the soldiers, which is where terraforming comes in).
+**Not yet built with real GBDK or run on hardware/emulator**: the build environment had no GBDK. The CI workflow (`.github/workflows/build.yml`) builds the ROM and uploads it as an artifact.
 
 Things to check first on a real build:
 - HUD/terrain tiles overlapping: terrain tiles start at VRAM tile 128 and the font at 136.

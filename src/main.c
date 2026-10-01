@@ -24,9 +24,11 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 static uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox;
+static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat;
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
+// Konami code (in play): infinite mana + food. Ends on A, not START (START = offering).
+static const uint8_t KONAMI[10] = {J_UP, J_UP, J_DOWN, J_DOWN, J_LEFT, J_RIGHT, J_LEFT, J_RIGHT, J_B, J_A};
 static const int8_t DX[4] = {1, -1, 0, 0};
 static const int8_t DY[4] = {0, 0, 1, -1};
 
@@ -280,7 +282,7 @@ static void newgame(void) {
   stock[0] = stock[1] = 0; qhp[0] = qhp[1] = QHP; hatched[0] = hatched[1] = 0;
   for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
   count(ncnt);
-  cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
+  cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
   camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); hud();
@@ -371,7 +373,7 @@ static void title(void) {
 }
 
 static void play(void) {
-  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0;
+  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 0, ki = 0;
   while (!over) {
     vsync();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
@@ -388,10 +390,15 @@ static void play(void) {
         if ((dirs & J_DOWN) && cy < H - 1) cy++;
       }
     }
+    if (p) {                           // Konami code tracker
+      if (p == KONAMI[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); } }
+      else ki = (p == KONAMI[0]) ? 1 : 0;
+    }
     if (p & J_A) raise_land();
     if (p & J_B) lower_land();
     if (p & J_SELECT) flood();
     if (p & J_START) offering();
+    if (cheat) { mana = MANA_MAX; stock[0] = 99; }
     if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; }
     follow(); scroll_step();
     if (++t >= 8) {
