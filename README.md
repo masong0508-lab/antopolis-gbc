@@ -39,6 +39,13 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 - **Pause / help:** START opens a scrolling help list (controls, goal, mana, HUD key, elections, ants) under the HUD; UP/DOWN scrolls, hold to repeat, START resumes.
 - **Music & sound:** in the game a 4-channel chiptune loop (arpeggio, lead, wave-channel bass and noise drums; A minor, 112 BPM, 8 bars) keeps playing while paused. Sound effects briefly borrow channels from it: blips for raise/lower/flood, food delivered, hatching, fights and queen hits. The music stops for the short win/lose jingles. The title screen has its own theme (see below).
 
+## Levels, saves and records
+- **Levels:** on the title screen LEFT/RIGHT picks **EASY / NORMAL / HARD** (remembered). Easy: more starting MP, faster mana, slower popularity loss, tougher queen for you, red hatches slower and its soldiers march later. Hard is the reverse. NORMAL is the original game. The table is `DIF` in `src/main.c`.
+- **Save / continue:** while paused, **A** saves the game (A again to overwrite an existing save), **B twice** quits to the title. On the title, **UP** continues the saved game. A finished game uses up its save. Not saved: pheromone trails and fast-forward.
+- **Records:** **B** on the title opens per-level wins, losses, fastest win and best score; hold SELECT+B for 2 s there to erase. After a counted game a results card shows time, score and records. Sandbox, tutorial and cheat games do not count.
+- **Score (win):** 300/600/900 by level + up to 600 for speed (1 per second under 10 min) + 5 per ant + popularity + 10 per queen HP.
+- Battery RAM: the ROM header is MBC5 + RAM + battery (`-Wm-yt0x1B -Wm-ya1 -Wm-yo4` in the Makefile). Untested on hardware, so check that the `.sav` file appears in your emulator.
+
 ## Title screen
 Night sky with twinkling stars and a crescent moon, the gold 3D logo with a shine that sweeps across it every couple of seconds, rolling hills, and ants marching along the grass (black ones heading right, red ones left). The picture and the music **fade in** when it appears and **fade out** when you press START (or A for the tutorial); the game then fades in too.
 

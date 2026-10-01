@@ -12,9 +12,7 @@
 #define VW 20           // visible world tiles (bottom 2 rows are the HUD window)
 #define VH 16
 #define MAXA 34         // workers (queens + cursor sprites come after these)
-#define QHP 5
 #define MANA_MAX 20     // mana cap
-#define MANA_TRICKLE 32 // passive: +1 mana every this many ticks
 #define MANA_PER_FOOD 1 // tribute: mana per food a black ant carries home
 #define OFFER_FOOD 2    // embezzle (SELECT+A): food spent ...
 #define OFFER_MANA 4    // ... for this much mana
@@ -24,6 +22,7 @@
 #define TT 176          // first title-logo tile (13 tiles of 3D lettering)
 #define FT 136          // first font tile (40 glyphs)
 #define TS 189          // first title-scenery tile (12 tiles: stars, moon, hills, grass, soil)
+#define AR 201          // tiles for the < > arrows of the level picker (2 tiles)
 #define TW 3            // first walking-ant sprite tile (2 frames) used on the title screen
 
 typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
@@ -36,11 +35,33 @@ static uint16_t etk;                           // ticks since the last election
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
+static uint8_t norec, slotgame, hassave, loadreq; // norec: this game does not count for records; slotgame: the save slot holds this game;
+                                               // hassave: valid save in cartridge RAM; loadreq: the title asked to continue it
+static uint16_t gt;                            // game time in ticks (7.5 per second; pause and ant eye do not count)
 static uint8_t tut, tev, tutor, lcx, lcy;      // tutorial: lesson (0 = off), events the player did, from-title flag, last cursor
 // Cheat code (in play): infinite mana + food. Ends on A, so it never collides with START (pause).
 static const uint8_t CHEAT[10] = {J_LEFT, J_LEFT, J_RIGHT, J_RIGHT, J_UP, J_DOWN, J_UP, J_DOWN, J_B, J_A};
 static const int8_t DX[4] = {1, -1, 0, 0};
 static const int8_t DY[4] = {0, 0, 1, -1};
+
+// ---------- difficulty ----------
+// 0 EASY, 1 NORMAL, 2 HARD (title screen: LEFT/RIGHT). Everything that differs lives in this table and set_rules() copies it into the
+// variables the game loop reads. NORMAL is exactly the game as it was before levels existed.
+typedef struct { uint8_t mana0, trk, drn, hc, thr, q0, q1; } Rules;
+static const Rules DIF[3] = {
+  // start MP | mana trickle mask | popularity drain mask | red food per ant | red soldiers march at | my queen HP | red queen HP
+  { 14, 15, 63, 4, 12, 7, 4 },
+  { 10, 31, 31, 3,  8, 5, 5 },
+  {  6, 63, 15, 2,  6, 4, 6 }};
+static const char *const DNAME[3] = {"EASY  ", "NORMAL", "HARD  "};
+static uint8_t diff, gdiff;                    // diff = the title screen's choice (remembered); gdiff = level of the game being played
+static uint8_t trk, drn, hcost[2], thr[2], qmax[2];
+static void set_rules(uint8_t d) {
+  trk = DIF[d].trk; drn = DIF[d].drn;          // mana +1 every (trk+1) ticks, popularity -1 every (drn+1) ticks
+  hcost[0] = 3; hcost[1] = DIF[d].hc;          // food per hatched ant
+  thr[0] = 8;   thr[1] = DIF[d].thr;           // colony size at which soldiers start marching
+  qmax[0] = DIF[d].q0; qmax[1] = DIF[d].q1;    // queen HP
+}
 
 // ---------- palettes & graphics (generated from strings) ----------
 static const palette_color_t bpal[24] = {
@@ -117,11 +138,22 @@ static uint8_t gi(char c) {
   if (c == '/') return 39;
   return 0;
 }
-static void put_char(uint8_t x, uint8_t y, char c) { set_win_tile_xy(x, y, FT + gi(c)); }
+static void put_char(uint8_t x, uint8_t y, char c) { set_win_tile_xy(x, y, c == '<' ? AR : c == '>' ? AR + 1 : FT + gi(c)); }
 static void put_str(uint8_t x, uint8_t y, const char *s) { while (*s) put_char(x++, y, *s++); }
 static void put_num(uint8_t x, uint8_t y, uint8_t n) {      // right-aligned, no leading zero
   if (n > 99) n = 99;
   put_char(x, y, n > 9 ? '0' + n / 10 : ' '); put_char(x + 1, y, '0' + n % 10);
+}
+static void put_dec(uint8_t x, uint8_t y, uint16_t n, uint8_t w) {   // right-aligned in w columns
+  uint8_t i;
+  for (i = w; i--; ) { put_char(x + i, y, (n || i == w - 1) ? (char)('0' + n % 10) : ' '); n /= 10; }
+}
+static void put_time(uint8_t x, uint8_t y, uint16_t s) {             // MM:SS (5 columns), or NONE for no record yet
+  uint8_t m, r;
+  if (!s) { put_str(x, y, "NONE "); return; }
+  m = (uint8_t)(s / 60); if (m > 99) m = 99; r = (uint8_t)(s % 60);
+  put_char(x, y, m > 9 ? '0' + m / 10 : ' '); put_char(x + 1, y, '0' + m % 10); put_char(x + 2, y, ':');
+  put_char(x + 3, y, '0' + r / 10); put_char(x + 4, y, '0' + r % 10);
 }
 static void attr(uint8_t x, uint8_t y, uint8_t n, uint8_t p) {   // set the palette of n window cells (palette 1 = white text, 2 = gold)
   VBK_REG = VBK_ATTRIBUTES;
@@ -183,6 +215,8 @@ static const char HELP[] =
   "SEL B  FAST FORWARD\n"
   "SEL START  ANT EYE\n"
   "START  PAUSE:RESUME\n"
+  "PAUSED A  SAVE GAME\n"
+  "PAUSED B  QUIT\n"
   "\n"
   "#GOAL\n"
   "KILL THE RED QUEEN\n"
@@ -219,7 +253,17 @@ static const char HELP[] =
   "THEY FOLLOW TRAILS\n"
   "BUILD EASY PATHS\n"
   "3 FOOD HATCH AN ANT\n"
-  "SOLDIERS ATTACK AT 8\n";
+  "SOLDIERS ATTACK AT 8\n"
+  "\n"
+  "#LEVELS\n"
+  "L R ON TITLE PICKS\n"
+  "EASY: MORE MP AND\n"
+  "SLOWER P LOSS: RED\n"
+  "HATCHES SLOWER\n"
+  "HARD: LESS MP AND\n"
+  "FASTER P LOSS: RED\n"
+  "HATCHES FASTER AND\n"
+  "ATTACKS EARLY\n";
 static uint8_t htop, hlines;                       // first visible line, total lines
 static uint16_t hdp;                               // which visible rows currently have the gold palette
 static void help_draw(void) {
@@ -239,7 +283,8 @@ static void help_draw(void) {
 }
 static void help_open(void) {
   htop = 0;
-  put_str(0, 2, "PAUSED"); attr(0, 2, 6, 2);
+  put_str(0, 2, "PAUSED"); attr(0, 2, 6, 2); put_str(7, 2, DNAME[gdiff]);
+  put_line(16, "A:SAVE  B:QUIT");
   put_str(0, 17, "U/D SCROLL  START:GO");
   help_draw();
 }
@@ -559,6 +604,117 @@ static void count(uint8_t *c) {
   for (i = 0; i < MAXA; i++) if (ant[i].alive) c[ant[i].team]++;
 }
 
+// ---------- cartridge RAM: remembered level, records, one saved game ----------
+// The ROM header says MBC5 + battery RAM (see the Makefile). Layout at 0xA000: [0] settings + records, [64] the saved game. Each block
+// starts with a magic byte and ends with a rotate-xor checksum, so empty or corrupt RAM (or an emulator with no .sav) just reads as "nothing".
+// Not saved: pheromone trails (they regrow) and the fast-forward / pause state.
+#define SRAM ((volatile uint8_t *)0xA000)
+#define CFG_AT 0
+#define SAV_AT 64
+#define CFG_MAGIC 0xC5
+#define SAVE_MAGIC 0xA5
+typedef struct { uint8_t w[3], l[3]; uint16_t t[3], s[3]; } Rec;     // per level: wins, losses, fastest win (seconds), best score
+static Rec rec;
+static volatile uint8_t *sp; static uint8_t ssum;
+static void sram_open(uint16_t at) {
+  *(volatile uint8_t *)0x0000 = 0x0A;          // enable cartridge RAM
+  *(volatile uint8_t *)0x4000 = 0;             // RAM bank 0
+  sp = SRAM + at; ssum = 0x5A;
+}
+static void sram_close(void) { *(volatile uint8_t *)0x0000 = 0x00; }
+static void sw(uint8_t v) { *sp++ = v; ssum = (uint8_t)(((ssum << 1) | (ssum >> 7)) ^ v); }
+static uint8_t sr(void) { uint8_t v = *sp++; ssum = (uint8_t)(((ssum << 1) | (ssum >> 7)) ^ v); return v; }
+
+static void cfg_save(void) {
+  uint8_t i; const uint8_t *r = (const uint8_t *)&rec;
+  sram_open(CFG_AT);
+  sw(CFG_MAGIC); sw(diff);
+  for (i = 0; i < sizeof(Rec); i++) sw(r[i]);
+  *sp = ssum;
+  sram_close();
+}
+static void cfg_load(void) {
+  uint8_t i, ok, *r = (uint8_t *)&rec;
+  sram_open(CFG_AT);
+  ok = (sr() == CFG_MAGIC);
+  diff = sr();
+  for (i = 0; i < sizeof(Rec); i++) r[i] = sr();
+  ok = ok && (*sp == ssum) && diff < 3;
+  sram_close();
+  if (!ok) { for (i = 0; i < sizeof(Rec); i++) r[i] = 0; diff = 1; cfg_save(); }
+}
+
+static void save_game(void) {
+  uint8_t i, x, y, b, k;
+  sram_open(SAV_AT);
+  sw(SAVE_MAGIC); sw(gdiff); sw(norec | (sandbox << 1));
+  sw(stock[0]); sw(stock[1]); sw(qhp[0]); sw(qhp[1]); sw(hatched[0]); sw(hatched[1]);
+  sw(cx); sw(cy); sw(mana); sw(appr); sw(tk);
+  sw((uint8_t)etk); sw((uint8_t)(etk >> 8)); sw((uint8_t)gt); sw((uint8_t)(gt >> 8));
+  for (y = 0; y < H; y++) for (x = 0; x < W; x += 4)                       // heights: 2 bits per tile
+    sw(hgt[y][x] | (hgt[y][x + 1] << 2) | (hgt[y][x + 2] << 4) | (hgt[y][x + 3] << 6));
+  for (y = 0; y < H; y++) for (x = 0; x < W; x += 8) {                     // food: 1 bit per tile
+    b = 0; for (k = 0; k < 8; k++) if (food[y][x + k]) b |= (uint8_t)(1 << k);
+    sw(b);
+  }
+  for (i = 0; i < MAXA; i++) { sw(ant[i].x); sw(ant[i].y); sw(ant[i].alive | (ant[i].team << 1) | (ant[i].carry << 2) | (ant[i].sol << 3)); }
+  *sp = ssum;
+  sram_close();
+}
+#define RD(v) do { uint8_t _t = sr(); if (apply) (v) = _t; } while (0)
+// Reads the saved game. apply = 0 only checks it (returns 1 if intact); apply = 1 loads it into the game (check first!).
+static uint8_t save_scan(uint8_t apply) {
+  uint8_t i, x, y, b, k, ok;
+  sram_open(SAV_AT);
+  ok = (sr() == SAVE_MAGIC);
+  RD(gdiff);
+  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; }
+  RD(stock[0]); RD(stock[1]); RD(qhp[0]); RD(qhp[1]); RD(hatched[0]); RD(hatched[1]);
+  RD(cx); RD(cy); RD(mana); RD(appr); RD(tk);
+  b = sr(); k = sr(); if (apply) etk = b | ((uint16_t)k << 8);
+  b = sr(); k = sr(); if (apply) gt = b | ((uint16_t)k << 8);
+  for (y = 0; y < H; y++) for (x = 0; x < W; x += 4) {
+    b = sr();
+    if (apply) { hgt[y][x] = b & 3; hgt[y][x + 1] = (b >> 2) & 3; hgt[y][x + 2] = (b >> 4) & 3; hgt[y][x + 3] = b >> 6; }
+  }
+  for (y = 0; y < H; y++) for (x = 0; x < W; x += 8) {
+    b = sr();
+    if (apply) for (k = 0; k < 8; k++) food[y][x + k] = (b >> k) & 1;
+  }
+  for (i = 0; i < MAXA; i++) {
+    RD(ant[i].x); RD(ant[i].y);
+    b = sr();
+    if (apply) { ant[i].alive = b & 1; ant[i].team = (b >> 1) & 1; ant[i].carry = (b >> 2) & 1; ant[i].sol = (b >> 3) & 1; }
+  }
+  ok = ok && (*sp == ssum);
+  sram_close();
+  return ok;
+}
+static void save_erase(void) { sram_open(SAV_AT); *sp = 0; sram_close(); }
+
+// ---------- scoring + records ----------
+static uint16_t secs_played(void) {
+  uint16_t s = (uint16_t)(((uint32_t)gt * 2) / 15);     // 7.5 ticks per second
+  return s > 5999 ? 5999 : s ? s : 1;
+}
+// score for a win: 300 / 600 / 900 for the level + up to 600 for speed (one point per second under 10 minutes)
+// + 5 per ant + popularity + 10 per queen HP left
+static uint16_t calc_score(uint16_t secs) {
+  uint16_t sc = 300 * (gdiff + 1);
+  if (secs < 600) sc += 600 - secs;
+  return sc + ncnt[0] * 5 + appr + qhp[0] * 10;
+}
+static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = new fastest win, bit 1 = new high score
+  uint8_t d = gdiff, fl = 0;
+  if (over == 1) {
+    if (rec.w[d] < 99) rec.w[d]++;
+    if (!rec.t[d] || secs < rec.t[d]) { rec.t[d] = secs; fl |= 1; }
+    if (score > rec.s[d]) { rec.s[d] = score; fl |= 2; }
+  } else if (rec.l[d] < 99) rec.l[d]++;
+  cfg_save();
+  return fl;
+}
+
 // ---------- popularity + elections ----------
 static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
 static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
@@ -577,7 +733,7 @@ static void election(void) {
 static void step_ant(Ant *a) {
   uint8_t d, t = a->team, e = t ^ 1, found = 0, bd = 0, tx, ty, de;
   int16_t sc, best = -32000;
-  uint8_t soldier = !a->carry && qhp[e] && ncnt[t] >= 8 && a->sol;  // soldiers only march once the colony is big enough
+  uint8_t soldier = !a->carry && qhp[e] && ncnt[t] >= thr[t] && a->sol;  // soldiers only march once the colony is big enough
   if (!a->carry && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
   if (a->carry) { uint8_t p = ph[a->y][a->x]; ph[a->y][a->x] = p > 215 ? 255 : p + 40; }
   for (d = 0; d < 4; d++) {
@@ -627,21 +783,21 @@ static void tick_slice(void) {
   if ((tk & 3) == 0) for (y = slice << 2; y < (uint8_t)((slice << 2) + 4); y++) for (x = 0; x < W; x++) if (ph[y][x]) ph[y][x]--;
   if (++slice < 8) return;
   slice = 0;
-  tk++;
+  tk++; if (gt < 65535) gt++;
   count(ncnt);
   for (i = 0; i < 2; i++) {
     if (!qhp[i]) continue;                         // no queen, no eggs
-    if (stock[i] >= 3 && spawn(i)) { stock[i] -= 3; if (i == 0) { sfx_spawn(); apr(1); } }
+    if (stock[i] >= hcost[i] && spawn(i)) { stock[i] -= hcost[i]; if (i == 0) { sfx_spawn(); apr(1); } }
     else if (ncnt[i] == 0 && (tk & 31) == 0) spawn(i);   // emergency egg: never a dead stalemate
-    if ((tk & 127) == 0 && qhp[i] < QHP) qhp[i]++; // queens slowly heal
+    if ((tk & 127) == 0 && qhp[i] < qmax[i]) qhp[i]++; // queens slowly heal
   }
-  if ((tk & 31) == 0) apr(!stock[0] && ncnt[0] ? -2 : -1);   // the people are never satisfied; a hungry colony grumbles double
+  if ((tk & drn) == 0) apr(!stock[0] && ncnt[0] ? -2 : -1);   // the people are never satisfied; a hungry colony grumbles double
   if (++etk >= 450) { etk = 0; election(); }              // an election roughly every minute
   if ((tk & 7) == 0) for (i = 0; i < 2; i++) {
     x = rand() & (W - 1); y = rand() & (H - 1);
     if (hgt[y][x] && !food[y][x] && !is_nest(x, y)) { food[y][x] = 1; draw_cell(x, y); }
   }
-  if ((tk & (MANA_TRICKLE - 1)) == 0 && mana < MANA_MAX) mana++;   // mana workflow, step 1: slow passive trickle
+  if ((tk & trk) == 0 && mana < MANA_MAX) mana++;   // mana workflow, step 1: slow passive trickle
 }
 
 static void bump(uint8_t cx0, uint8_t cy0, uint8_t v, uint8_t r) {
@@ -661,31 +817,40 @@ static void smooth(void) {
   }
 }
 
-static void newgame(void) {
-  uint8_t i, k, x, y;
+static void follow(void);
+static void newgame(uint8_t load) {
+  uint8_t i, k, x, y, ok = 0;
   DISPLAY_OFF;
-  for (y = 0; y < H; y++) for (x = 0; x < W; x++) { hgt[y][x] = 1; food[y][x] = 0; ph[y][x] = 0; }
-  for (k = 0; k < 28; k++) { x = rand() & (W - 1); y = rand() & (H - 1); bump(x, y, 2, 1); hgt[y][x] = 3; }
-  for (k = 0; k < 9; k++) {
-    x = rand() & (W - 1); y = rand() & (H - 1);
-    hgt[y][x] = 0;
-    if (x + 1 < W) hgt[y][x + 1] = 0;
-    if (y + 1 < H) hgt[y + 1][x] = 0;
-    if (x + 1 < W && y + 1 < H) hgt[y + 1][x + 1] = 0;
-  }
+  if (load && save_scan(0)) { save_scan(1); ok = 1; }          // continue the saved game (checked first, so it never half-loads)
+  if (ok) slotgame = 1; else { gdiff = diff; norec = (sandbox || tutor) ? 1 : 0; slotgame = 0; }
+  if (gdiff > 2) gdiff = 1;
+  set_rules(gdiff);
   nestx[0] = 4;  nesty[0] = 26; nestx[1] = 27; nesty[1] = 5;
-  bump(nestx[0], nesty[0], 1, 1); bump(nestx[1], nesty[1], 1, 1);
-  smooth();
-  for (k = 0; k < 36; k++) { x = rand() & (W - 1); y = rand() & (H - 1); if (hgt[y][x] && !is_nest(x, y)) food[y][x] = 1; }
-  for (i = 0; i < MAXA; i++) ant[i].alive = 0;
-  stock[0] = stock[1] = 0; qhp[0] = qhp[1] = QHP; hatched[0] = hatched[1] = 0;
-  for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
+  for (y = 0; y < H; y++) for (x = 0; x < W; x++) ph[y][x] = 0;
+  if (!ok) {
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) { hgt[y][x] = 1; food[y][x] = 0; }
+    for (k = 0; k < 28; k++) { x = rand() & (W - 1); y = rand() & (H - 1); bump(x, y, 2, 1); hgt[y][x] = 3; }
+    for (k = 0; k < 9; k++) {
+      x = rand() & (W - 1); y = rand() & (H - 1);
+      hgt[y][x] = 0;
+      if (x + 1 < W) hgt[y][x + 1] = 0;
+      if (y + 1 < H) hgt[y + 1][x] = 0;
+      if (x + 1 < W && y + 1 < H) hgt[y + 1][x + 1] = 0;
+    }
+    bump(nestx[0], nesty[0], 1, 1); bump(nestx[1], nesty[1], 1, 1);
+    smooth();
+    for (k = 0; k < 36; k++) { x = rand() & (W - 1); y = rand() & (H - 1); if (hgt[y][x] && !is_nest(x, y)) food[y][x] = 1; }
+    for (i = 0; i < MAXA; i++) ant[i].alive = 0;
+    stock[0] = stock[1] = 0; qhp[0] = qmax[0]; qhp[1] = qmax[1]; hatched[0] = hatched[1] = 0;
+    for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
+    appr = 50; etk = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = DIF[gdiff].mana0; tk = 0; gt = 0;
+  }
   count(ncnt);
-  ff = 0; appr = 50; etk = 0; slice = 0; hdirty = 1; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
-  camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
+  ff = 0; slice = 0; hdirty = 1; cheat = 0; over = 0;
+  camx = 0; camy = H - VH; follow(); scx = (int16_t)camx * 8; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); hud();
-  say(sandbox ? "SANDBOX: NO LIMITS" : "A/B LAND START HELP");
+  say(ok ? "GAME LOADED" : sandbox ? "SANDBOX: NO LIMITS" : "A/B LAND START HELP");
   move_win(7, 128);                    // window = 2-row HUD at the bottom
   SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
   SHOW_WIN; SHOW_SPRITES;
@@ -811,17 +976,60 @@ static void title_fade(uint8_t from, uint8_t to) {     // 4 frames per brightnes
     if (l < to) l++; else l--;
   }
 }
-static void title(void) {
-  uint8_t k, i, x, y;
-  waitpadup();                         // e.g. START that skipped the boot logo is still held
-  DISPLAY_OFF;
-  HIDE_SPRITES;
+static void diff_draw(void) { put_str(7, 7, DNAME[diff]); }
+static void title_paint(void) {
   win_clear();
   title_scene();
   title_logo(4, 3);
   put_str(2, 6, "THE RULER OF YOU");
+  put_char(5, 7, '<'); put_char(14, 7, '>'); attr(5, 7, 10, 3);          // gold level picker (LEFT / RIGHT)
+  diff_draw();
+  if (hassave) put_str(1, 10, "UP:LOAD  B:RECORDS"); else put_str(5, 10, "B: RECORDS");
   put_str(2, 11, "A: LEARN TO PLAY");
   put_str(1, 12, "HOLD SEL: SANDBOX");
+}
+// Records: wins, losses, fastest win and best score for each level. Hold SELECT + B for 2 s to erase them. START / A goes back.
+static void records_draw(void) {
+  uint8_t d, y;
+  win_clear();
+  put_str(0, 0, "RECORDS"); attr(0, 0, 7, 3);
+  for (d = 0; d < 3; d++) {
+    y = 2 + d * 4;
+    put_str(0, y, DNAME[d]); attr(0, y, 6, 3);
+    put_str(7, y, "WON"); put_num(10, y, rec.w[d]); put_str(13, y, "LOST"); put_num(17, y, rec.l[d]);
+    put_str(0, y + 1, "FASTEST"); put_time(8, y + 1, rec.t[d]);
+    put_str(0, y + 2, "SCORE"); put_dec(8, y + 2, rec.s[d], 5);
+  }
+  put_str(0, 15, "HOLD SEL B: ERASE");
+  put_str(0, 17, "START: BACK");
+}
+static void records_screen(void) {
+  uint8_t k, d, hold = 0;
+  DISPLAY_OFF; HIDE_SPRITES;
+  records_draw();
+  DISPLAY_ON;
+  waitpadup();
+  while (1) {
+    vsync(); k = joypad();
+    if (k & (J_START | J_A)) break;
+    if ((k & (J_SELECT | J_B)) == (J_SELECT | J_B)) {
+      if (hold < 255) hold++;
+      if (hold == 120) {
+        for (d = 0; d < 3; d++) rec.w[d] = rec.l[d] = rec.t[d] = rec.s[d] = 0;
+        cfg_save(); records_draw(); put_str(0, 15, "RECORDS ERASED     ");
+      }
+    } else hold = 0;
+  }
+  DISPLAY_OFF;
+  waitpadup();
+}
+static void title(void) {
+  uint8_t k, i, x, y, p, prev;
+  waitpadup();                         // e.g. START that skipped the boot logo is still held
+  DISPLAY_OFF;
+  HIDE_SPRITES;
+  hassave = save_scan(0); loadreq = 0;
+  title_paint();
   wx[0] = 14; wx[1] = 62; wx[2] = 112; wx[3] = 150; wx[4] = 44;
   for (i = 0; i < 5; i++) set_sprite_prop(i, i < 3 ? 0 : (1 | 0x20));   // red ants: palette 1, flipped to face left
   tfr = 0; tf3 = 0; tsh = 40; tblink = 255;
@@ -831,9 +1039,18 @@ static void title(void) {
   DISPLAY_ON;
   tm_start();
   title_fade(0, 8);
-  while (!((k = joypad()) & (J_START | J_A))) title_tick();
+  prev = joypad();
+  for (;;) {
+    k = joypad(); p = k & ~prev; prev = k;
+    if (k & (J_START | J_A)) break;
+    if ((p & J_UP) && hassave) { loadreq = 1; k = J_START; break; }       // UP: continue the saved game
+    if (p & (J_LEFT | J_RIGHT)) { diff = (p & J_RIGHT) ? (diff == 2 ? 0 : diff + 1) : (diff ? diff - 1 : 2); diff_draw(); }
+    if (p & J_B) { records_screen(); title_paint(); SHOW_SPRITES; DISPLAY_ON; tblink = 255; prev = joypad(); }
+    title_tick();
+  }
   tutor = (k & J_START) ? 0 : 1;       // A alone = guided tutorial
   sandbox = ((k & J_START) && (k & J_SELECT)) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
+  cfg_save();                          // remember the chosen level
   title_fade(8, 0);
   tm_stop();
   DISPLAY_OFF;
@@ -1135,8 +1352,28 @@ static void tut_enter(void) {                          // show lessons until one
   }
 }
 
+static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end of a counted game: this run + the level's records
+  uint8_t d = gdiff;
+  win_clear();
+  put_str(0, 1, over == 1 ? "YOU WIN!" : "COLONY LOST!"); attr(0, 1, 12, 2);
+  put_str(0, 3, "LEVEL"); put_str(8, 3, DNAME[d]);
+  put_str(0, 4, "TIME"); put_time(8, 4, secs);
+  if (over == 1) { put_str(0, 5, "SCORE"); put_dec(8, 5, score, 5); }
+  if (fl & 1) { put_str(0, 7, "NEW FASTEST TIME!"); attr(0, 7, 17, 2); }
+  if (fl & 2) { put_str(0, 8, "NEW HIGH SCORE!"); attr(0, 8, 15, 2); }
+  put_str(0, 10, "RECORDS"); put_str(8, 10, DNAME[d]); attr(0, 10, 14, 2);
+  put_str(0, 11, "WON"); put_num(4, 11, rec.w[d]); put_str(8, 11, "LOST"); put_num(13, 11, rec.l[d]);
+  put_str(0, 12, "FASTEST"); put_time(8, 12, rec.t[d]);
+  put_str(0, 13, "SCORE"); put_dec(8, 13, rec.s[d], 5);
+  put_str(0, 16, "START: CONTINUE");
+  HIDE_SPRITES; move_win(7, 0);
+  while (1) { vsync(); if (joypad() & J_START) break; }
+  waitpadup();
+}
+
 static void play(void) {
-  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 4, ki = 0, paused = 0, selused = 0, selprev = 0, n;
+  uint8_t k, prev = 0, p, dirs, last = 0, rep = 0, fire, t = 4, ki = 0, paused = 0, selused = 0, selprev = 0, n, qask = 0, sconf = 0, fl = 0;
+  uint16_t secs, score;
   if (tutor) { tut = 1; tut_enter(); }
   while (!over) {
     vsync();
@@ -1145,9 +1382,18 @@ static void play(void) {
     if ((p & J_START) && (k & J_SELECT) && !paused) { selused = 1; eye(); continue; }   // SELECT+START: ant eye
     if (p & J_START) {                 // START: pause + help screen
       paused ^= 1;
-      if (paused) { help_open(); move_win(7, 0); HIDE_SPRITES; } else { move_win(7, 128); SHOW_SPRITES; }
+      if (paused) { help_open(); qask = sconf = 0; move_win(7, 0); HIDE_SPRITES; } else { move_win(7, 128); SHOW_SPRITES; }
     }
-    if (paused) {                      // UP/DOWN scrolls the help text (hold to repeat)
+    if (paused) {                      // UP/DOWN scrolls the help text (hold to repeat); A saves, B (twice) quits to the title
+      if (p & J_A) {
+        if (tut) put_line(16, "NO SAVE IN LESSONS");
+        else if (hassave && !slotgame && !sconf) { sconf = 1; qask = 0; put_line(16, "A AGAIN: OVERWRITE"); }
+        else { save_game(); hassave = save_scan(0); if (hassave) slotgame = 1; sconf = qask = 0; put_line(16, hassave ? "GAME SAVED!" : "SAVE FAILED"); }
+      }
+      if (p & J_B) {
+        if (qask) over = 3;
+        else { qask = 1; sconf = 0; put_line(16, "B AGAIN: QUIT"); }
+      }
       dirs = k & (J_UP | J_DOWN);
       if (dirs != last) { rep = 0; last = dirs; }
       if (dirs) {
@@ -1169,7 +1415,7 @@ static void play(void) {
       }
     }
     if (p) {                           // cheat code tracker
-      if (p == CHEAT[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); say("CHEAT ON! INFINITE"); } }
+      if (p == CHEAT[ki]) { if (++ki == 10) { ki = 0; cheat = 1; norec = 1; sfx_mana(); say("CHEAT ON! INFINITE"); } }
       else ki = (p == CHEAT[0]) ? 1 : 0;
     }
     if (k & J_SELECT) {               // SELECT is a modifier: SEL+A embezzle, SEL+B fast forward, alone (on release) flood
@@ -1185,8 +1431,8 @@ static void play(void) {
     if (tut && (cx != lcx || cy != lcy)) { tev |= 1; lcx = cx; lcy = cy; }
     if (tut && (tev & TEV[tut - 1])) { sfx_mana(); tut++; tut_enter(); }     // task done: next lesson
     if (cheat) { mana = MANA_MAX; stock[0] = 99; appr = 99; }
-    if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; appr = 99; }
-    if (tut) { qhp[0] = qhp[1] = QHP; if (appr < 50) appr = 50; }          // no game over mid-lesson
+    if (sandbox) { mana = MANA_MAX; qhp[0] = qmax[0]; qhp[1] = qmax[1]; appr = 99; }
+    if (tut) { qhp[0] = qmax[0]; qhp[1] = qmax[1]; if (appr < 50) appr = 50; }          // no game over mid-lesson
     follow(); scroll_step();
     for (n = ff ? 4 : 1; n; n--) tick_slice();     // fast forward = 4 slices per frame
     if (++t >= 8) {
@@ -1198,11 +1444,16 @@ static void play(void) {
     draw_sprites();
   }
   music_stop();
+  if (over == 3) return;               // quit from the pause menu: the title screen takes over (a save, if any, is kept)
+  count(ncnt);
+  secs = secs_played(); score = (over == 1) ? calc_score(secs) : 0;
+  if (slotgame) { save_erase(); slotgame = 0; hassave = 0; }   // a finished game uses up its save: no reloading after a loss
   attr(0, 1, 20, 1);
   put_str(0, 1, over == 1 ? "YOU WIN! PRESS START" : "COLONY LOST! START  ");
   if (over == 1) jingle(WIN_TUNE, 6); else jingle(LOSE_TUNE, 4);
   while (1) { vsync(); if (joypad() & J_START) break; }
   waitpadup();
+  if (!norec) { fl = rec_game(secs, score); results_card(secs, score, fl); }
 }
 
 void main(void) {
@@ -1218,6 +1469,9 @@ void main(void) {
   title_tiles(buf);
   set_bkg_data(TT, 13, buf);
   set_bkg_data(TS, 12, TAT);
+  mk_glyph(buf, 012421); mk_glyph(buf + 16, 042124);     // '<' and '>' for the level picker
+  set_bkg_data(AR, 2, buf);
+  cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
   set_bkg_palette(0, 6, bpal);
   view_init();
@@ -1233,5 +1487,5 @@ void main(void) {
   set_sprite_tile(MAXA + 1, 2); set_sprite_prop(MAXA + 1, 1);   // red queen
   set_sprite_tile(MAXA + 2, 1); set_sprite_prop(MAXA + 2, 2);   // cursor
   SHOW_BKG;
-  while (1) { title(); newgame(); play(); }
+  while (1) { title(); newgame(loadreq); play(); }
 }
