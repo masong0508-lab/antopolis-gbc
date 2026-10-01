@@ -420,12 +420,12 @@ static const uint8_t TLEAD[128] = {   // one entry per eighth note: 0 = rest, 1 
   36, 1, 1,35, 33, 1,32,33,
   44, 1,41,40, 38,36,35, 1,
   40, 1, 1, 1,  1, 1, 0, 0,
-  // bars 9-16: an original four-phrase "march" tune that nods to the Empire Ants vocal shape (two gentle lines,
-  // a rising question, a falling answer back to E). Tune by ear: 1 = hold, 0 = rest, values as above.
-  40, 1,38,40, 41, 1,40, 1,   38, 1,36,38, 40, 1, 1, 1,     // line 1: small steps, settles on E
-  40, 1,38,40, 41, 1,44, 1,   41, 1,40,38, 40, 1, 1, 1,     // line 2: same walk, lifts a little higher
-  40, 1,41,44, 45, 1,44, 1,   47, 1,45, 1, 44, 1, 1, 0,     // line 3: the question, rises and hangs open
-  45, 1,44,41, 40, 1,38,36,   35, 1,36,38, 40, 1, 1, 1};    // line 4: the answer, falls home to E
+  // bars 9-16: four phrases transcribed from the user's a cappella (pitches kept as sung, rhythm slowed to half-time
+  // so each phrase fills two bars; the last note of a phrase rings out). 1 = hold, 0 = rest.
+  32,37,39,40,41,39, 1, 1, 1,40,39, 1,41, 1, 1,38,    // line 1
+  34,38, 1, 1,32,34,37, 1,34,35, 1, 1, 0, 0, 0, 0,    // line 2
+  40,37,38, 1, 1, 1,36, 1, 1, 1, 1,35,37,35, 1, 0,    // line 3
+  33,37, 1,40, 1, 1,37,40, 1, 1,41,39,41, 1, 0, 0};   // line 4
 static const uint8_t TROOT[8] = {16, 16, 17, 16, 21, 17, 23, 16};         // bass root per bar: E E F E A F B E
 static const uint8_t TBASS[8] = {0, 255, 255, 0, 255, 255, 7, 255};       // per eighth: root, root, fifth (255 = none)
 static const char *const TSTEP[2] = {"X.x.x.xxX.x.x.x.", "X.x.xx.xX.x.xxx."};   // footsteps per 16th, alternating bars
