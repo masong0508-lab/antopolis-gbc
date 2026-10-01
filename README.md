@@ -39,6 +39,12 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 - **Pause / help:** START opens a scrolling help list (controls, goal, mana, HUD key, elections, ants) under the HUD; UP/DOWN scrolls, hold to repeat, START resumes.
 - **Music & sound:** in the game a 4-channel chiptune loop (arpeggio, lead, wave-channel bass and noise drums; A minor, 112 BPM, 8 bars) keeps playing while paused. Sound effects briefly borrow channels from it: blips for raise/lower/flood, food delivered, hatching, fights and queen hits. The music stops for the short win/lose jingles. The title screen has its own theme (see below).
 
+## Disasters and perks (roguelike)
+- **Disasters:** every so often (after the first ~12 s; never in sandbox or the tutorial) a random 3x3 patch of the map is hit, for both colonies alike: a **flash flood** sinks every tile one level, an **earthquake** shakes each tile up or down. Nests are safe. Ants on tiles that hit water drown. They come more often on HARD and less often on EASY.
+- **Perks:** after every election that is not a coup, the HUD offers two random perks: `A:xxxxxxx B:xxxxxxx` (about 10 s to choose; press **A** or **B** to take that one, otherwise it is lost). Perks last for the rest of the run and are saved with the game:
+  `FLOOD 4` flood costs 4 MP | `FASTEGG` your ants hatch from 2 food | `MANA UP` mana trickles twice as fast | `CALM` popularity sinks slower and disasters are rarer | `QUEENUP` +1 queen HP | `SLOWRED` red ants hatch from 1 more food.
+- Old saves still load (perks live in unused bits of the save flag byte).
+
 ## Levels, saves and records
 - **Levels:** on the title screen LEFT/RIGHT picks **EASY / NORMAL / HARD** (remembered). Easy: more starting MP, faster mana, slower popularity loss, tougher queen for you, red hatches slower and its soldiers march later. Hard is the reverse. NORMAL is the original game. The table is `DIF` in `src/main.c`.
 - **Save / continue:** while paused, **A** saves the game (A again to overwrite an existing save), **B twice** quits to the title. On the title, **UP** continues the saved game. A finished game uses up its save. Not saved: pheromone trails and fast-forward.

@@ -57,12 +57,22 @@ static const Rules DIF[3] = {
   {  6, 63, 15, 2,  6, 4, 6 }};
 static const char *const DNAME[3] = {"EASY  ", "NORMAL", "HARD  "};
 static uint8_t diff, gdiff;                    // diff = the title screen's choice (remembered); gdiff = level of the game being played
-static uint8_t trk, drn, hcost[2], thr[2], qmax[2];
+static uint8_t trk, drn, hcost[2], thr[2], qmax[2], fcost;
+// Roguelike perks: after every election that is not a coup you may take one of two random perks (A or B) for the rest of the run.
+// perk = bit mask of owned perks (saved in the free upper bits of the save-game flag byte, so old saves still load).
+static uint8_t perk, pend, pa, pb;             // pend = ticks left to choose (0 = no offer), pa/pb = the two offered perks
 static void set_rules(uint8_t d) {
   trk = DIF[d].trk; drn = DIF[d].drn;          // mana +1 every (trk+1) ticks, popularity -1 every (drn+1) ticks
   hcost[0] = 3; hcost[1] = DIF[d].hc;          // food per hatched ant
   thr[0] = 8;   thr[1] = DIF[d].thr;           // colony size at which soldiers start marching
   qmax[0] = DIF[d].q0; qmax[1] = DIF[d].q1;    // queen HP
+  fcost = 8;                                   // perks (bits 0..5) tweak the rules on top of the level
+  if (perk & 1) fcost = 4;                     // FLOOD 4:  flood costs 4 MP
+  if (perk & 2) hcost[0] = 2;                  // FASTEGG:  your ants hatch from 2 food
+  if (perk & 4) trk >>= 1;                     // MANA UP:  mana trickles twice as fast
+  if (perk & 8) drn = (drn << 1) | 1;          // CALM:     popularity sinks slower (and disasters come less often)
+  if (perk & 16) qmax[0]++;                    // QUEENUP:  one more queen HP
+  if (perk & 32) hcost[1]++;                   // SLOWRED:  red ants hatch from 1 more food
 }
 
 // ---------- palettes & graphics (generated from strings) ----------
@@ -234,27 +244,22 @@ static const char HELP[] =
   "FOR 4 MP: P DOWN 5\n"
   "\n"
   "#HUD\n"
-  "MP    MANA AND BAR\n"
-  "F     YOUR FOOD\n"
-  "Q     QUEEN HP\n"
-  "      YOURS/RED\n"
-  "A     YOUR ANTS\n"
-  "R     RED ANTS\n"
-  "P     POPULARITY\n"
+  "MP MANA  F FOOD\n"
+  "Q QUEEN HP YOU/RED\n"
+  "A ANTS R RED P POP\n"
   "\n"
   "#ELECTIONS\n"
   "EVERY MINUTE:\n"
   "P 50 UP  8 MP AID\n"
-  "P 25 TO 49  NOTHING\n"
   "P UNDER 25  COUP:\n"
   "FOOD HALVED MP LOST\n"
+  "NO COUP: PICK A PERK\n"
+  "WITH A OR B BUTTON\n"
   "\n"
-  "#LEVELS\n"
-  "L R ON TITLE PICKS\n"
-  "EASY: MORE MP, SLOW\n"
-  "P LOSS, SLOW RED\n"
-  "HARD: LESS MP, FAST\n"
-  "P LOSS, FAST RED\n";
+  "#DISASTERS\n"
+  "FLASH FLOODS AND\n"
+  "QUAKES HIT ANYONE\n"
+  "CALM PERK: FEWER\n";
 static uint8_t htop, hlines;                       // first visible line, total lines
 static uint16_t hdp;                               // which visible rows currently have the gold palette
 static void help_draw(void) {
@@ -638,7 +643,7 @@ static void cfg_load(void) {
 static void save_game(void) {
   uint8_t i, x, y, b, k;
   sram_open(SAV_AT);
-  sw(SAVE_MAGIC); sw(gdiff); sw(norec | (sandbox << 1));
+  sw(SAVE_MAGIC); sw(gdiff); sw(norec | (sandbox << 1) | (perk << 2));
   sw(stock[0]); sw(stock[1]); sw(qhp[0]); sw(qhp[1]); sw(hatched[0]); sw(hatched[1]);
   sw(cx); sw(cy); sw(mana); sw(appr); sw(tk);
   sw((uint8_t)etk); sw((uint8_t)(etk >> 8)); sw((uint8_t)gt); sw((uint8_t)(gt >> 8));
@@ -659,7 +664,7 @@ static uint8_t save_scan(uint8_t apply) {
   sram_open(SAV_AT);
   ok = (sr() == SAVE_MAGIC);
   RD(gdiff);
-  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; }
+  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = b >> 2; }
   RD(stock[0]); RD(stock[1]); RD(qhp[0]); RD(qhp[1]); RD(hatched[0]); RD(hatched[1]);
   RD(cx); RD(cy); RD(mana); RD(appr); RD(tk);
   b = sr(); k = sr(); if (apply) etk = b | ((uint16_t)k << 8);
@@ -709,7 +714,42 @@ static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = ne
 // ---------- popularity + elections ----------
 static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
 static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
+// 6 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
+static const char PN[] = "FLOOD 4FASTEGGMANA UPCALM   QUEENUPSLOWRED";
+static char pbuf[20];
+static void offer(void) {                          // two different perks you do not own yet
+  uint8_t i;
+  if (perk == 63) return;
+  do pa = rand() & 7; while (pa > 5 || ((perk >> pa) & 1));
+  pb = pa;
+  do pb = pb > 4 ? 0 : pb + 1; while ((perk >> pb) & 1);      // next free perk after pa (pa itself if it is the last one)
+  pbuf[0] = 'A'; pbuf[1] = ':'; pbuf[9] = ' '; pbuf[10] = 'B'; pbuf[11] = ':';
+  for (i = 0; i < 7; i++) { pbuf[2 + i] = PN[pa * 7 + i]; pbuf[12 + i] = PN[pb * 7 + i]; }
+  pbuf[19] = 0;
+  pend = 80;                                       // about 10 s to choose
+}
+static void pick(uint8_t i) {
+  perk |= (uint8_t)(1 << i); pend = 0;
+  set_rules(gdiff);                                // re-derive the rules with the new perk
+  if (i == 4 && qhp[0]) qhp[0]++;                  // QUEENUP also heals the new point
+  sfx_mana(); say("PERK TAKEN!");
+}
+// 3x3 patch around (px,py): every tile sinks one level (FLASH FLOOD, and the player's flood). q = EARTHQUAKE: each tile goes up or down.
+static void hit(uint8_t px, uint8_t py, uint8_t q) {
+  int8_t x, y;
+  for (y = (int8_t)py - 1; y <= (int8_t)py + 1; y++) for (x = (int8_t)px - 1; x <= (int8_t)px + 1; x++)
+    if (x >= 0 && y >= 0 && x < W && y < H && !is_nest(x, y)) {
+      if (q && (rand() & 1)) { if (hgt[y][x] < 3) hgt[y][x]++; } else if (hgt[y][x]) hgt[y][x]--;
+      draw_cell(x, y);
+    }
+}
+static void disaster(void) {                       // hits both colonies alike, anywhere on the map
+  uint8_t q = rand() & 1;
+  hit(rand() & (W - 1), rand() & (H - 1), q);
+  sfx_flood(); say(q ? "EARTHQUAKE!" : "FLASH FLOOD!");
+}
 static void election(void) {
+  uint8_t ok = appr >= 25;                          // anything but a coup earns a perk offer
   if (appr >= 50) {                                 // re-elected: foreign aid
     mana = (mana + 8 > MANA_MAX) ? MANA_MAX : mana + 8;
     sfx_mana(); say("ELECTION WON! AID");
@@ -719,6 +759,7 @@ static void election(void) {
     stock[0] >>= 1; mana = 0; appr = 40;
     sfx_qdead(); say("COUP! COFFERS LOOTED");
   }
+  if (ok && !tut && !sandbox) offer();
 }
 
 static void step_ant(Ant *a) {
@@ -783,6 +824,8 @@ static void tick_slice(void) {
     if ((tk & 127) == 0 && qhp[i] < qmax[i]) qhp[i]++; // queens slowly heal
   }
   if ((tk & drn) == 0) apr(!stock[0] && ncnt[0] ? -2 : -1);   // the people are never satisfied; a hungry colony grumbles double
+  if (pend) pend--;                                       // the perk offer runs out
+  if (!tut && !sandbox && gt > 90 && (tk & ((drn << 1) | 1)) == 0 && !(rand() & 3)) disaster();   // rarer on EASY, more frequent on HARD
   if (++etk >= 450) { etk = 0; election(); }              // an election roughly every minute
   if ((tk & 7) == 0) for (i = 0; i < 2; i++) {
     x = rand() & (W - 1); y = rand() & (H - 1);
@@ -816,7 +859,7 @@ static void newgame(uint8_t load) {
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
   VBK_REG = VBK_TILES;
   if (load && save_scan(0)) { save_scan(1); ok = 1; }          // continue the saved game (checked first, so it never half-loads)
-  if (ok) slotgame = 1; else { gdiff = diff; norec = (sandbox || tutor) ? 1 : 0; slotgame = 0; }
+  if (ok) slotgame = 1; else { gdiff = diff; norec = (sandbox || tutor) ? 1 : 0; slotgame = 0; perk = 0; }
   if (gdiff > 2) gdiff = 1;
   set_rules(gdiff);
   nestx[0] = 4;  nesty[0] = 26; nestx[1] = 27; nesty[1] = 5;
@@ -840,7 +883,7 @@ static void newgame(uint8_t load) {
     appr = 50; etk = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = DIF[gdiff].mana0; tk = 0; gt = 0;
   }
   count(ncnt);
-  ff = 0; slice = 0; hdirty = 1; cheat = 0; over = 0;
+  ff = 0; slice = 0; hdirty = 1; cheat = 0; over = 0; pend = 0;
   camx = 0; camy = H - VH; follow(); scx = (int16_t)camx * 8; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); hud();
@@ -874,11 +917,9 @@ static void offering(void) {
   apr(-5); sfx_mana(); say("EMBEZZLED! P DOWN");
 }
 static void flood(void) {
-  int8_t x, y;
-  if (mana < 8) { sfx_deny(); say("FLOOD NEEDS 8 MANA"); return; }
-  mana -= 8; sfx_flood(); tev |= 8;
-  for (y = (int8_t)cy - 1; y <= (int8_t)cy + 1; y++) for (x = (int8_t)cx - 1; x <= (int8_t)cx + 1; x++)
-    if (x >= 0 && y >= 0 && x < W && y < H && hgt[y][x] && !is_nest(x, y)) { hgt[y][x]--; draw_cell(x, y); }
+  if (mana < fcost) { sfx_deny(); say("NOT ENOUGH MANA"); return; }
+  mana -= fcost; sfx_flood(); tev |= 8;
+  hit(cx, cy, 0);
 }
 
 // ---------- camera ----------
@@ -1419,8 +1460,8 @@ static void play(void) {
       if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); selused = 1; }
     } else {
       if (selprev && !selused) flood();
-      if (p & J_A) raise_land();
-      if (p & J_B) lower_land();
+      if (pend && !msgt) { if (p & (J_A | J_B)) pick((p & J_A) ? pa : pb); }   // offer on the HUD: A / B take a perk
+      else { if (p & J_A) raise_land(); if (p & J_B) lower_land(); }
     }
     selprev = k & J_SELECT;
     if (tut && (cx != lcx || cy != lcy)) { tev |= 1; lcx = cx; lcy = cy; }
@@ -1433,6 +1474,7 @@ static void play(void) {
     if (++t >= 8) {
       t = 0; count(ncnt);
       if (tut && !msgt && THINT[tut - 1]) { msg = THINT[tut - 1]; msgt = 1; }   // keep the lesson goal on the HUD
+      if (pend && !msgt) { msg = pbuf; msgt = 1; }                                // keep the perk offer on the HUD
       hud();
     }
     if (!qhp[1]) over = 1; else if (!qhp[0]) over = 2;
