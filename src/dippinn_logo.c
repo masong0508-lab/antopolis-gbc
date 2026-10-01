@@ -1,8 +1,9 @@
 // DippInn logo sequence for Game Boy Color, ~8 s.  Artwork comes from tools/make_dippinn_logo.py.
-//   Phase 1 (frames 0-160):   dusk scene - flat sky bands, wavy ridge, speckled hills, sprite clouds + moon.
-//                             Two scroll speeds: the LYC interrupt changes SCX at line 96 (ridge above, hills below).
+//   Phase 1 (frames 0-160):   dusk scene laid out like the reference - blue sky on the left, wavy light ridge in the
+//                             middle, dark speckled hills + big moon on the right (noise tiles rotate = scrolling noise),
+//                             a sun sinking behind, fast white clouds in front, slow pink clouds behind the hills.
 //   Phase 2 (161-211):        grey screen + twisting scan line, cut to black
-//   Phase 3 (212-478):        text fades in, rope underline grows from the centre (in 8 px steps), fade to black
+//   Phase 3 (212-478):        outlined title text fades in, rope underline grows pixel by pixel from the centre, fade out
 #include <gb/gb.h>
 #include <stdint.h>
 #include "dippinn_logo.h"
@@ -36,15 +37,7 @@ volatile u8 *host_addr(u16 a);
 #define P2 161
 #define P3 212
 #define HOLD_EXTRA 120           // +2 s: logo stays fully visible this many extra frames before the fade to black
-#define NCLOUD 9
-#define OBJ_CLOUD 128            // first sprite tile (cloud shape s = 128 + 4 s, moon = 140)
-#define OBJ_MOON 140
 
-
-#ifdef HOST_TEST
-void lcd_off(void); void vcopy(u16 dst, const u8 *src, u16 n); void vfill(u16 dst, u8 v, u16 n);
-void bpal_write(const u16 *c, u8 first, u8 n, u8 lvl); void opal_write(const u16 *c, u8 first, u8 n, u8 lvl);
-#else
 static void lcd_off(void) {
     if (rLCDC & LCDC_ON) {
         while (rLY < 144);                       // only switch the LCD off during VBlank
@@ -73,59 +66,60 @@ static void bpal_write(const u16 *c, u8 first, u8 n, u8 lvl) {
         rBCPD = (u8)(v >> 8);
     }
 }
-static void opal_write(const u16 *c, u8 first, u8 n, u8 lvl) {
-    rOCPS = 0x80 | (u8)(first * 2);
-    while (n--) {
-        u16 v = lvl ? fade_col(*c, lvl) : *c; c++;
-        while (rSTAT & 2);
-        rOCPD = (u8)v;
-        while (rSTAT & 2);
-        rOCPD = (u8)(v >> 8);
-    }
-}
-#endif
-
-// scroll values applied by the VBlank / LYC interrupts: top zone from line 0, lower zone after line 95
-#ifdef HOST_TEST
-extern volatile u8 g_top_scx, g_top_scy, g_low_scx, g_low_scy;
-#else
-static volatile u8 g_top_scx, g_top_scy, g_low_scx, g_low_scy;
-#endif
-static void vbl_isr(void) { rSCX = g_top_scx; rSCY = g_top_scy; }
-static void lcd_isr(void) {
-    while (rSTAT & 3);                             // wait for HBlank so the change lands between two lines
-    rSCX = g_low_scx; rSCY = g_low_scy;
-}
 
 static u8 last_lvl;
-
 static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
-
 static void hide_all_sprites(void) { u8 i; for (i = 0; i < 40; i++) hide_sprite(i); }
 
 // ---- Phase 1: scene ----
-static const u8 cl_x0[NCLOUD] = {2, 24, 47, 66, 90, 111, 134, 156, 178};
-static const u8 cl_y0[NCLOUD] = {14, 62, 30, 94, 8, 76, 48, 24, 84};
-
-static void scene_pal(u8 lvl) {
-    bpal_write(dl_sc_pal, 0, 12, lvl);
-    opal_write(dl_spr_pal, 0, 8, lvl);
+// Scene colours are sparse (palette slot + colour). The faded colours are computed while the picture is drawn
+// (pbuf) and only copied to palette RAM in VBlank, at most PAL_PER_VBL colours per frame, so nothing tears.
+#define PAL_PER_VBL 12
+static u16 pbuf[40];
+static u8 pw, plvl_hw, plvl_want;                 // colours written for the current level, level on the hardware, wanted level
+static void pal_put(u8 i) {
+    u8 s = dl_sc_cslot[i]; u16 v = pbuf[i];
+    if (s & 0x80) { rOCPS = 0x80 | (u8)((s & 31) * 2); rOCPD = (u8)v; rOCPD = (u8)(v >> 8); }
+    else          { rBCPS = 0x80 | (u8)(s * 2);        rBCPD = (u8)v; rBCPD = (u8)(v >> 8); }
 }
+static void pal_calc(u8 lvl) {
+    u8 i;
+    for (i = 0; i < dl_sc_ncol; i++) pbuf[i] = lvl ? fade_col(dl_sc_ccol[i], lvl) : dl_sc_ccol[i];
+}
+static void pal_flush(void) {                     // call right after wait_vbl_done()
+    u8 n = 0;
+    while (pw < dl_sc_ncol && n < PAL_PER_VBL) { pal_put(pw); pw++; n++; }
+}
+static void pal_plan(void) {                      // call during the picture: start the next level once the last one landed
+    if (pw >= dl_sc_ncol && plvl_want != plvl_hw) { plvl_hw = plvl_want; pal_calc(plvl_hw); pw = 0; }
+}
+
+#define NPINK 4
+#define NWHITE 3
+static const u8 pk_x0[NPINK] = {81, 2, 19, 53}, pk_y0[NPINK] = {16, 40, 54, 61};
+static const u8 wh_x0[NWHITE] = {155, 51, 101}, wh_y0[NWHITE] = {55, 68, 80};   // screen x at frame 24 = reference
+
+static u8 rbuf[96];
+static void rot_calc(int f) {                     // noise tiles 1..6 rotated left by (f*2/3) px: the noise scrolls
+    u8 i, s = (u8)(((f * 2) / 3) & 7);
+    for (i = 0; i < 96; i++) { u8 v = dl_rot_base[i]; rbuf[i] = (u8)((v << s) | (v >> (8 - s))); }
+}
+
 static void scene_init(void) {
-    u8 r;
+    u8 r, c;
     lcd_off();
     vfill(0x9800, 0, 1024); rVBK = 1; vfill(0x9800, 0, 1024); rVBK = 0;
     vcopy(0x8000, dl_sc_tiles, dl_sc_tile_count * 16);
-    vcopy(0x8800, dl_spr_tiles, 16 * 16);                     // sprite tiles 128..143
+    vcopy(0x8800, dl_spr_tiles, 36 * 16);                     // sprite tiles 128..163
     for (r = 0; r < 18; r++) vcopy(0x9800 + r * 32, dl_sc_map + r * 32, 32);
-    rVBK = 1;                                               // attributes are constant per row: sky pal 0, ridge pal 1, hills pal 2 + priority
-    for (r = 0; r < 18; r++) vfill(0x9800 + r * 32, r < 8 ? 0 : r < 12 ? 1 : 0x82, 32);
+    rVBK = 1;                                                 // sky + ridge: band palette per 3 rows; hills + moon: palette 7
+    for (r = 0; r < 18; r++) for (c = 0; c < 32; c++) R8(0x9800 + r * 32 + c) = c < 13 ? (u8)(r / 3) : 7;
     rVBK = 0;
     hide_all_sprites();
-    last_lvl = 16; scene_pal(16);
-    g_top_scx = g_top_scy = g_low_scx = g_low_scy = 0;
+    last_lvl = 16; plvl_want = plvl_hw = 16; pal_calc(16);
+    for (pw = 0; pw < dl_sc_ncol; pw++) pal_put(pw);
+    rot_calc(0);
     rSCX = rSCY = 0;
-    rSTAT |= 0x40; rLYC = 95;                               // LYC interrupt after line 95: hills scroll separately
     rLCDC = LCDC_ON | LCDC_BG8000 | LCDC_OBJ16 | LCDC_OBJON | LCDC_BGON;
 }
 static void place(u8 nb, int x, int y, u8 tile, u8 pal) {   // one 8x16 sprite, x/y = screen position of its top-left
@@ -134,30 +128,32 @@ static void place(u8 nb, int x, int y, u8 tile, u8 pal) {   // one 8x16 sprite, 
     move_sprite(nb, (u8)(x + 8), (u8)(y + 16));
 }
 static void scene_frame(int f) {
-    u8 i, lvl;
+    u8 i, k, lvl;
     int fadein = f < 15 ? 16 - f * 16 / 15 : 0;                       // 0.25 s fade in
     int dim = (12 * clampi((f - 84) * 256 / 78, 0, 256)) >> 8;        // dim to night from 1.4 s over 1.3 s
+    int m = (f * 3) >> 2, x, y;
+    pal_flush();                                                       // VBlank work first
+    if (pw >= dl_sc_ncol) set_data((u8 *)0x8010, rbuf, 96);            // rotated noise tiles (skipped while a palette is in flight)
     lvl = (u8)(fadein > dim ? fadein : dim);
-    if (lvl != last_lvl) { last_lvl = lvl; scene_pal(lvl); }
-    g_top_scx = (u8)((f * 2) / 5);                                     // ridge, slow
-    g_low_scx = (u8)((f * 3) >> 2);                                    // hills, faster
-    for (i = 0; i < NCLOUD; i++) {                                     // pink clouds drift left, bobbing
-        u16 xx = (u16)((cl_x0[i] + 400 - ((f * 3) >> 4)) % 200);
-        int x = (int)xx - 30;
-        int y = cl_y0[i] + ((dl_sin_q7[(u8)(f * 2 + cl_x0[i])] * 3) >> 7);
-        u8 tile = OBJ_CLOUD + 4 * (i % 3);
-        place(2 * i, x, y, tile, 0);
-        place(2 * i + 1, x + 8, y, tile + 2, 0);
+    plvl_want = lvl;
+    for (i = 0; i < NWHITE; i++) {                                     // white clouds: fast, in front of everything
+        x = (int)((wh_x0[i] + 380 - m) % 190) - 28; y = wh_y0[i];
+        for (k = 0; k < 3; k++) place(3 * i + k, x + 8 * k, y, 140 + 6 * i + 2 * k, 1);
     }
-    place(2 * NCLOUD, 148 - (f >> 2), 44, OBJ_MOON, 1);                // moon
-    place(2 * NCLOUD + 1, 156 - (f >> 2), 44, OBJ_MOON + 2, 1);
+    y = 25 + ((f - 24) * 27) / 20;                                     // sun sinks ~1.35 px per frame
+    place(9, 33, y, 158, 2); place(10, 41, y, 160, 2);
+    place(11, 96 - (f >> 2), 56, 162, 3);                              // small dark-blue ball
+    for (i = 0; i < NPINK; i++) {                                      // pink clouds: slow, behind ridge + hills (priority bit)
+        x = (int)((pk_x0[i] + 358 - (f >> 2)) % 176) - 16;
+        for (k = 0; k < 2; k++) place(12 + 2 * i + k, x + 8 * k, pk_y0[i], 128 + 4 * (i % 3) + 2 * k, 0x80);
+    }
+    pal_plan(); rot_calc(f + 1);
 }
 
 // ---- Phase 2: grey screen + scan line ----
 static void grey_init(void) {
     lcd_off();
-    rSTAT &= (u8)~0x40;                                                // no more LYC interrupt
-    g_top_scx = g_top_scy = g_low_scx = g_low_scy = 0; rSCX = rSCY = 0;
+    rSCX = rSCY = 0;
     hide_all_sprites();
     vfill(0x9800, 0, 1024); rVBK = 1; vfill(0x9800, 0, 1024); rVBK = 0;
     vcopy(0x8000, dl_gr_tiles, 4 * 16);
@@ -178,21 +174,57 @@ static void grey_frame(int f) {
 }
 
 // ---- Phase 3: text + underline ----
-static u8 rope_shown, rope_frame;
+// Text = tile rows 8-9, rope = tile row 10 (palette 1). The rope grows one pixel at a time: the cells between the two
+// fronts use one of 4 phase tiles (period-4 pattern), the two front cells use tiles built every frame (RT_L / RT_R).
+static u8 rope_tx;                                   // first rope tile id (4 phase tiles, then left / right front tile)
+static u8 rope_cells[16], rope_tl[16], rope_tr[16], rope_dirty;
+static u8 rope_lo, rope_hi, rope_fr;
+static void rope_tile(u8 *out, u8 p0, u8 lo, u8 hi, u8 fr) {          // rope px p0..p0+7, visible lo..hi, pattern phase fr
+    u8 i, k, v, l, h; int p;
+    for (i = 0; i < 16; i++) out[i] = 0;
+    for (k = 0; k < 4; k++) {
+        l = h = 0;
+        for (i = 0; i < 8; i++) {
+            p = p0 + i;
+            if (p < lo || p > hi) continue;
+            if (p == 0 || p == 127) v = k ? 1 : 0;                      // end caps
+            else v = dl_rope_pat[k * 4 + (((p + 2 + fr) & 3))];
+            l |= (u8)((v & 1) << (7 - i)); h |= (u8)((v >> 1) << (7 - i));
+        }
+        out[(4 + k) * 2] = l; out[(4 + k) * 2 + 1] = h;
+    }
+}
+static void rope_build(u8 lo, u8 hi, u8 fr) {                          // fills the per-frame buffers (called outside VBlank)
+    u8 t, cl = lo >> 3, cr = hi >> 3;
+    for (t = 0; t < 16; t++) rope_cells[t] = 0;
+    if (lo > hi) { rope_dirty = 0; return; }
+    for (t = cl + 1; t < cr; t++) rope_cells[t] = (u8)(rope_tx + fr);
+    rope_cells[cl] = (u8)(rope_tx + 4); rope_tile(rope_tl, (u8)(cl << 3), lo, hi, fr);
+    if (cr != cl) { rope_cells[cr] = (u8)(rope_tx + 5); rope_tile(rope_tr, (u8)(cr << 3), lo, hi, fr); }
+    rope_dirty = (u8)(cr != cl ? 2 : 1);
+}
 static void text_init(void) {
-    u8 r;
+    u8 r, f;
     lcd_off();
     vfill(0x9800, 0, 1024); rVBK = 1; vfill(0x9800, 0, 1024); rVBK = 0;
     vcopy(0x8000, dl_tx_tiles, dl_tx_tile_count * 16);
-    for (r = 0; r < 3; r++) vcopy(0x9800 + (8 + r) * 32, dl_tx_map + r * 20, 20);
-    rVBK = 1; vfill(0x9800 + 11 * 32 + 2, 1, 16); rVBK = 0;            // rope row uses palette 1
+    rope_tx = (u8)dl_tx_tile_count;
+    for (f = 0; f < 4; f++) { rope_tile(rope_tl, 8, 0, 255, f); vcopy(0x8000 + (rope_tx + f) * 16, rope_tl, 16); }   // interior phase tiles
+    for (r = 0; r < 2; r++) vcopy(0x9800 + (8 + r) * 32, dl_tx_map + r * 20, 20);
+    rVBK = 1; vfill(0x9800 + 10 * 32 + 2, 1, 16); rVBK = 0;            // rope row uses palette 1
     last_lvl = 16; bpal_write(dl_tx_pal, 0, 8, 16);
-    rope_shown = 0; rope_frame = 255;
+    rope_dirty = 0; rope_lo = 255; rope_hi = 0; rope_fr = 255;
     rLCDC = LCDC_ON | LCDC_BG8000 | LCDC_BGON;
 }
 static void text_frame(int f) {
-    u8 i, lvl, vis;
+    u8 i, lvl, fr, lo, hi;
     int lf = f - P3, l = 0, half, ease, L, u;
+    if (rope_dirty) {                                                  // VBlank: copy last frame's buffers
+        for (i = 0; i < 16; i++) set_vram_byte((u8 *)(0x9800 + 10 * 32 + 2 + i), rope_cells[i]);
+        set_data((u8 *)(0x8000 + (rope_tx + 4) * 16), rope_tl, 16);
+        if (rope_dirty == 2) set_data((u8 *)(0x8000 + (rope_tx + 5) * 16), rope_tr, 16);
+        rope_dirty = 0;
+    }
     if (lf < 42) l = 16 - lf * 16 / 42;                                // 0.7 s text fade-in
     if (lf >= 110 + HOLD_EXTRA) l = (lf - 110 - HOLD_EXTRA) * 16 / 36; // 0.6 s fade to black
     lvl = (u8)clampi(l, 0, 16);
@@ -200,17 +232,11 @@ static void text_frame(int f) {
     L = clampi((lf - 18) * 256 / 54, 0, 256); u = 256 - L;             // rope grows after 0.3 s over 0.9 s, cubic ease-out
     ease = 256 - (int)((((u32)u * u >> 8) * u) >> 8);
     half = (64 * ease) >> 8;                                           // 0..64 px each side of the centre
-    vis = 0;                                                           // tile i of the rope is revealed once the front reaches it
-    for (i = 0; i < 16; i++) { int d = i < 8 ? 56 - 8 * i : 8 * i - 64; if (half > d && half > 0) vis++; }
-    {
-        u8 fr = (u8)((lf / 5) & 3);
-        if (lf >= 0 && (vis != rope_shown || fr != rope_frame)) {
-            rope_shown = vis; rope_frame = fr;
-            for (i = 0; i < 16; i++) {
-                int d = i < 8 ? 56 - 8 * i : 8 * i - 64;
-                R8(0x9800 + 11 * 32 + 2 + i) = (half > d && half > 0) ? dl_rope_map[fr * 16 + i] : 0;
-            }
-        }
+    fr = (u8)((lf / 5) & 3);
+    lo = half ? (u8)(64 - half) : 255; hi = half ? (u8)(63 + half) : 0;
+    if (lf >= 0 && (lo != rope_lo || hi != rope_hi || fr != rope_fr)) {
+        rope_lo = lo; rope_hi = hi; rope_fr = fr;
+        rope_build(lo, hi, fr);
     }
 }
 
@@ -230,13 +256,8 @@ static void logo_play(void) {
 }
 
 void dippinn_logo_play(void) {
-    disable_interrupts();
-    add_VBL(vbl_isr); add_LCD(lcd_isr);
-    set_interrupts(VBL_IFLAG | LCD_IFLAG);
-    enable_interrupts();
     logo_play();
     disable_interrupts();                                              // hand the machine back
-    remove_VBL(vbl_isr); remove_LCD(lcd_isr);
     set_interrupts(VBL_IFLAG);
     enable_interrupts();
     rSTAT &= (u8)~0x40;

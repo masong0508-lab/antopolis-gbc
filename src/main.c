@@ -304,19 +304,26 @@ static const uint16_t *tune_p;
 static uint8_t jl, ji, jt;
 
 static uint8_t h1, h2, hn;   // music yields a channel for a few frames after a sound effect uses it
-static void ch1(uint8_t sweep, uint16_t f, uint8_t env) {
+// Music + jingles are driven by the VBlank interrupt (snd_isr), so tempo never depends on how long a game frame takes.
+// Everything the main loop does to the sound registers / music state is wrapped in disable/enable_interrupts so the
+// interrupt can never land halfway through a multi-register write.
+static void ch1_raw(uint8_t sweep, uint16_t f, uint8_t env) {
   h1 = 14;
   NR10_REG = sweep; NR11_REG = 0x80; NR12_REG = env;
   NR13_REG = (uint8_t)f; NR14_REG = 0x80 | (uint8_t)(f >> 8);
 }
-static void ch2(uint16_t f, uint8_t env) {
+static void ch2_raw(uint16_t f, uint8_t env) {
   h2 = 12;
   NR21_REG = 0x80; NR22_REG = env;
   NR23_REG = (uint8_t)f; NR24_REG = 0x80 | (uint8_t)(f >> 8);
 }
+static void ch1(uint8_t sweep, uint16_t f, uint8_t env) { disable_interrupts(); ch1_raw(sweep, f, env); enable_interrupts(); }
+static void ch2(uint16_t f, uint8_t env) { disable_interrupts(); ch2_raw(f, env); enable_interrupts(); }
 static void noise(uint8_t env, uint8_t poly) {
+  disable_interrupts();
   hn = 16;
   NR41_REG = 0; NR42_REG = env; NR43_REG = poly; NR44_REG = 0x80;
+  enable_interrupts();
 }
 static void sfx_raise(void) { ch1(0x15, N_C5, 0xA1); }
 static void sfx_lower(void) { ch1(0x1D, N_G4, 0xA1); }
@@ -328,10 +335,10 @@ static void sfx_spawn(void) { ch2(N_C6, 0x81); }
 static void sfx_fight(void) { noise(0x81, 0x33); }
 static void sfx_hit(void)   { noise(0xC2, 0x44); }
 static void sfx_qdead(void) { noise(0xF7, 0x77); }
-static void jingle(const uint16_t *n, uint8_t len) { tune_p = n; jl = len; ji = 0; jt = 0; }
+static void jingle(const uint16_t *n, uint8_t len) { disable_interrupts(); tune_p = n; ji = 0; jt = 0; jl = len; enable_interrupts(); }
 static void jingle_update(void) {
   if (ji >= jl) return;
-  if (jt == 0) { ch2(tune_p[ji++], 0xB2); jt = 10; } else jt--;
+  if (jt == 0) { ch2_raw(tune_p[ji++], 0xB2); jt = 10; } else jt--;
 }
 
 // ---------- music: 4-channel loop in A minor, 112 BPM, 8 bars (~17 s) ----------
@@ -364,16 +371,20 @@ static uint8_t mus_on, mt, ms;
 
 static void music_start(void) {
   uint8_t i;
+  disable_interrupts();
   NR30_REG = 0;                                  // DAC off while loading the waveform
   for (i = 0; i < 16; i++) WAVERAM[i] = WAVE[i];
   NR30_REG = 0x80;
   mt = 7; ms = 0; mus_on = 1;                    // first step plays on the next frame
+  enable_interrupts();
 }
 static void music_stop(void) {
+  disable_interrupts();
   mus_on = 0;
   NR12_REG = 0; NR22_REG = 0; NR42_REG = 0; NR30_REG = 0;
+  enable_interrupts();
 }
-static void music_update(void) {                 // call once per frame
+static void music_update(void) {                 // runs from the VBlank interrupt, once per frame
   uint8_t b, e, n; uint16_t f;
   if (h1) h1--; if (h2) h2--; if (hn) hn--;
   if (!mus_on || ++mt < 8) return;               // 8 frames per 16th note
@@ -419,18 +430,22 @@ static uint16_t tlf;                               // lead base frequency (vibra
 
 static void tm_start(void) {
   uint8_t i;
+  disable_interrupts();
   NR30_REG = 0;
   for (i = 0; i < 16; i++) WAVERAM[i] = TWAVE[i];
   NR30_REG = 0x80;
   NR51_REG = 0xD6;                                 // ch1 left, ch2 right, ch3 both, ch4 left (moves per step)
   tmf = 21; tme = 63; tvt = 255; tvp = 0; tpan = 0; tmu = 1;      // the first update plays step 0
+  enable_interrupts();
 }
 static void tm_stop(void) {
+  disable_interrupts();
   tmu = 0;
   NR12_REG = 0; NR22_REG = 0; NR42_REG = 0; NR30_REG = 0;
   NR51_REG = 0xFF;                                 // back to centred sound for the game
+  enable_interrupts();
 }
-static void tm_update(void) {                      // call once per frame (22 frames per eighth note)
+static void tm_update(void) {                      // runs from the VBlank interrupt (22 frames per eighth note)
   uint8_t b, e, n, s; uint16_t f; int16_t a;
   if (!tmu) return;
   if (++tmf >= 22) { tmf = 0; tme = (tme + 1) & 63; }
@@ -465,11 +480,15 @@ static void tm_update(void) {                      // call once per frame (22 fr
     tvp++;
     if (tvt >= 8) {
       a = (int16_t)((2048 - tlf) >> 6); if (a < 1) a = 1;
-      f = tlf + (uint16_t)(((int16_t)TVIB[(tvp >> 1) & 7] * a) / 2);
+      s = (uint8_t)TVIB[(tvp >> 1) & 7];                         // -2..2 (a * v / 2 without mul/div)
+      n = (s == 2 || s == 254) ? (uint8_t)a : (s == 1 || s == 255) ? (uint8_t)(a >> 1) : 0;
+      f = (s >= 128) ? tlf - n : tlf + n;
       NR23_REG = (uint8_t)f; NR24_REG = (uint8_t)(f >> 8);          // no trigger bit: pitch only
     }
   }
 }
+
+static void snd_isr(void) { music_update(); tm_update(); jingle_update(); }
 
 // ---------- fades: scale every palette entry towards black; the master volume follows ----------
 static palette_color_t fb[32], fs[12];
@@ -595,8 +614,8 @@ static void tick_slice(void) {
     if (hgt[ant[i].y][ant[i].x] == 0) { die(&ant[i]); continue; }            // drowned
     step_ant(&ant[i]);
   }
-  if (slice == 7)                                                          // fights: checked once per cycle, as before
-    for (i = 0; i < MAXA; i++) if (ant[i].alive) for (j = i + 1; j < MAXA; j++)
+  for (i = slice; i < MAXA; i += 8)                                        // fights: every pair is still checked once per cycle,
+    if (ant[i].alive) for (j = i + 1; j < MAXA; j++)                       // but spread over the 8 slices (no hitch every 8th frame)
       if (ant[j].alive && ant[i].team != ant[j].team && ant[i].x == ant[j].x && ant[i].y == ant[j].y)
         { if (rand() & 1) die(&ant[i]); else die(&ant[j]); sfx_fight(); if (!ant[i].alive) break; }
   if ((tk & 3) == 0) for (y = slice << 2; y < (uint8_t)((slice << 2) + 4); y++) for (x = 0; x < W; x++) if (ph[y][x]) ph[y][x]--;
@@ -668,7 +687,7 @@ static void newgame(void) {
   draw_sprites();
   DISPLAY_ON;
   music_start();                       // the game loop starts as the picture fades in
-  for (k = 1; k <= 8; k++) { fade_calc(k, 0); for (x = 0; x < 3; x++) { vsync(); fade_apply(); music_update(); } }
+  for (k = 1; k <= 8; k++) { fade_calc(k, 0); for (x = 0; x < 3; x++) { vsync(); fade_apply(); } }
 }
 
 static void raise_land(void) {
@@ -765,7 +784,7 @@ static void twinkle(uint8_t ph) {                 // bright stars ('*') alternat
 static uint8_t tfr, tf3, tsh, tblink, wx[5];
 static void title_tick(void) {                    // one title frame
   uint8_t i, on;
-  vsync(); fade_apply(); seed += DIV_REG + 1; tm_update();      // palettes first (we are in vblank); seed from how long you wait
+  vsync(); fade_apply(); seed += DIV_REG + 1;      // palettes first (we are in vblank); seed from how long you wait
   tfr++;
   if (++tf3 >= 3) { tf3 = 0; if (++tsh >= 48) tsh = 0; if (tsh <= 16) logo_shine((int8_t)tsh - 2); }
   if ((tfr & 31) == 0) twinkle((tfr >> 5) & 1);
@@ -916,7 +935,7 @@ static void eye(void) {                              // time stands still while 
       if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; }
       view_render(vx, vy); move_win(7, 0); go = 0;
     }
-    vsync(); music_update();
+    vsync();
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) { cx = vx; cy = vy; break; }          // transfer: the cursor jumps to where you were looking from
@@ -1061,7 +1080,7 @@ static void tut_card(uint8_t i) {
   HIDE_SPRITES; move_win(7, 0);
   prev = joypad();
   while (1) {
-    vsync(); music_update();
+    vsync();
     k = joypad();
     if ((k & ~prev) & J_START) break;
     if ((k & ~prev) & J_B) { tut = 0; break; }
@@ -1088,7 +1107,6 @@ static void play(void) {
   if (tutor) { tut = 1; tut_enter(); }
   while (!over) {
     vsync();
-    music_update();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
     k = joypad(); p = k & ~prev; prev = k;
     if ((p & J_START) && (k & J_SELECT) && !paused) { selused = 1; eye(); continue; }   // SELECT+START: ant eye
@@ -1150,7 +1168,7 @@ static void play(void) {
   attr(0, 1, 20, 1);
   put_str(0, 1, over == 1 ? "YOU WIN! PRESS START" : "COLONY LOST! START  ");
   if (over == 1) jingle(WIN_TUNE, 6); else jingle(LOSE_TUNE, 4);
-  while (1) { vsync(); jingle_update(); if (joypad() & J_START) break; }
+  while (1) { vsync(); if (joypad() & J_START) break; }
   waitpadup();
 }
 
@@ -1158,6 +1176,7 @@ void main(void) {
   uint8_t i, x, y;
   uint8_t buf[40 * 16];
   dippinn_logo_play();                                   // DippInn boot logo (~8 s, START skips)
+  add_VBL(snd_isr);                                      // music + jingles tick in the VBlank interrupt from here on
   NR52_REG = 0x80; NR51_REG = 0xFF; NR50_REG = 0x77;     // sound on, all channels, full volume
   DISPLAY_OFF;
   set_bkg_data(BT, 8, BGT);                              // 6 terrain tiles + 2 mana-bar tiles

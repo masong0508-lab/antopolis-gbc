@@ -17,65 +17,97 @@ def hashn(x, y):
 def flat(i): return enc_tile(np.full((8, 8), i, np.uint8))
 tile_sets = {}
 
-# ------------------------------------------------------------------ scene
-sky = [rgb555(20 + b * 9, 50 + b * 14, 190 + b * 8) for b in range(6)]
-HL, FILL = rgb555(0x8f, 0xc0, 0xf5), rgb555(0x4f, 0x92, 0xe8)
-D1, D2, D3 = rgb555(2, 4, 28), rgb555(8, 16, 60), rgb555(20, 34, 100)
-sc_pal = sky[0:4] + [sky[4], sky[5], HL, FILL] + [sky[5], D1, D2, D3]     # pal0 flat sky, pal1 sky/ridge, pal2 hills
+# ------------------------------------------------------------------ scene (vertical layout like the reference)
+# cols 0-6 sky (6 banded palettes), cols 7-12 wavy ridge, cols 13-19 dark noisy hills + big moon bottom-right.
+# BG tile 0 = flat sky, tiles 1-4 = rotating hill noise, tiles 5-6 = rotating moon noise (the C code rotates them
+# a pixel per frame = scrolling noise), the rest are static (ridge, moon rim).
+SKY = [(14,48,187),(24,63,197),(31,70,204),(40,87,213),(56,103,219),(69,116,232)]
+MID, LIGHT, N0, BEIGE, WHITE = (74,145,235),(138,192,245),(3,8,42),(189,167,170),(228,216,246)
+bg_cols = []                                               # (slot, rgb555): slot = pal*4 + colour
+for p in range(6):
+    for ci, col in enumerate([SKY[p], MID, LIGHT, N0]): bg_cols.append((p * 4 + ci, rgb555(*col)))
+bg_cols += [(29, rgb555(*N0)), (30, rgb555(*BEIGE)), (31, rgb555(*WHITE))]   # pal 7: hills + moon
+obj_cols = [(1, rgb555(199,127,184)), (2, rgb555(150,95,170)),               # pal 0 pink clouds
+            (5, rgb555(236,230,250)), (6, rgb555(186,196,240)),              # pal 1 white clouds
+            (9, rgb555(253,241,171)), (10, rgb555(253,169,56)), (11, rgb555(246,120,70)),   # pal 2 sun
+            (13, rgb555(41,56,156))]                                          # pal 3 ball
+sc_cols = [(s, c) for s, c in bg_cols] + [(0x80 | s, c) for s, c in obj_cols]
 
-def ridge_y(x):
-    return max(73, 82 + int(round(6 * math.sin(2 * math.pi * x / 128) + 3 * math.sin(2 * math.pi * x / 64 + 1.0))))
-def hill_top(x):
-    return 116 + int(round(11 * math.sin(2 * math.pi * x / 128 + 0.6) + 5 * math.sin(2 * math.pi * x / 64 + 2.0)))
+def ridge_x(y):
+    return 80 + int(round(7 * math.sin(2 * math.pi * y / 64) + 3 * math.sin(2 * math.pi * y / 32 + 1.0)))
+MCX, MCY, MR = 134, 124, 23
+def moon_in(x, y): return (x - MCX) ** 2 + (y - MCY) ** 2 <= MR * MR
 
 sc_tiles = []; sc_lookup = {}
 def sc_add(data):
     if data not in sc_lookup: sc_lookup[data] = len(sc_tiles); sc_tiles.append(data)
     return sc_lookup[data]
+def noise_tile(seed, kind):                                 # kind 0 hills (idx 1, specks idx 3), 1 moon (idx 2, specks idx 1)
+    px = np.zeros((8, 8), np.uint8)
+    for y in range(8):
+        for x in range(8):
+            n = hashn(seed * 13 + x, seed * 7 + y)
+            px[y, x] = (3 if n < 11 else 1) if kind == 0 else (1 if n < 70 else 2)
+    return px
+rot_px = [noise_tile(i, 0) for i in range(4)] + [noise_tile(10 + i, 1) for i in range(2)]
+sc_add(flat(0))
+for p in rot_px: sc_add(enc_tile(p))                        # tiles 1..6 (the C code rotates these)
+rot_base = b''.join(enc_tile(p) for p in rot_px)
 MAP_W, MAP_H = 32, 18
-sc_map = bytearray(); sc_attr = bytearray()
+sc_map = bytearray(32 * 18)
 for r in range(MAP_H):
     for c in range(MAP_W):
-        if r < 8:                                            # flat sky, two tile rows per band (16 px)
-            sc_map.append(sc_add(flat(r // 2 % 4))); sc_attr.append(0)
-        elif r == 8:
-            sc_map.append(sc_add(flat(0))); sc_attr.append(1)
-        elif r < 12:                                         # ridge
+        if c >= 20: t = 0
+        elif c < 7: t = 0
+        elif c < 13:                                         # ridge
             px = np.zeros((8, 8), np.uint8)
             for yy in range(8):
                 for xx in range(8):
                     x, y = c * 8 + xx, r * 8 + yy
-                    y0 = ridge_y(x)
-                    px[yy, xx] = 0 if y < y0 else 2 if y < y0 + 2 else 3
-            sc_map.append(sc_add(enc_tile(px))); sc_attr.append(1)
-        else:                                                # hills (BG priority bit 7: colours 1-3 hide the clouds)
-            px = np.zeros((8, 8), np.uint8)
-            for yy in range(8):
-                for xx in range(8):
-                    x, y = c * 8 + xx, r * 8 + yy
-                    if y >= hill_top(x):
-                        n = hashn(x % 128, y)
-                        px[yy, xx] = 1 if n < 46 else 3 if n > 183 else 2
-            sc_map.append(sc_add(enc_tile(px))); sc_attr.append(2 | 0x80)
-assert len(sc_tiles) <= 128, len(sc_tiles)                   # sprite tiles live at 128+
+                    d = x - ridge_x(y)
+                    px[yy, xx] = 0 if d < 0 else 1 if d < 5 else 2 if d < 7 else 1 if d < 10 else 3
+            t = sc_add(enc_tile(px))
+        else:                                                # hills / moon
+            x0, y0 = c * 8, r * 8
+            cnt = sum(moon_in(x0 + xx, y0 + yy) for yy in range(8) for xx in range(8))
+            if cnt == 0: t = 1 + hashn(c, r) % 4
+            elif cnt == 64: t = 5 + hashn(c, r) % 2
+            else:
+                px = np.zeros((8, 8), np.uint8)
+                for yy in range(8):
+                    for xx in range(8):
+                        n = hashn(x0 + xx, y0 + yy)
+                        px[yy, xx] = (1 if n < 70 else 2) if moon_in(x0 + xx, y0 + yy) else (3 if n < 11 else 1)
+                t = sc_add(enc_tile(px))
+        sc_map[r * 32 + c] = t
+assert len(sc_tiles) <= 128, len(sc_tiles)
 
-# sprites: 8x16 mode. cloud shape i = tiles 128+4i.. (left top,left bottom,right top,right bottom); moon = 140..143
-CL = [[(2, 2, 10, 4), (0, 4, 14, 4), (4, 0, 6, 3)], [(0, 2, 8, 3), (3, 0, 7, 3), (6, 3, 9, 3)], [(1, 1, 12, 3), (0, 3, 16, 4), (5, 0, 6, 2)]]
-spr = []
-for i in range(3):
-    bm = np.zeros((16, 16), np.uint8)
-    for (x0, y0, w, h) in CL[i]: bm[y0:y0 + h, x0:x0 + w] = 1
-    for half in range(2):                                    # left / right sprite
-        for t in range(2):                                   # top / bottom tile
-            spr.append(enc_tile(bm[t * 8:t * 8 + 8, half * 8:half * 8 + 8]))
-bm = np.zeros((16, 16), np.uint8)
+# sprites (8x16 mode). A shape of W columns = W sprites, each (top tile, bottom tile).
+def rects(w, rs, shade_last=False):
+    bm = np.zeros((16, w * 8), np.uint8)
+    for (x0, y0, ww, hh) in rs: bm[y0:y0 + hh, x0:x0 + ww] = 1
+    if shade_last:
+        for x in range(w * 8):
+            col = np.where(bm[:, x])[0]
+            if len(col): bm[col.max(), x] = 2
+    return bm
+shapes = [
+ rects(2, [(3,1,7,2),(0,3,11,3)], True), rects(2, [(1,0,6,2),(0,2,12,3)], True), rects(2, [(2,1,9,2),(0,3,14,3)], True),
+ rects(3, [(5,1,9,3),(1,4,14,2),(0,5,20,3),(9,8,11,1)], True), rects(3, [(7,0,8,3),(2,3,16,2),(0,5,21,5)], True), rects(3, [(6,0,8,3),(4,3,14,3),(1,6,18,5)], True)]
+sun = np.zeros((16, 16), np.uint8)
 for y in range(16):
     for x in range(16):
-        if (2 * x - 15) ** 2 + (2 * y - 15) ** 2 <= 108: bm[y, x] = 1
-for half in range(2):
-    for t in range(2):
-        spr.append(enc_tile(bm[t * 8:t * 8 + 8, half * 8:half * 8 + 8]))
-spr_pal = [0, rgb555(0xc7, 0x7f, 0xb8), 0, 0, 0, rgb555(0x2a, 0x3f, 0x9a), 0, 0]
+        rr = math.hypot(x - 7.5, y - 7.5)
+        sun[y, x] = 1 if rr <= 5 else 2 if rr <= 6.6 else (3 if (x + y) & 1 else 0) if rr <= 8 else 0
+ball = np.zeros((16, 8), np.uint8)
+for y in range(7):
+    for x in range(7):
+        if (2 * x - 6) ** 2 + (2 * y - 6) ** 2 <= 40: ball[y, x] = 1
+spr = []
+for bm in shapes + [sun, ball]:
+    for col in range(bm.shape[1] // 8):
+        for half in range(2): spr.append(enc_tile(bm[half * 8:half * 8 + 8, col * 8:col * 8 + 8]))
+assert len(spr) == 36, len(spr)
 
 # ------------------------------------------------------------------ grey phase
 gr_pal = [rgb555(0x2B, 0x29, 0x33), rgb555(0xbd, 0xb8, 0xcc), rgb555(0x6b, 0x67, 0x84), 0]
@@ -87,62 +119,26 @@ for k in range(3):                                           # 0 flat, 1 twist0,
         px[l, x] = 1; px[l + 1, x] = 2
     gr.append(enc_tile(px))
 
-# ------------------------------------------------------------------ text phase
-FONT = {
- 'D': ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####.", ".....", "....."],
- 'P': ["####.", "#...#", "#...#", "####.", "#....", "#....", "#....", ".....", "....."],
- 'I': [".###.", "..#..", "..#..", "..#..", "..#..", "..#..", ".###.", ".....", "....."],
- 'i': ["..#..", ".....", ".##..", "..#..", "..#..", "..#..", ".###.", ".....", "....."],
- 'p': [".....", ".....", "####.", "#...#", "#...#", "#...#", "####.", "#....", "#...."],
- 'n': [".....", ".....", "####.", "#...#", "#...#", "#...#", "#...#", ".....", "....."],
- 'r': [".....", ".....", "#.##.", "##..#", "#....", "#....", "#....", ".....", "....."],
- 'o': [".....", ".....", ".###.", "#...#", "#...#", "#...#", ".###.", ".....", "....."],
- 'd': ["....#", "....#", ".####", "#...#", "#...#", "#...#", ".####", ".....", "....."],
- 'u': [".....", ".....", "#...#", "#...#", "#...#", "#..##", ".##.#", ".....", "....."],
- 'c': [".....", ".....", ".###.", "#...#", "#....", "#...#", ".###.", ".....", "....."],
- 't': [".....", ".#...", "####.", ".#...", ".#...", ".#..#", "..##.", ".....", "....."],
- 's': [".....", ".....", ".####", "#....", ".###.", "....#", "####.", ".....", "....."],
-}
-TX_ROW0 = 8                                                  # text canvas = tile rows 8..10 (y 64..87)
-ROPE_ROW = 11
-canvas = np.zeros((24, 160), np.uint8)
-mask = np.zeros((24, 160), np.uint8)
-s = 'DippInn Productions'; adv = sum(4 if ch == ' ' else 6 for ch in s)
-cx = (160 - adv) // 2
-for ch in s:
-    if ch == ' ': cx += 4; continue
-    for y in range(9):
-        for x in range(5):
-            if FONT[ch][y][x] == '#': mask[7 + y, cx + x] = 1     # glyph rows y=71..79 (text centred on y=76)
-    cx += 6
-for y in range(24):
-    for x in range(160):
-        v = 1 if mask[y, x] else 0
-        if not v:
-            for dy in (-1, 0, 1):
-                for dx in (-1, 0, 1):
-                    yy, xx = y + dy, x + dx
-                    if 0 <= yy < 24 and 0 <= xx < 160 and mask[yy, xx]: v = 2
-        canvas[y, x] = v
-tx_pal = [0, rgb555(128, 110, 215), rgb555(14, 9, 30), 0,
-          0, rgb555(0x8a, 0x7a, 0xe0), rgb555(0x4a, 0x3f, 0x8f), rgb555(0xd9, 0xd2, 0xff)]
+# ------------------------------------------------------------------ text phase (pixels copied from the reference video)
+import json
+ref = json.load(open('tools/ref_text.json'))
+TX_ROW0 = 8                                                  # text canvas = tile rows 8,9 (y 64..79); rope row = tile row 10 (rows 4-7)
+canvas = np.zeros((16, 160), np.uint8)
+tmap = {'.': 0, 'P': 1, 'N': 2, 'M': 3, 'd': 3, 'C': 3}
+for y, row in enumerate(ref['T']):
+    for x, ch in enumerate(row): canvas[y, 14 + x] = tmap[ch]
+tx_pal = [0, rgb555(131,103,213), rgb555(3,0,40), rgb555(128,113,173),
+          0, rgb555(128,114,173), rgb555(3,0,40), rgb555(72,63,105)]
 tx = [flat(0)]; tx_lookup = {tx[0]: 0}
 def tx_add(data):
     if data not in tx_lookup: tx_lookup[data] = len(tx); tx.append(data)
     return tx_lookup[data]
 tx_map = bytearray()
-for r in range(3):
+for r in range(2):
     for c in range(20):
         tx_map.append(tx_add(enc_tile(canvas[r * 8:r * 8 + 8, c * 8:c * 8 + 8])))
-rope_map = bytearray()
-for f in range(4):
-    strip = np.zeros((8, 128), np.uint8)
-    for x in range(126):
-        w = ((x >> 1) + f) & 1
-        strip[2 + w, x + 1] = 1; strip[4 - w, x + 1] = 2
-    for y in range(2, 5): strip[y, 0] = 3; strip[y, 127] = 3
-    for c in range(16):
-        rope_map.append(tx_add(enc_tile(strip[:, c * 8:c * 8 + 8])))
+# rope pattern (period 4 px, 4 rows), idx per x%4 -> [x%4==0..3]; pal1: 1 = light, 2 = navy, 3 = dark
+ROPE = [[2, 0, 0, 2], [1, 2, 2, 1], [2, 3, 3, 2], [3, 0, 0, 3]]      # rows 87..90 of the reference; x%4 = 3,0 / 1,2 pairs
 
 # ------------------------------------------------------------------ sine table (Q7), used for cloud bobbing and the title drift
 sin_q7 = bytes([(int(round(127 * math.sin(2 * math.pi * i / 256)))) & 255 for i in range(256)])
@@ -151,13 +147,13 @@ with open('src/dippinn_logo_data.c', 'w') as o:
     o.write('// GENERATED by tools/make_dippinn_logo.py - do not edit\n#include "dippinn_logo_data.h"\n')
     o.write('const unsigned int dl_sc_tile_count = %d;\n' % len(sc_tiles))
     o.write(c_bytes('dl_sc_tiles', b''.join(sc_tiles)))
-    o.write(c_bytes('dl_sc_map', sc_map, 32))     # sc_attr is per row (0 / 1 / 0x82) and generated in dippinn_logo.c scene_init
-    o.write(c_words('dl_sc_pal', sc_pal))
+    o.write(c_bytes('dl_sc_map', sc_map, 32))
+    o.write(c_bytes('dl_sc_cslot', bytes(s for s, c in sc_cols))); o.write(c_words('dl_sc_ccol', [c for s, c in sc_cols]))
+    o.write('const unsigned char dl_sc_ncol = %d;\n' % len(sc_cols)); o.write(c_bytes('dl_rot_base', rot_base))
     o.write(c_bytes('dl_spr_tiles', b''.join(spr)))
-    o.write(c_words('dl_spr_pal', spr_pal))
     o.write(c_bytes('dl_gr_tiles', b''.join(gr))); o.write(c_words('dl_gr_pal', gr_pal))
     o.write('const unsigned int dl_tx_tile_count = %d;\n' % len(tx))
-    o.write(c_bytes('dl_tx_tiles', b''.join(tx))); o.write(c_bytes('dl_tx_map', tx_map, 20)); o.write(c_bytes('dl_rope_map', rope_map, 16))
+    o.write(c_bytes('dl_tx_tiles', b''.join(tx))); o.write(c_bytes('dl_tx_map', tx_map, 20)); o.write(c_bytes('dl_rope_pat', bytes(v for row in ROPE for v in row)))
     o.write(c_words('dl_tx_pal', tx_pal))
     o.write('const signed char dl_sin_q7[256] = {\n')
     sv = [b - 256 if b > 127 else b for b in sin_q7]
