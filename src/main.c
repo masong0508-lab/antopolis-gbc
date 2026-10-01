@@ -14,7 +14,7 @@
 #define MANA_MAX 20     // mana cap
 #define MANA_TRICKLE 32 // passive: +1 mana every this many ticks
 #define MANA_PER_FOOD 1 // tribute: mana per food a black ant carries home
-#define OFFER_FOOD 2    // offering (START): food spent ...
+#define OFFER_FOOD 2    // embezzle (SELECT+A): food spent ...
 #define OFFER_MANA 4    // ... for this much mana
 #define BT 128          // first terrain tile
 #define BAR_F 134       // mana bar tiles (free slots after the 6 terrain tiles)
@@ -26,11 +26,12 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 static uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff;
+static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
+static uint16_t etk;                           // ticks since the last election
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
-// Konami code (in play): infinite mana + food. Ends on A, not START (START = offering).
+// Konami code (in play): infinite mana + food. Ends on A, so it never collides with START (pause).
 static const uint8_t KONAMI[10] = {J_UP, J_UP, J_DOWN, J_DOWN, J_LEFT, J_RIGHT, J_LEFT, J_RIGHT, J_B, J_A};
 static const int8_t DX[4] = {1, -1, 0, 0};
 static const int8_t DY[4] = {0, 0, 1, -1};
@@ -103,51 +104,54 @@ static void put_num(uint8_t x, uint8_t y, uint8_t n) {
   if (n > 99) n = 99;
   put_char(x, y, '0' + n / 10); put_char(x + 1, y, '0' + n % 10);
 }
-static void help_draw(void) {          // lives on window rows 3-15; pausing slides the window up to cover the screen
+static void help_draw(void) {          // lives on window rows 3-17; pausing slides the window up to cover the screen
   put_str(7, 3, "PAUSED");
   put_str(1, 5, "A   RAISE LAND");
   put_str(1, 6, "B   LOWER LAND");
   put_str(1, 7, "SEL FLOOD 3X3 8MP");
-  put_str(1, 8, "SEL A FOOD TO MANA");
+  put_str(1, 8, "SEL A EMBEZZLE FOOD");
   put_str(1, 9, "SEL B FAST FORWARD");
   put_str(1, 10, "START PAUSE HELP");
-  put_str(1, 12, "MP BUYS LAND EDITS");
-  put_str(1, 13, "3 FOOD HATCH 1 ANT");
-  put_str(1, 14, "KILL THE RED QUEEN");
-  put_str(2, 16, "START TO RESUME");
+  put_str(1, 12, "KILL THE RED QUEEN");
+  put_str(1, 13, "P = POPULARITY");
+  put_str(0, 14, "ELECTION EVERY 1 MIN");
+  put_str(1, 15, "HIGH P WINS AID");
+  put_str(1, 16, "LOW P MEANS COUP");
+  put_str(2, 17, "START TO RESUME");
 }
 static void win_clear(void) {
   uint8_t x, y;
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
 }
 static void say(const char *m) { msg = m; msgt = 12; }
-static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255;
+static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255;
 static void hud(void) {                          // redraws only what changed: window writes are slow, so no full redraw
   uint8_t i;
   if (hdirty) {                                  // new game: static labels + force every number
     put_str(0, 0, "MP:"); put_str(16, 0, "F:");
-    hm = hs = hq0 = hq1 = ha = hr = hf = 255; hlab = 0; hdirty = 0;
+    hm = hs = hq0 = hq1 = ha = hr = hf = hp = 255; hlab = 0; hdirty = 0;
   }
   if (mana != hm) {
     hm = mana; put_num(3, 0, mana);
     for (i = 0; i < 10; i++) set_win_tile_xy(5 + i, 0, mana > 2 * i ? BAR_F : BAR_E);   // mana bar, 2 mana per cell
   }
   if (stock[0] != hs) { hs = stock[0]; put_num(18, 0, hs); }
+  if (ff != hf) { hf = ff; put_char(15, 0, ff ? 'X' : ' '); }   // X = fast forward on
   if (msgt) {                                   // hint overlay: text padded to the full 20 columns
     uint8_t x = 0; const char *m = msg;
     while (x < 20) put_char(x++, 1, *m ? *m++ : ' ');
     msgt--; hlab = 0;                           // bottom row labels must be redrawn afterwards
     return;
   }
-  if (!hlab) {
-    put_str(0, 1, "Q:"); put_str(3, 1, " FOE:"); put_str(9, 1, " A:"); put_str(14, 1, " R:");
-    hq0 = hq1 = ha = hr = hf = 255; hlab = 1;
+  if (!hlab) {                                  // Q:5/5 A:NN R:NN P:NN  (queens, ants, red ants, popularity)
+    put_str(0, 1, "Q:"); put_char(3, 1, '/'); put_str(5, 1, " A:"); put_str(10, 1, " R:"); put_str(15, 1, " P:");
+    hq0 = hq1 = ha = hr = hp = 255; hlab = 1;
   }
   if (qhp[0] != hq0) { hq0 = qhp[0]; put_char(2, 1, '0' + hq0); }
-  if (qhp[1] != hq1) { hq1 = qhp[1]; put_char(8, 1, '0' + hq1); }
-  if (ncnt[0] != ha) { ha = ncnt[0]; put_num(12, 1, ha); }
-  if (ncnt[1] != hr) { hr = ncnt[1]; put_num(17, 1, hr); }
-  if (ff != hf) { hf = ff; put_char(19, 1, ff ? 'X' : ' '); }   // X = fast forward on
+  if (qhp[1] != hq1) { hq1 = qhp[1]; put_char(4, 1, '0' + hq1); }
+  if (ncnt[0] != ha) { ha = ncnt[0]; put_num(8, 1, ha); }
+  if (ncnt[1] != hr) { hr = ncnt[1]; put_num(13, 1, hr); }
+  if (appr != hp) { hp = appr; put_num(18, 1, hp); }
 }
 
 // ---------- sound ----------
@@ -294,6 +298,21 @@ static void count(uint8_t *c) {
   for (i = 0; i < MAXA; i++) if (ant[i].alive) c[ant[i].team]++;
 }
 
+// ---------- Tropico bits: popularity + elections ----------
+static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
+static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
+static void election(void) {
+  if (appr >= 50) {                                 // re-elected: foreign aid
+    mana = (mana + 8 > MANA_MAX) ? MANA_MAX : mana + 8;
+    sfx_mana(); say("ELECTION WON! AID");
+  } else if (appr >= 25) {
+    sfx_deny(); say("ELECTION: NO BONUS");
+  } else {                                          // coup: the rebels loot the treasury
+    stock[0] >>= 1; mana = 0; appr = 40;
+    sfx_qdead(); say("COUP! COFFERS LOOTED");
+  }
+}
+
 static void step_ant(Ant *a) {
   uint8_t d, t = a->team, e = t ^ 1, found = 0, bd = 0, tx, ty, de;
   int16_t sc, best = -32000;
@@ -318,12 +337,13 @@ static void step_ant(Ant *a) {
     if (t == 0) {
       // mana workflow, step 2: food delivered home is also tribute to the god
       mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
+      apr(1);                                    // fed ants are happy ants
       sfx_food();
     }
   }
   // at the enemy nest: soldiers bite the queen, other ants steal food and run home
   if (!a->carry && qhp[e] && a->x == nestx[e] && a->y == nesty[e]) {
-    if (a->sol) { if (rand() & 1) { qhp[e]--; if (qhp[e]) sfx_hit(); else sfx_qdead(); } }
+    if (a->sol) { if (rand() & 1) { qhp[e]--; if (e == 0) apr(-3); if (qhp[e]) sfx_hit(); else sfx_qdead(); } }
     else if (stock[e]) { stock[e]--; a->carry = 1; sfx_fight(); }
   }
 }
@@ -336,13 +356,13 @@ static void tick_slice(void) {
   uint8_t i, j, x, y;
   for (i = slice; i < MAXA; i += 8) {
     if (!ant[i].alive) continue;
-    if (hgt[ant[i].y][ant[i].x] == 0) { ant[i].alive = 0; continue; }       // drowned
+    if (hgt[ant[i].y][ant[i].x] == 0) { die(&ant[i]); continue; }            // drowned
     step_ant(&ant[i]);
   }
   if (slice == 7)                                                          // fights: checked once per cycle, as before
     for (i = 0; i < MAXA; i++) if (ant[i].alive) for (j = i + 1; j < MAXA; j++)
       if (ant[j].alive && ant[i].team != ant[j].team && ant[i].x == ant[j].x && ant[i].y == ant[j].y)
-        { if (rand() & 1) ant[i].alive = 0; else ant[j].alive = 0; sfx_fight(); if (!ant[i].alive) break; }
+        { if (rand() & 1) die(&ant[i]); else die(&ant[j]); sfx_fight(); if (!ant[i].alive) break; }
   if ((tk & 3) == 0) for (y = slice << 2; y < (uint8_t)((slice << 2) + 4); y++) for (x = 0; x < W; x++) if (ph[y][x]) ph[y][x]--;
   if (++slice < 8) return;
   slice = 0;
@@ -350,10 +370,12 @@ static void tick_slice(void) {
   count(ncnt);
   for (i = 0; i < 2; i++) {
     if (!qhp[i]) continue;                         // no queen, no eggs
-    if (stock[i] >= 3 && spawn(i)) { stock[i] -= 3; if (i == 0) sfx_spawn(); }
+    if (stock[i] >= 3 && spawn(i)) { stock[i] -= 3; if (i == 0) { sfx_spawn(); apr(1); } }
     else if (ncnt[i] == 0 && (tk & 31) == 0) spawn(i);   // emergency egg: never a dead stalemate
     if ((tk & 127) == 0 && qhp[i] < QHP) qhp[i]++; // queens slowly heal
   }
+  if ((tk & 31) == 0) apr(!stock[0] && ncnt[0] ? -2 : -1);   // the people are never satisfied; a hungry colony grumbles double
+  if (++etk >= 450) { etk = 0; election(); }              // an election roughly every minute
   if ((tk & 7) == 0) for (i = 0; i < 2; i++) {
     x = rand() & (W - 1); y = rand() & (H - 1);
     if (hgt[y][x] && !food[y][x] && !is_nest(x, y)) { food[y][x] = 1; draw_cell(x, y); }
@@ -398,7 +420,7 @@ static void newgame(void) {
   stock[0] = stock[1] = 0; qhp[0] = qhp[1] = QHP; hatched[0] = hatched[1] = 0;
   for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
   count(ncnt);
-  ff = 0; slice = 0; hdirty = 1; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
+  ff = 0; appr = 50; etk = 0; slice = 0; hdirty = 1; cheat = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = 10; tk = 0; over = 0;
   camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); help_draw(); hud();
@@ -419,13 +441,13 @@ static void lower_land(void) {
   sfx_deny();
   say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] == 0 ? "ALREADY WATER" : "NEED MANA");
 }
-// mana workflow, step 3: offering. Trade colony food (that would hatch ants) for a burst of mana.
+// mana workflow, step 3: embezzle. Skim colony food (that would hatch ants) into mana, at a cost in popularity.
 static void offering(void) {
   if (stock[0] < OFFER_FOOD) { sfx_deny(); say("NEED 2 FOOD"); return; }
   if (mana >= MANA_MAX) { sfx_deny(); say("MANA IS FULL"); return; }
   stock[0] -= OFFER_FOOD;
   mana = (mana + OFFER_MANA > MANA_MAX) ? MANA_MAX : mana + OFFER_MANA;
-  sfx_mana();
+  apr(-5); sfx_mana(); say("EMBEZZLED! P DOWN");
 }
 static void flood(void) {
   int8_t x, y;
@@ -472,11 +494,11 @@ static void title(void) {
   HIDE_SPRITES;
   win_clear();
   put_str(5, 1, "ANTOPOLIS");
-  put_str(2, 3, "GOD OF THE ANTS");
+  put_str(0, 3, "VIVA EL PRESIDENTE!");
   put_str(3, 5, "A   RAISE LAND");
   put_str(3, 6, "B   LOWER LAND");
   put_str(3, 7, "SEL FLOOD 3X3");
-  put_str(3, 8, "SEL A FOOD TO MANA");
+  put_str(1, 8, "SEL A EMBEZZLE FOOD");
   put_str(1, 9, "FEED YOUR QUEEN:");
   put_str(1, 10, "BLACK ANTS BREED");
   put_str(1, 11, "KILL THE RED QUEEN");
@@ -522,7 +544,7 @@ static void play(void) {
       if (p == KONAMI[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); say("CHEAT ON! INFINITE"); } }
       else ki = (p == KONAMI[0]) ? 1 : 0;
     }
-    if (k & J_SELECT) {               // SELECT is a modifier: SEL+A offering, SEL+B fast forward, alone (on release) flood
+    if (k & J_SELECT) {               // SELECT is a modifier: SEL+A embezzle, SEL+B fast forward, alone (on release) flood
       if (p & J_SELECT) selused = 0;
       if (p & J_A) { offering(); selused = 1; }
       if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); selused = 1; }
@@ -532,8 +554,8 @@ static void play(void) {
       if (p & J_B) lower_land();
     }
     selprev = k & J_SELECT;
-    if (cheat) { mana = MANA_MAX; stock[0] = 99; }
-    if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; }
+    if (cheat) { mana = MANA_MAX; stock[0] = 99; appr = 99; }
+    if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; appr = 99; }
     follow(); scroll_step();
     for (n = ff ? 4 : 1; n; n--) tick_slice();     // fast forward = 4 slices per frame
     if (++t >= 8) { t = 0; count(ncnt); hud(); }
