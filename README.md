@@ -11,6 +11,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 | SELECT | flood a 3x3 area (8 mana) |
 | START | start / restart; in play: **offering**, 2 food -> 4 mana |
 
+- **Hints:** when an action is refused (no mana, nest, max height, no food...) the bottom HUD row briefly shows why instead of just buzzing.
 - **Sandbox:** hold SELECT while pressing START on the title screen: infinite mana, nobody can win or lose. Just terraform and watch the ants.
 - **Konami code** (in play): D-pad Up Up Down Down Left Right Left Right, then B, A gives infinite mana and food for that game.
 - **Mana workflow:** mana is what you terraform with, and it refills along three paths:

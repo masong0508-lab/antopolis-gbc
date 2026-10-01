@@ -25,6 +25,7 @@ static uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
 static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat;
+static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
 // Konami code (in play): infinite mana + food. Ends on A, not START (START = offering).
@@ -101,10 +102,17 @@ static void win_clear(void) {
   uint8_t x, y;
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
 }
+static void say(const char *m) { msg = m; msgt = 12; }
 static void hud(void) {
   put_str(0, 0, "MP:");     put_num(3, 0, mana);
   put_str(5, 0, " ANT:");   put_num(10, 0, ncnt[0]);
   put_str(12, 0, " RED:");  put_num(17, 0, ncnt[1]);
+  if (msgt) {                                   // hint overlay: text padded to the full 20 columns
+    uint8_t x = 0; const char *m = msg;
+    while (x < 20) put_char(x++, 1, *m ? *m++ : ' ');
+    msgt--;
+    return;
+  }
   put_str(0, 1, "QUEEN:");  put_char(6, 1, '0' + qhp[0]);
   put_str(7, 1, " FOE:");   put_char(12, 1, '0' + qhp[1]);
   put_str(13, 1, " F:");    put_num(16, 1, stock[0]);
@@ -286,6 +294,7 @@ static void newgame(void) {
   camx = 0; camy = H - VH; scx = 0; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); hud();
+  say(sandbox ? "SANDBOX: NO LIMITS" : "A/B LAND SEL FLOOD");
   move_win(7, 128);                    // window = 2-row HUD at the bottom
   SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
   SHOW_WIN; SHOW_SPRITES;
@@ -293,23 +302,26 @@ static void newgame(void) {
 }
 
 static void raise_land(void) {
-  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) { hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); }
-  else sfx_deny();
+  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) { hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); return; }
+  sfx_deny();
+  say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] >= 3 ? "ALREADY HIGHEST" : "NEED MANA");
 }
 static void lower_land(void) {
-  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); }
-  else sfx_deny();
+  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); return; }
+  sfx_deny();
+  say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] == 0 ? "ALREADY WATER" : "NEED MANA");
 }
 // mana workflow, step 3: offering. Trade colony food (that would hatch ants) for a burst of mana.
 static void offering(void) {
-  if (stock[0] < OFFER_FOOD || mana >= MANA_MAX) { sfx_deny(); return; }
+  if (stock[0] < OFFER_FOOD) { sfx_deny(); say("NEED 2 FOOD"); return; }
+  if (mana >= MANA_MAX) { sfx_deny(); say("MANA IS FULL"); return; }
   stock[0] -= OFFER_FOOD;
   mana = (mana + OFFER_MANA > MANA_MAX) ? MANA_MAX : mana + OFFER_MANA;
   sfx_mana();
 }
 static void flood(void) {
   int8_t x, y;
-  if (mana < 8) { sfx_deny(); return; }
+  if (mana < 8) { sfx_deny(); say("FLOOD NEEDS 8 MANA"); return; }
   mana -= 8; sfx_flood();
   for (y = (int8_t)cy - 1; y <= (int8_t)cy + 1; y++) for (x = (int8_t)cx - 1; x <= (int8_t)cx + 1; x++)
     if (x >= 0 && y >= 0 && x < W && y < H && hgt[y][x] && !is_nest(x, y)) { hgt[y][x]--; draw_cell(x, y); }
@@ -391,7 +403,7 @@ static void play(void) {
       }
     }
     if (p) {                           // Konami code tracker
-      if (p == KONAMI[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); } }
+      if (p == KONAMI[ki]) { if (++ki == 10) { ki = 0; cheat = 1; sfx_mana(); say("CHEAT ON! INFINITE"); } }
       else ki = (p == KONAMI[0]) ? 1 : 0;
     }
     if (p & J_A) raise_land();
