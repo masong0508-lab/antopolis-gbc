@@ -24,7 +24,7 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 static uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy;
+static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox;
 static int16_t scx, scy;                       // pixel scroll
 static uint16_t seed;
 static const int8_t DX[4] = {1, -1, 0, 0};
@@ -345,6 +345,7 @@ static void draw_sprites(void) {
 
 // ---------- screens ----------
 static void title(void) {
+  uint8_t k;
   DISPLAY_OFF;
   HIDE_SPRITES;
   win_clear();
@@ -358,11 +359,13 @@ static void title(void) {
   put_str(1, 10, "BLACK ANTS BREED");
   put_str(1, 11, "KILL THE RED QUEEN");
   put_str(1, 12, "TO WIN");
+  put_str(1, 13, "HOLD SEL: SANDBOX");
   put_str(4, 15, "PRESS START");
   SCX_REG = 0; SCY_REG = 0;
   move_win(7, 0); SHOW_WIN;
   DISPLAY_ON;
-  while (!(joypad() & J_START)) { vsync(); seed += DIV_REG + 1; }   // seed from how long you wait
+  while (!((k = joypad()) & J_START)) { vsync(); seed += DIV_REG + 1; }   // seed from how long you wait
+  sandbox = (k & J_SELECT) ? 1 : 0;   // hold SELECT when pressing START: sandbox (infinite mana, queens can't die)
   waitpadup();
   initrand(seed);
 }
@@ -389,6 +392,7 @@ static void play(void) {
     if (p & J_B) lower_land();
     if (p & J_SELECT) flood();
     if (p & J_START) offering();
+    if (sandbox) { mana = MANA_MAX; qhp[0] = qhp[1] = QHP; }
     follow(); scroll_step();
     if (++t >= 8) {
       t = 0; tick(); count(ncnt); hud();

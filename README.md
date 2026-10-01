@@ -11,6 +11,7 @@ Guide the **black** colony and kill the **red queen**. Lose your own queen and i
 | SELECT | flood a 3x3 area (8 mana) |
 | START | start / restart; in play: **offering**, 2 food -> 4 mana |
 
+- **Sandbox:** hold SELECT while pressing START on the title screen: infinite mana, nobody can win or lose. Just terraform and watch the ants.
 - **Mana workflow:** mana is what you terraform with, and it refills along three paths:
   1. **Trickle**: +1 mana every ~4 s, always on.
   2. **Tribute**: every food your black ants carry home gives +1 mana (so building good foraging routes feeds your terraforming).
