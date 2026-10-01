@@ -408,10 +408,10 @@ static void music_update(void) {                 // runs from the VBlank interru
 }
 
 
-// ---------- title theme: E phrygian-dominant, ~81 BPM, 8 bars, in stereo ----------
+// ---------- title theme: E phrygian-dominant, ~81 BPM, 16 bars (8 + 8), in stereo ----------
 // ch1 = echo of the lead (hard left), ch2 = lead with vibrato (hard right), ch3 = pulsing 3+3+2 drone bass (centre),
 // ch4 = tiny footsteps that ping-pong between the speakers. The title owns all four channels (no sfx play there).
-static const uint8_t TLEAD[64] = {   // one entry per eighth note: 0 = rest, 1 = hold, else semitones above C2 (like LEAD)
+static const uint8_t TLEAD[128] = {   // one entry per eighth note: 0 = rest, 1 = hold, else semitones above C2 (like LEAD)
    0, 0, 0, 0,  0, 0,35,36,
   40, 1, 1,38, 36, 1,35,33,
   32, 1,33, 1, 35,36,35,33,
@@ -419,13 +419,19 @@ static const uint8_t TLEAD[64] = {   // one entry per eighth note: 0 = rest, 1 =
   41, 1,40,38, 40, 1,36,38,
   36, 1, 1,35, 33, 1,32,33,
   44, 1,41,40, 38,36,35, 1,
-  40, 1, 1, 1,  1, 1, 0, 0};
+  40, 1, 1, 1,  1, 1, 0, 0,
+  // bars 9-16: an original four-phrase "march" tune that nods to the Empire Ants vocal shape (two gentle lines,
+  // a rising question, a falling answer back to E). Tune by ear: 1 = hold, 0 = rest, values as above.
+  40, 1,38,40, 41, 1,40, 1,   38, 1,36,38, 40, 1, 1, 1,     // line 1: small steps, settles on E
+  40, 1,38,40, 41, 1,44, 1,   41, 1,40,38, 40, 1, 1, 1,     // line 2: same walk, lifts a little higher
+  40, 1,41,44, 45, 1,44, 1,   47, 1,45, 1, 44, 1, 1, 0,     // line 3: the question, rises and hangs open
+  45, 1,44,41, 40, 1,38,36,   35, 1,36,38, 40, 1, 1, 1};    // line 4: the answer, falls home to E
 static const uint8_t TROOT[8] = {16, 16, 17, 16, 21, 17, 23, 16};         // bass root per bar: E E F E A F B E
 static const uint8_t TBASS[8] = {0, 255, 255, 0, 255, 255, 7, 255};       // per eighth: root, root, fifth (255 = none)
 static const char *const TSTEP[2] = {"X.x.x.xxX.x.x.x.", "X.x.xx.xX.x.xxx."};   // footsteps per 16th, alternating bars
 static const int8_t TVIB[8] = {0, 1, 2, 1, 0, -1, -2, -1};
 static const uint8_t TWAVE[16] = {0x8C,0xFF,0xED,0xCD,0xDD,0xCD,0xEF,0xFC,0x83,0x00,0x12,0x32,0x22,0x32,0x10,0x03};  // hollow, reedy
-static uint8_t tmu, tmf, tme, tvt, tvp, tpan;      // on, frame in eighth, eighth 0-63, lead age, vibrato phase, noise side
+static uint8_t tmu, tmf, tme, tvt, tvp, tpan;      // on, frame in eighth, eighth 0-127, lead age, vibrato phase, noise side
 static uint16_t tlf;                               // lead base frequency (vibrato wobbles around it)
 
 static void tm_start(void) {
@@ -435,7 +441,7 @@ static void tm_start(void) {
   for (i = 0; i < 16; i++) WAVERAM[i] = TWAVE[i];
   NR30_REG = 0x80;
   NR51_REG = 0xD6;                                 // ch1 left, ch2 right, ch3 both, ch4 left (moves per step)
-  tmf = 21; tme = 63; tvt = 255; tvp = 0; tpan = 0; tmu = 1;      // the first update plays step 0
+  tmf = 21; tme = 127; tvt = 255; tvp = 0; tpan = 0; tmu = 1;      // the first update plays step 0
   enable_interrupts();
 }
 static void tm_stop(void) {
@@ -448,11 +454,11 @@ static void tm_stop(void) {
 static void tm_update(void) {                      // runs from the VBlank interrupt (22 frames per eighth note)
   uint8_t b, e, n, s; uint16_t f; int16_t a;
   if (!tmu) return;
-  if (++tmf >= 22) { tmf = 0; tme = (tme + 1) & 63; }
+  if (++tmf >= 22) { tmf = 0; tme = (tme + 1) & 127; }
   b = tme >> 3; e = tme & 7;
   if (tmf == 0) {
     if (TBASS[e] != 255) {                         // bass: short plucks on the wave channel
-      f = NOTE[TROOT[b] + TBASS[e]];
+      f = NOTE[TROOT[b & 7] + TBASS[e]];
       NR30_REG = 0x80; NR31_REG = 0x60; NR32_REG = 0x40; NR33_REG = (uint8_t)f; NR34_REG = 0xC0 | (uint8_t)(f >> 8);
     }
     n = TLEAD[tme];
@@ -460,7 +466,7 @@ static void tm_update(void) {                      // runs from the VBlank inter
       tlf = NOTE[n]; tvt = 0; tvp = 0;
       NR21_REG = 0x40; NR22_REG = 0xA5; NR23_REG = (uint8_t)tlf; NR24_REG = 0x80 | (uint8_t)(tlf >> 8);
     }
-    n = TLEAD[(tme - 1) & 63];
+    n = TLEAD[(tme - 1) & 127];
     if (n > 1) {                                   // echo: last eighth's note again, thin and quiet, on the other side
       f = NOTE[n];
       NR10_REG = 0; NR11_REG = 0x00; NR12_REG = 0x55; NR13_REG = (uint8_t)f; NR14_REG = 0x80 | (uint8_t)(f >> 8);
