@@ -11,7 +11,7 @@
 #define H 32
 #define VW 20           // visible world tiles (bottom 2 rows are the HUD window)
 #define VH 16
-#define MAXA 100        // ant slots: 50 per colony (more than the 40 hardware sprites, so only ants in view get a sprite)
+#define MAXA 50         // ant slots: 25 per colony (the 37 hardware sprites only show the ants in view)
 #define NSPR 37         // hardware sprites 0..36 show the ants on screen; 37, 38 = queens, 39 = cursor
 #define QSPR 37
 #define MANA_MAX 20     // mana cap
@@ -66,11 +66,13 @@ static void set_rules(uint8_t d) {
   hcost[0] = 3; hcost[1] = DIF[d].hc;          // food per hatched ant
   thr[0] = 8;   thr[1] = DIF[d].thr;           // colony size at which soldiers start marching
   qmax[0] = DIF[d].q0; qmax[1] = DIF[d].q1;    // queen HP
-  fcost = 8;                                   // perks (bits 0..3) tweak the rules on top of the level
+  fcost = 8;                                   // perks (bits 0..5) tweak the rules on top of the level
   if (perk & 1) fcost = 4;                     // FLOOD 4:  flood costs 4 MP
   if (perk & 2) hcost[0] = 2;                  // FASTEGG:  your ants hatch from 2 food
   if (perk & 4) trk >>= 1;                     // MANA UP:  mana trickles twice as fast
-  if (perk & 8) qmax[0]++;                     // QUEENUP:  one more queen HP
+  if (perk & 8) drn = (drn << 1) | 1;          // CALM:     popularity sinks slower (and disasters come less often)
+  if (perk & 16) qmax[0]++;                    // QUEENUP:  one more queen HP
+  if (perk & 32) hcost[1]++;                   // SLOWRED:  red ants hatch from 1 more food
 }
 
 // ---------- palettes & graphics (generated from strings) ----------
@@ -247,7 +249,8 @@ static const char HELP[] =
   "\n"
   "#DISASTERS\n"
   "FLOODS AND QUAKES\n"
-  "HIT BOTH COLONIES\n";
+  "HIT BOTH COLONIES\n"
+  "CALM PERK: FEWER\n";
 static uint8_t htop, hlines;                       // first visible line, total lines
 static uint16_t hdp;                               // which visible rows currently have the gold palette
 static void help_draw(void) {
@@ -596,7 +599,7 @@ static void count(uint8_t *c) {
 #define CFG_AT 0
 #define SAV_AT 64
 #define CFG_MAGIC 0xC5
-#define SAVE_MAGIC 0xA6   // bumped: the ant list grew, old saves are ignored
+#define SAVE_MAGIC 0xA7   // bumped: the ant list shrank (50 slots), old saves are ignored
 typedef struct { uint8_t w[3], l[3]; uint16_t t[3], s[3]; } Rec;     // per level: wins, losses, fastest win (seconds), best score
 static Rec rec;
 static volatile uint8_t *sp; static uint8_t ssum;
@@ -652,7 +655,7 @@ static uint8_t save_scan(uint8_t apply) {
   sram_open(SAV_AT);
   ok = (sr() == SAVE_MAGIC);
   RD(gdiff);
-  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = (b >> 2) & 15; }
+  b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = b >> 2; }
   RD(stock[0]); RD(stock[1]); RD(qhp[0]); RD(qhp[1]); RD(hatched[0]); RD(hatched[1]);
   RD(cx); RD(cy); RD(mana); RD(appr); RD(tk);
   b = sr(); k = sr(); if (apply) etk = b | ((uint16_t)k << 8);
@@ -702,15 +705,15 @@ static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = ne
 // ---------- popularity + elections ----------
 static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
 static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
-// 4 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
-static const char PN[] = "FLOOD 4FASTEGGMANA UPQUEENUP";
+// 6 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
+static const char PN[] = "FLOOD 4FASTEGGMANA UPCALM   QUEENUPSLOWRED";
 static char pbuf[20];
 static void offer(void) {                          // two different perks you do not own yet
   uint8_t i;
-  if (perk == 15) return;
-  do pa = rand() & 3; while ((perk >> pa) & 1);
+  if (perk == 63) return;
+  do pa = rand() & 7; while (pa > 5 || ((perk >> pa) & 1));
   pb = pa;
-  do pb = (pb + 1) & 3; while ((perk >> pb) & 1);             // next free perk after pa (pa itself if it is the last one)
+  do pb = pb > 4 ? 0 : pb + 1; while ((perk >> pb) & 1);      // next free perk after pa (pa itself if it is the last one)
   pbuf[0] = 'A'; pbuf[1] = ':'; pbuf[9] = ' '; pbuf[10] = 'B'; pbuf[11] = ':';
   for (i = 0; i < 7; i++) { pbuf[2 + i] = PN[pa * 7 + i]; pbuf[12 + i] = PN[pb * 7 + i]; }
   pbuf[19] = 0;
@@ -719,7 +722,7 @@ static void offer(void) {                          // two different perks you do
 static void pick(uint8_t i) {
   perk |= (uint8_t)(1 << i); pend = 0;
   set_rules(gdiff);                                // re-derive the rules with the new perk
-  if (i == 3 && qhp[0]) qhp[0]++;                  // QUEENUP also heals the new point
+  if (i == 4 && qhp[0]) qhp[0]++;                  // QUEENUP also heals the new point
   sfx_mana(); say("PERK TAKEN!");
 }
 // 3x3 patch around (px,py): every tile sinks one level (FLASH FLOOD, and the player's flood). q = EARTHQUAKE: each tile goes up or down.
