@@ -11,6 +11,11 @@
 #define VH 16
 #define MAXA 34         // workers (queens + cursor sprites come after these)
 #define QHP 5
+#define MANA_MAX 20     // mana cap
+#define MANA_TRICKLE 32 // passive: +1 mana every this many ticks
+#define MANA_PER_FOOD 1 // tribute: mana per food a black ant carries home
+#define OFFER_FOOD 2    // offering (START): food spent ...
+#define OFFER_MANA 4    // ... for this much mana
 #define BT 128          // first terrain tile
 #define FT 136          // first font tile (40 glyphs)
 
@@ -129,6 +134,7 @@ static void noise(uint8_t env, uint8_t poly) {
 static void sfx_raise(void) { ch1(0x15, N_C5, 0xA1); }
 static void sfx_lower(void) { ch1(0x1D, N_G4, 0xA1); }
 static void sfx_deny(void)  { ch1(0x00, N_C4, 0x81); }
+static void sfx_mana(void)  { ch1(0x16, N_G5, 0x91); }
 static void sfx_flood(void) { noise(0xA3, 0x55); }
 static void sfx_food(void)  { ch2(N_E5, 0x71); }
 static void sfx_spawn(void) { ch2(N_C6, 0x81); }
@@ -201,7 +207,11 @@ static void step_ant(Ant *a) {
   if (found) { a->x += DX[bd]; a->y += DY[bd]; }
   if (a->carry && a->x == nestx[t] && a->y == nesty[t]) {
     a->carry = 0; if (stock[t] < 99) stock[t]++;
-    if (t == 0) sfx_food();
+    if (t == 0) {
+      // mana workflow, step 2: food delivered home is also tribute to the god
+      mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
+      sfx_food();
+    }
   }
   // at the enemy nest: soldiers bite the queen, other ants steal food and run home
   if (!a->carry && qhp[e] && a->x == nestx[e] && a->y == nesty[e]) {
@@ -230,7 +240,7 @@ static void tick(void) {
     x = rand() & (W - 1); y = rand() & (H - 1);
     if (hgt[y][x] && !food[y][x] && !is_nest(x, y)) { food[y][x] = 1; draw_cell(x, y); }
   }
-  if ((tk & 31) == 0 && mana < 20) mana++;
+  if ((tk & (MANA_TRICKLE - 1)) == 0 && mana < MANA_MAX) mana++;   // mana workflow, step 1: slow passive trickle
 }
 
 static void bump(uint8_t cx0, uint8_t cy0, uint8_t v, uint8_t r) {
@@ -288,6 +298,13 @@ static void lower_land(void) {
   if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); }
   else sfx_deny();
 }
+// mana workflow, step 3: offering. Trade colony food (that would hatch ants) for a burst of mana.
+static void offering(void) {
+  if (stock[0] < OFFER_FOOD || mana >= MANA_MAX) { sfx_deny(); return; }
+  stock[0] -= OFFER_FOOD;
+  mana = (mana + OFFER_MANA > MANA_MAX) ? MANA_MAX : mana + OFFER_MANA;
+  sfx_mana();
+}
 static void flood(void) {
   int8_t x, y;
   if (mana < 8) { sfx_deny(); return; }
@@ -336,6 +353,7 @@ static void title(void) {
   put_str(3, 5, "A   RAISE LAND");
   put_str(3, 6, "B   LOWER LAND");
   put_str(3, 7, "SEL FLOOD 3X3");
+  put_str(3, 8, "STA FOOD TO MANA");
   put_str(1, 9, "FEED YOUR QUEEN:");
   put_str(1, 10, "BLACK ANTS BREED");
   put_str(1, 11, "KILL THE RED QUEEN");
@@ -370,6 +388,7 @@ static void play(void) {
     if (p & J_A) raise_land();
     if (p & J_B) lower_land();
     if (p & J_SELECT) flood();
+    if (p & J_START) offering();
     follow(); scroll_step();
     if (++t >= 8) {
       t = 0; tick(); count(ncnt); hud();

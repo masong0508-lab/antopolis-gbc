@@ -33,7 +33,7 @@ uint8_t joypad(void){
   uint8_t k=0; unsigned f=frame;
   if(mode==1){ // wander cursor everywhere, spam A/B/SELECT
     k=(f/40%4==0)?J_RIGHT:(f/40%4==1)?J_DOWN:(f/40%4==2)?J_LEFT:J_UP;
-    if(f%7==0)k|=J_A; if(f%11==0)k|=J_B; if(f%97==0)k|=J_SELECT;
+    if(f%7==0)k|=J_A; if(f%11==0)k|=J_B; if(f%97==0)k|=J_SELECT; if(f%53==0)k|=J_START;
   }
   if(mode==2){k=(f/300%4==0)?J_RIGHT:(f/300%4==1)?J_DOWN:(f/300%4==2)?J_LEFT:J_UP;}
   if(over) k|=J_START;
