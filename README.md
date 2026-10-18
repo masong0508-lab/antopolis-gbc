@@ -63,6 +63,13 @@ The title theme is separate from the in-game loop and **in stereo** (E phrygian-
 
 The in-game music and sound effects stay centred (mono), because effects borrow channels from the music.
 
+## 2 players (versus)
+On the title screen press **DOWN**. Pick with LEFT/RIGHT, START plays, B goes back.
+- **SAME GB:** one Game Boy, take turns. Each turn is 30 seconds (the HUD shows **T** = seconds left). Then a card says whose turn it is: pass the Game Boy and press START.
+- **LINK CABLE:** two Game Boys and a link cable. Both pick LINK CABLE, then ONE player presses START (that GB sends its level and map seed). Both games run in lockstep. The HUD shows **E** = enemy mana. Either player can pause; B twice in the pause menu quits on both. If the cable comes out you see LINK LOST.
+
+P1 is black (gold cursor), P2 is red (red cursor). Both colonies play by the same rules, each player gets mana from their own ants' food. Kill the other queen to win. No elections, perks, ant eye, saves or records in versus.
+
 ## Build
 `make GBDK_HOME=/path/to/gbdk` -> `build/empire-ants.gbc` (CGB-only ROM).
 
