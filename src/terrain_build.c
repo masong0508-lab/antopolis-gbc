@@ -83,7 +83,7 @@ void terrain_seed_nest_food(uint8_t heights[TERRAIN_SIZE][TERRAIN_SIZE],
    exist. Physical heights and ant collisions are never changed.
    Only read-only neighbor checks; no buffers, allocations or RNG.
    Runs in ROM3 to keep the dangerously full fixed ROM bank small. */
-uint8_t terrain_edge_pick(const uint8_t heights[32][32],
+uint8_t terrain_edge_pick(uint8_t heights[32][32],
                           uint8_t x, uint8_t y) BANKED {
   uint8_t h;
   if(x >= 32 || y >= 32) return 0;
