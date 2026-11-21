@@ -1,3 +1,33 @@
+## Graphics restoration — GBC terrain, anatomy and role colors (November 2026)
+
+The overhead colony now uses a coherent pixel-art treatment rather than
+flat monochromatic cells. All **six base terrain tiles** have been redrawn:
+blue water with short ripples, warm sand with subtle pebbles, distinct mossy
+grass, stratified brown cliffs, a concentric queen burrow with a dark
+entrance, and readable gold berry clusters. The **eight existing terrain
+detail variations** add waves, vegetation and varied rock textures without
+adding any BG tiles or static map arrays.
+
+Workers, queens and both walking frames were repainted around visible
+head, thorax, abdomen, antennae and legs. The two carrying poses have
+golden berries; queens retain their crown silhouette. **Seven existing
+OBJ sprite tiles** remain the complete overhead animation atlas.
+
+Game Boy Color has eight independent OBJ palettes, so sprites now use
+seven of them without adding OAM entries: base black/red workers,
+high-contrast cursor, gold-carrying workers of either team, and
+steel/ember-armored soldiers. Palette selection reuses the existing
+per-worker OAM property write and the normal whole-screen fade, so colors
+remain coherent during screen transitions. The same 240-tile ANT EYE
+raymarcher uses stronger head/thorax/abdomen and angled-leg masks,
+not additional rays, sprites, framebuffers, or per-frame geometry passes.
+
+Artwork tests reconstruct **all base terrain, detail and sprite tiles**
+from their source pixel rows and compare every encoded byte with the
+shipping GBC data. Native tests also verify role palette assignment;
+the full PyBoy test must still pass to establish on-device playability.
+All role/gameplay inputs, collision, RNG and save data remain unchanged.
+
 ### Cohesive 3D terrain instead of checkerboard grass
 
 ANT EYE previously colored entire nearby grass *cells* alternately green
