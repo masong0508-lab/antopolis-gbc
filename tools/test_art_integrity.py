@@ -101,7 +101,7 @@ assert rows[0:8] != rows[16:24], "Worker and queen must look distinct"
 assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
 assert rows[40:48] != rows[48:56], "Carrying animation frames must differ"
 assert rows[40:48] != rows[24:32], "Carrying worker must look unlike empty worker"
-assert all("3" in row for row in rows[40:43]), "Carried food must be high contrast"
+assert all("3" in row for row in rows[40:42] + rows[48:50]), "Both food-carrying poses need a gold packet"
 # The walking tiles were previously only used on the title screen:
 # verify the actual gameplay sprite pass consumes both distinct frames.
 gameplay = Path("src/main.c").read_text()
