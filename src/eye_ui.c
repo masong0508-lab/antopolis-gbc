@@ -9,13 +9,11 @@ static void digits(char *b,uint8_t x,uint8_t v){
   uint8_t n=0;if(v>99)v=99;while(v>=10){v-=10;n++;}
   b[x]='0'+n;b[x+1]='0'+v;
 }
-void eye_ui_ahead(char *b,uint8_t target,uint8_t facing) BANKED {
+void eye_ui_ahead(char *b,uint8_t target) BANKED {
   static const char *const names[9]={
     "EDGE","WATER","CLIFF","OPEN","FOOD","ALLY","ENEMY","OUR QUEEN","RED QUEEN"
   };
-  static const char *const compass[8]={"E","SE","S","SW","W","NW","N","NE"};
   blank(b);field(b,0,"AHEAD: ");field(b,7,names[target<9?target:0]);
-  b[17]='/';field(b,18,compass[facing&7]);
 }
 void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
                   uint8_t x,uint8_t y,uint8_t hx,uint8_t hy) BANKED {

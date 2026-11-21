@@ -1265,7 +1265,7 @@ void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
-void eye_ui_ahead(char *b, uint8_t target, uint8_t facing) BANKED;
+void eye_ui_ahead(char *b, uint8_t target) BANKED;
 void eye_ui_guide(char *b, uint8_t nav, uint8_t carry,
                   uint8_t x, uint8_t y, uint8_t hx, uint8_t hy) BANKED;
 
@@ -1323,7 +1323,8 @@ static void eye(void) {                              // pilot a black ant; food,
   // bounded loop. Otherwise stale strategy-map/UI glyphs bleed into ANT EYE.
   for (y = 14; y < 20; y++)
     for (x = 0; x < VX; x++) set_win_tile_xy(x, (uint8_t)(y < 18 ? y : y - 18), FT);
-  put_str(0, 0, "ANT EYE  WORKER");
+  put_str(0, 0, "ANT EYE ANT");
+  put_str(14, 0, "DIR");
   put_str(0, 15, "UP/DN WALK L/R TURN");
   put_str(0, 16, "A NEXT ANT  B BITE");
   put_str(0, 17, "SEL SCENT  START MAP");
@@ -1354,10 +1355,12 @@ static void eye(void) {                              // pilot a black ant; food,
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
       // The selected ant and ahead object have their own information bars.
       // Rendering is updated only on a player action, not each frame.
-      put_num(17, 0, (uint8_t)(vi + 1u));
+      put_num(11, 0, (uint8_t)(vi + 1u));
+      put_char(19, 0, ' ');
+      put_str(18, 0, COMPASS[vang >> 1]);
       disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
       disable_interrupts();
-      eye_ui_ahead((char *)tbuf + 480, d, (uint8_t)(vang >> 1));
+      eye_ui_ahead((char *)tbuf + 480, d);
       enable_interrupts();
       put_str(0, 1, (const char *)tbuf + 480);
       disable_interrupts();

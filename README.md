@@ -1,3 +1,7 @@
+### Explicit direction
+
+ANT EYE's upper status bar now reads **ANT EYE ANT05 DIR NE** (with live ant number and compass) and its second line spells out **AHEAD: WATER / ENEMY / OPEN**. This removes the ambiguous trailing slash-and-letter from the previous target display, and clears old two-letter headings when turning to a one-letter cardinal direction.
+
 ### Strategy HUD readability
 
 The overhead colony now labels its top resources **MANA** and **FOOD** in words, with a five-step mana indicator that fits beside both numbers. Holding SELECT replaces the cryptic stat strip with the controls it modifies: **A:TRADE B:FAST START**; releasing SELECT restores the colony status counters. New games give the clear initial instruction **A RAISE B LOWER**. These changes preserve the two-row gameplay window and do not reduce the visible map.

@@ -244,8 +244,9 @@ def main():
         target_tile = tile0(7, 1)
         if target_tile not in {glyph(c) for c in "EWCOFA"}:
             raise AssertionError("AHEAD target is not a readable word")
-        if tile0(0, 0) != glyph("A") or tile0(9, 0) != glyph("W"):
-            raise AssertionError("Selected worker header is absent")
+        if (tile0(0, 0) != glyph("A") or tile0(8, 0) != glyph("A")
+                or tile0(14, 0) != glyph("D")):
+            raise AssertionError("ANT EYE selected ant / DIR header is absent")
         if (tile0(0, 15), tile0(0, 16), tile0(0, 17)) != (
             glyph("U"), glyph("A"), glyph("S")
         ):
