@@ -119,14 +119,15 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
 
 
 /* Reuse the two already-loaded title walking-ant tiles for the live
-   overhead colony. Only shadow OAM tile indices are touched: never call
+   overhead colony. The first four hardware sprites are reserved for
+   queen/player visibility; only slots 4..39 are touched. Never call
    bank-1 drawing/VRAM helpers while bank 3 is mapped. The caller disables
    banked audio interrupts and runs this at one-quarter of the frame rate.
    This saves expensive per-ant tile updates in the full fixed ROM bank. */
 void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED {
   uint8_t i;
   for (i = 0; i < visible; ++i)
-    shadow_OAM[i].tile = (uint8_t)(3u + ((i + phase) & 1u));
+    shadow_OAM[4u + i].tile = (uint8_t)(3u + ((i + phase) & 1u));
 }
 
 /* Real eight-direction ant movement lives with the renderer in bank 3,
