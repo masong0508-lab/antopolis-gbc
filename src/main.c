@@ -804,22 +804,11 @@ static void tick_slice(void) {
   if ((tk & trk) == 0) { if (mana < MANA_MAX) mana++; if (mp && omana < MANA_MAX) omana++; }   // mana workflow, step 1: slow passive trickle
 }
 
-static void bump(uint8_t cx0, uint8_t cy0, uint8_t v, uint8_t r) {
-  int8_t x, y;
-  for (y = (int8_t)cy0 - r; y <= (int8_t)cy0 + r; y++) for (x = (int8_t)cx0 - r; x <= (int8_t)cx0 + r; x++)
-    if (x >= 0 && y >= 0 && x < W && y < H) hgt[y][x] = v;
-}
-
-// remove accidental cliffs in the generated map (the player makes the real ones)
-static void smooth(void) {
-  uint8_t pass, x, y, a, b;
-  for (pass = 0; pass < 3; pass++) for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
-    a = hgt[y][x]; if (!a) continue;
-    if (x + 1 < W) { b = hgt[y][x + 1]; if (b) { if (a > b + 1) hgt[y][x] = b + 1; else if (b > a + 1) hgt[y][x + 1] = a + 1; } }
-    a = hgt[y][x];
-    if (y + 1 < H) { b = hgt[y + 1][x]; if (b) { if (a > b + 1) hgt[y][x] = b + 1; else if (b > a + 1) hgt[y + 1][x] = a + 1; } }
-  }
-}
+// One-time terrain shaping runs in ROM3, preserving the crowded fixed ROM.
+// Audio/GBDK bank-1 interrupts must not run during either BANKED call.
+void terrain_bump(uint8_t heights[32][32],uint8_t x,uint8_t y,
+                  uint8_t level,uint8_t radius) BANKED;
+void terrain_smooth(uint8_t heights[32][32]) BANKED;
 
 static void follow(void);
 static void newgame(uint8_t load) {
@@ -837,7 +826,7 @@ static void newgame(uint8_t load) {
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) ph[y][x] = 0;
   if (!ok) {
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) { hgt[y][x] = 1; food[y][x] = 0; }
-    for (k = 0; k < 28; k++) { x = rand() & (W - 1); y = rand() & (H - 1); bump(x, y, 2, 1); hgt[y][x] = 3; }
+    for (k = 0; k < 28; k++) { x = rand() & (W - 1); y = rand() & (H - 1); disable_interrupts(); terrain_bump(hgt,x,y,2,1); enable_interrupts(); hgt[y][x] = 3; }
     for (k = 0; k < 9; k++) {
       x = rand() & (W - 1); y = rand() & (H - 1);
       hgt[y][x] = 0;
@@ -845,8 +834,11 @@ static void newgame(uint8_t load) {
       if (y + 1 < H) hgt[y + 1][x] = 0;
       if (x + 1 < W && y + 1 < H) hgt[y + 1][x + 1] = 0;
     }
-    bump(nestx[0], nesty[0], 1, 1); bump(nestx[1], nesty[1], 1, 1);
-    smooth();
+    disable_interrupts();
+    terrain_bump(hgt,nestx[0],nesty[0],1,1);
+    terrain_bump(hgt,nestx[1],nesty[1],1,1);
+    terrain_smooth(hgt);
+    enable_interrupts();
     for (k = 0; k < 36; k++) { x = rand() & (W - 1); y = rand() & (H - 1); if (hgt[y][x] && !is_nest(x, y)) food[y][x] = 1; }
     for (i = 0; i < MAXA; i++) ant[i].alive = 0;
     stock[0] = stock[1] = 0; qhp[0] = qmax[0]; qhp[1] = qmax[1]; hatched[0] = hatched[1] = 0;
