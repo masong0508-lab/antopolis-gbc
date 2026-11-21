@@ -38,6 +38,33 @@ jobs:
           path: build/eye-smoke
           if-no-files-found: warn
 
+
+  ray-diagnostic:
+    name: Diagnose GBC ANT EYE ray renderer without uploading debug ROM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GBDK-2020
+        run: |
+          curl -fsSL -o gbdk.tar.gz https://github.com/gbdk-2020/gbdk-2020/releases/latest/download/gbdk-linux64.tar.gz
+          tar xzf gbdk.tar.gz
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyBoy and Pillow
+        run: python3 -m pip install pyboy==2.9.0 Pillow==12.0.0
+      - name: Build temporary no-ray diagnostic ROM
+        run: make GBDK_HOME="$PWD/gbdk" LCCFLAGS=-DEYE_DIAG_NO_RAY
+      - name: Test ANT EYE without ray marcher
+        run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --diagnostic-only --out build/eye-diag
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gbc-eye-no-ray-diag-screens
+          path: build/eye-diag
+          if-no-files-found: warn
+
   build:
     name: Build empire-ants.gbc
     runs-on: ubuntu-latest

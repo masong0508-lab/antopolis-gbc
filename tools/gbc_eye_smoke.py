@@ -23,6 +23,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("rom", type=Path)
     parser.add_argument("--out", type=Path, default=Path("build/eye-smoke"))
+    parser.add_argument("--diagnostic-only", action="store_true",
+                        help="assert LCD survives ANT EYE entry in a no-ray debug ROM")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     report = {"rom": str(args.rom), "snapshots": {}, "result": "RUNNING"}
@@ -103,6 +105,15 @@ def main():
         pyboy.tick(150, True, False)
         ppu_state("180_frames")
         eye = snapshot("03_ant_eye")
+        if args.diagnostic_only:
+            lcdc = report["ppu_checkpoints"]["180_frames"]["lcdc"]
+            if not (lcdc & 0x80):
+                raise AssertionError(
+                    "LCD disabled even with raymarch skipped: "
+                    + repr(report["ppu_checkpoints"])
+                )
+            report["result"] = "PASS: no-ray diagnostic kept ANT EYE LCD enabled"
+            return
         top = pyboy.memory[ANT_EYE_HEADER]
         first = pyboy.memory[ANT_EYE_VIEW_ROW]
         second = pyboy.memory[ANT_EYE_VIEW_ROW + 1]

@@ -1296,7 +1296,10 @@ static void eye(void) {                              // pilot a black ant; food,
     }
     vsync();
     if (vcol < VX) {
-      view_cols(vx, vy, vcol, (uint8_t)(vcol + 4)); vcol += 4;
+#ifndef EYE_DIAG_NO_RAY
+      view_cols(vx, vy, vcol, (uint8_t)(vcol + 4));
+#endif
+      vcol += 4;
       if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }
     }   // complete every sweep; redo after camera changes during a sweep
     k = joypad(); p = k & ~prev; prev = k;
