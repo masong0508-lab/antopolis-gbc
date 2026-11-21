@@ -1,5 +1,5 @@
-// Pure native regression for every GBC ant animation slot and food packet.
-// The exact helper also runs from the banked real-hardware OAM renderer.
+// Native regression for every GBC ant/food-carrying animation slot.
+// Shipping bank-3 render code calls this exact pure header helper.
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -7,37 +7,35 @@
 #include "../src/sprite_logic.h"
 
 int main(void) {
-  uint8_t mask[5], saved[5];
+  uint8_t carrying[36], saved[36];
   unsigned carrier, frame, i, seed;
-  memset(mask, 0, sizeof mask);
+  memset(carrying, 0, sizeof carrying);
   for (i = 0; i < 36; i++) {
-    assert(colony_walker_frame((uint8_t)i, 0, mask) == 3u + (i & 1u));
-    assert(colony_walker_frame((uint8_t)i, 1, mask) == 3u + ((i + 1u) & 1u));
+    assert(colony_walker_frame((uint8_t)i, 0, carrying) == 3u + (i & 1u));
+    assert(colony_walker_frame((uint8_t)i, 1, carrying) == 3u + ((i + 1u) & 1u));
   }
   for (carrier = 0; carrier < 36; carrier++) {
-    memset(mask, 0, sizeof mask);
-    mask[carrier >> 3] |= (uint8_t)(1u << (carrier & 7u));
-    memcpy(saved, mask, sizeof mask);
+    memset(carrying, 0, sizeof carrying);
+    carrying[carrier] = 1;
+    memcpy(saved, carrying, sizeof carrying);
     for (frame = 0; frame < 8; frame++) for (i = 0; i < 36; i++) {
       uint8_t want = (uint8_t)((i == carrier ? 5u : 3u)
                               + ((i + frame) & 1u));
-      assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, mask) == want);
+      assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, carrying) == want);
     }
-    // A banked animation pass must not mutate either packed worker state
-    // or the underlying game simulation when frame count advances.
-    assert(!memcmp(mask, saved, sizeof mask));
+    assert(!memcmp(carrying, saved, sizeof carrying));
   }
-  // Exhaustively mix all five bytes including the final partial nibble.
+  // Test all 36 bytes in mixed patterns, including boundaries 7/8 and 31/32.
   for (seed = 0; seed < 256; seed++) {
-    for (i = 0; i < 5; i++)
-      mask[i] = (uint8_t)(seed ^ (i * 51u));
+    for (i = 0; i < 36; i++)
+      carrying[i] = (uint8_t)(((seed >> (i & 7u)) ^ (i * 51u)) & 1u);
     for (frame = 0; frame < 4; frame++)
       for (i = 0; i < 36; i++) {
-        uint8_t carrier_flag = (uint8_t)((mask[i >> 3] >> (i & 7u)) & 1u);
-        uint8_t want = (uint8_t)(3u + carrier_flag * 2u + ((i + frame) & 1u));
-        assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, mask) == want);
+        uint8_t want = (uint8_t)(3u + (carrying[i] ? 2u : 0u)
+                                 + ((i + frame) & 1u));
+        assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, carrying) == want);
       }
   }
-  puts("GBC walking/carrier frames: 36 slots, bank boundary, 256 masks PASS");
+  puts("GBC walking/carrier frames: 36 slots, 256 combinations, no bitshift state PASS");
   return 0;
 }
