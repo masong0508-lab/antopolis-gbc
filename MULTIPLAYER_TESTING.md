@@ -124,3 +124,12 @@ Emulator CI now checks that the `AHEAD` character is an actual printable
 font glyph and that entering ANT EYE again after walking, biting and
 returning to the overhead map keeps LCDC active and restores the 2D window
 on a second exit. `O` means open terrain, because this font has no period.
+
+## GBC navigation and UI smoke checks
+
+The headless ROM test verifies the title's A tutorial and SELECT sandbox
+shortcuts, a printable W/S/G/H terrain glyph beside the 2D HUD queen meter,
+the PAUSED overlay, scrollable START HERE guide, and correct return to the
+strategy HUD before entering ANT EYE. Copy-text CI also checks every help
+line and every tutorial card is at most 20 tiles wide, fits the shared
+640-byte scratch buffer, and only uses drawable GBC glyphs.

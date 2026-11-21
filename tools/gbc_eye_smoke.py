@@ -53,6 +53,18 @@ def main():
         pyboy.button_release(name)
         pyboy.tick(6, True, False)
 
+    def tile0(x, y):
+        # Window glyph IDs are in CGB VRAM bank 0, not attribute bank 1.
+        bank = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            return pyboy.memory[WINDOW_MAP + y * 32 + x]
+        finally:
+            pyboy.memory[0xFF4F] = bank & 1
+
+    def glyph(letter):
+        return 136 + 11 + ord(letter) - ord("A")
+
     try:
         # The intro studio splash has its own input gate. Earlier we used
         # 680 frames and mistook the splash for the title; the next START
@@ -62,6 +74,8 @@ def main():
         press("start")                   # skip DippInn studio splash
         pyboy.tick(300, True, False)
         snapshot("01_title")
+        if tile0(0, 11) != glyph("A") or tile0(1, 12) != glyph("S"):
+            raise AssertionError("Title tutorial/sandbox shortcuts are missing")
 
         # A separate START begins normal single-player and spawns workers.
         press("start")
@@ -74,6 +88,32 @@ def main():
                 + repr(strategy_head)
             )
         before = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+        terrain_tile = tile0(5, 1)
+        if terrain_tile not in {glyph(c) for c in "WSGH"}:
+            raise AssertionError("Strategy HUD does not show the cursor terrain")
+        report["ui"] = {"title_shortcuts": True,
+                        "cursor_terrain_tile": terrain_tile}
+
+        # Pause/help is a navigable full-screen guide, not just a label.
+        press("start", 18)
+        pyboy.tick(35, True, False)
+        if pyboy.memory[0xFF4A] != 0 or tile0(0, 2) != glyph("P"):
+            raise AssertionError("Pause guide failed to open")
+        top_help_tile = tile0(0, 3)
+        if top_help_tile != glyph("S"):  # START HERE
+            raise AssertionError("Pause guide did not start at QUICK START")
+        snapshot("02_pause_guide")
+        press("down", 18)
+        pyboy.tick(20, True, False)
+        if tile0(0, 3) == top_help_tile:
+            raise AssertionError("Pause guide did not scroll with DOWN")
+        report["ui"]["help_scrolled"] = True
+        snapshot("02_scrolled_guide")
+        press("start", 18)
+        pyboy.tick(50, True, False)
+        if pyboy.memory[0xFF4A] != 128:
+            raise AssertionError("Pause guide did not restore the strategy HUD")
+        report["ui"]["help_resumed"] = True
 
         # ANT EYE entry is a SELECT+START combo. Record PPU hardware state
         # throughout transition: a solid-green frame can mean LCD was
