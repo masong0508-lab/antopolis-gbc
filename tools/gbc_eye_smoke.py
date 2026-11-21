@@ -73,14 +73,35 @@ def main():
             )
         before = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
 
-        # ANT EYE entry is an actual SELECT+START combination in the
-        # single-player loop, and must load the first-person window tile map.
+        # ANT EYE entry is a SELECT+START combo. Record PPU hardware state
+        # throughout transition: a solid-green frame can mean LCD was
+        # disabled, not merely a wrongly colored 3D tile.
+        def ppu_state(stage):
+            report.setdefault("ppu_checkpoints", {})[stage] = {
+                "lcdc": pyboy.memory[0xFF40],
+                "vbk": pyboy.memory[0xFF4F],
+                "wx": pyboy.memory[0xFF4B],
+                "wy": pyboy.memory[0xFF4A],
+                "ly": pyboy.memory[0xFF44],
+                "header": pyboy.memory[ANT_EYE_HEADER],
+                "world_row": pyboy.memory[ANT_EYE_VIEW_ROW],
+                "pixel": list(pyboy.screen.image.getpixel((0, 0))),
+            }
+
+        ppu_state("strategy")
         pyboy.button_press("select")
+        pyboy.tick(3, True, False)  # physical SELECT first, then START
         pyboy.button_press("start")
         pyboy.tick(5, True, False)
-        pyboy.button_release("select")
+        ppu_state("combo_held")
         pyboy.button_release("start")
-        pyboy.tick(180, True, False)
+        pyboy.button_release("select")
+        pyboy.tick(8, True, False)
+        ppu_state("after_release")
+        pyboy.tick(22, True, False)
+        ppu_state("30_frames")
+        pyboy.tick(150, True, False)
+        ppu_state("180_frames")
         eye = snapshot("03_ant_eye")
         top = pyboy.memory[ANT_EYE_HEADER]
         first = pyboy.memory[ANT_EYE_VIEW_ROW]
