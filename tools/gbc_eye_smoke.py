@@ -143,8 +143,17 @@ def main():
         # rotate and try another reachable side. This catches regression
         # where the 3D camera animates but the ant never moves in-world.
         def position_glyphs():
+            # CGB window tile-map data uses VRAM bank 0; the renderer
+            # temporarily selects bank 1 for per-tile palette attributes.
+            # Read the actual digits from bank 0, never attribute bytes,
+            # otherwise a bank swap could falsely look like ant movement.
             base = WINDOW_MAP + 17 * 32
-            return tuple(pyboy.memory[base + col] for col in (1, 2, 5, 6))
+            previous_bank = pyboy.memory[0xFF4F]
+            pyboy.memory[0xFF4F] = 0
+            try:
+                return tuple(pyboy.memory[base + col] for col in (1, 2, 5, 6))
+            finally:
+                pyboy.memory[0xFF4F] = previous_bank & 1
 
         before_pos = position_glyphs()
         moved = False
