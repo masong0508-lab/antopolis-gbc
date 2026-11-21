@@ -1,3 +1,11 @@
+### ANT EYE organic creature silhouette
+
+3D ants now use connected filled head/thorax/abdomen pixels and sparse
+six-legged outlines, instead of the repeated 0xA5 checkerboard pattern.
+The replacement uses the same 16 ROM bytes and adds no RAM or extra
+rays. This preserves the shorter two-column rendering slices that
+improve controller responsiveness.
+
 ### ANT EYE controller latency
 
 The 3D viewport now draws **two columns per input cycle** instead of four. This bounds each expensive software-raster slice, allowing more responsive movement, turning, and bite input on the real GBC CPU. The image still renders the same 20 columns and 12 rows, using the same tiles and no extra frame buffers. The final scene may take more shorter steps to refresh, so CI now retains a real-emulator short-button combat regression instead of relying exclusively on source-level tests.

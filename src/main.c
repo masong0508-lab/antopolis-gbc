@@ -1169,8 +1169,10 @@ static void title(void) {
 static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
 // 8px silhouettes carved out of a real ant/queen ray hit. Red and black
 // bodies remain team-colored; transparent gaps read as deep shadow.
-static const uint8_t EYE_BODY[8]={0x24,0x3C,0x7E,0x3C,0x7E,0x7E,0xA5,0x42};
-static const uint8_t EYE_LIMBS[8]={0x81,0xC3,0xA5,0x42,0xA5,0x81,0x42,0x24};
+// Continuous head/thorax/abdomen instead of repeated checkerboard holes.
+// The two static patterns occupy the exact same 16 ROM bytes.
+static const uint8_t EYE_BODY[8]={0x18,0x3C,0x3C,0x18,0x3C,0x7E,0x7E,0x3C};
+static const uint8_t EYE_LIMBS[8]={0x24,0x42,0x5A,0x24,0x5A,0x42,0x24,0x00};
 const uint8_t PMAP[5][11] = {
   {0,1,2,3,0,0,0,0,0,0,0}, // land
   {0,2,3,3,1,0,0,0,0,0,0}, // water
