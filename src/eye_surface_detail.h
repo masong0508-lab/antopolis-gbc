@@ -11,8 +11,10 @@ static uint8_t eye_surface_accent(uint8_t height,uint8_t x,uint8_t y,
   if(height==0u) return touches_land ? 1u : 0u; /* foam */
   if(height==3u) return 2u; /* lit, stratified rock edge */
   if(depth>8u) return 0u;
-  if(height==2u) return (uint8_t)((((uint8_t)(x+3u*y))&3u)==0u ? 3u : 0u);
-  if(height==1u) return (uint8_t)((((uint8_t)(x+5u*y))&3u)==0u ? 4u : 0u);
+  // Only the low two bits matter: 3*y == -y and 5*y == y mod 4.
+  // No 16-bit multiply/divide helpers: those reside in switchable ROM1.
+  if(height==2u) return (uint8_t)((((uint8_t)(x-y))&3u)==0u ? 3u : 0u);
+  if(height==1u) return (uint8_t)((((uint8_t)(x+y))&3u)==0u ? 4u : 0u);
   return 0u;
 }
 #endif
