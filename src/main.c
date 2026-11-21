@@ -540,7 +540,7 @@ static uint8_t is_nest(uint8_t x, uint8_t y) {
 
 // Directional shoreline/cliff choices execute in bank 3, leaving scarce
 // fixed ROM space for the real gameplay. No map allocation or randomness.
-uint8_t terrain_edge_pick(const uint8_t heights[32][32],
+uint8_t terrain_edge_pick(uint8_t heights[32][32],
                           uint8_t x, uint8_t y) BANKED;
 static void draw_cell(uint8_t x, uint8_t y) {
   uint8_t t = hgt[y][x], tile = BT + t, edge;
