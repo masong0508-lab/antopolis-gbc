@@ -1276,21 +1276,27 @@ static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team =
 
 // Pilot the selected worker in the real map; first-person movement is no longer a camera-only trick.
 // Keep the colony simulation paused to leave enough GBC time for ray rendering, but preserve all changes.
-static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
+// Return the pickup/delivery event for the live HUD. This also lets an ant
+// selected while already standing on food or the nest resolve that tile.
+static uint8_t eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
   Ant *a;
-  if (vi >= MAXA || !vok(vi)) return;
+  uint8_t event = 0;
+  if (vi >= MAXA || !vok(vi)) return 0;
   a = &ant[vi]; a->x = vx; a->y = vy;
   if (scent) ph[vy][vx] = 255;
   if (!a->carry && food[vy][vx]) {
     food[vy][vx] = 0; a->carry = 1; draw_cell(vx, vy); sfx_food();
+    event = 2;
   }
   if (a->carry && vx == nestx[0] && vy == nesty[0]) {
     a->carry = 0;
     if (stock[0] < 99) stock[0]++;
     mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
     apr(1); sfx_mana();
+    event = 3;
   }
   memset(occ, 0, sizeof occ); occ_set();
+  return event;
 }
 
 // A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
@@ -1339,8 +1345,7 @@ static void eye(void) {                              // pilot a black ant; food,
   attr(0, 15, 20, 1);
   attr(0, 16, 20, 1);
   attr(0, 17, 20, 2);
-  memset(occ, 0, sizeof occ);
-  occ_set();                                        // fresh snapshot, no ghosts from old cells
+  notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0); // resolve landing tile on entry
   move_win(7, 0);
   prev = joypad();
   while (1) {
@@ -1404,7 +1409,11 @@ static void eye(void) {                              // pilot a black ant; food,
         vi = (vi + 1u >= MAXA) ? 0 : vi + 1u;
         if (vok(vi)) break;
       }
-      if (i < MAXA) { sfx_food(); go = 1; }
+      if (i < MAXA) {
+        notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0);
+        if (!notice) sfx_food();
+        go = 1;
+      }
     }
     if ((k & J_SELECT) && vi < MAXA) ph[vy][vx] = 255;
     dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
@@ -1416,9 +1425,7 @@ static void eye(void) {                              // pilot a black ant; food,
         else {
           x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
           if (vx != x || vy != y) {
-            p = ant[vi].carry;
-            eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT));
-            notice = (p != ant[vi].carry) ? (ant[vi].carry ? 2 : 3) : 0;
+            notice = eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT));
             go = 2; need_nav = 1;
           } else {
             sfx_deny();
