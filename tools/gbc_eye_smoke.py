@@ -242,8 +242,8 @@ def main():
         # Actual window tile-map, not source-code assumptions: readable
         # word-based target, selected worker and four non-overlapping rows.
         target_tile = tile0(7, 1)
-        if target_tile not in {glyph(c) for c in "EWCOFA"}:
-            raise AssertionError("AHEAD target is not a readable word")
+        if target_tile not in {glyph(c) for c in "MWSCOFEHR"}:
+            raise AssertionError("AHEAD target is not a readable world label")
         if (tile0(0, 0) != glyph("A") or tile0(8, 0) != glyph("A")
                 or tile0(14, 0) != glyph("D")):
             raise AssertionError("ANT EYE selected ant / DIR header is absent")
@@ -251,8 +251,16 @@ def main():
             glyph("U"), glyph("A"), glyph("S")
         ):
             raise AssertionError("ANT EYE commands overlap the wrong rows")
-        if tile0(11, 14) != glyph("X") or tile0(15, 14) != glyph("Y"):
-            raise AssertionError("ANT EYE status lost actual world coordinates")
+        # The playable HUD now prioritizes a clear goal over raw X/Y debug
+        # coordinates. Verify the actual VRAM row, not just formatting code.
+        objective_prefixes = (
+            "FOOD:", "HOME:", "NO FOOD NEARBY",
+            "FOOD PICKED UP", "FOOD DELIVERED"
+        )
+        if not any(all(tile0(i, 14) == glyph(ch)
+                       for i, ch in enumerate(prefix))
+                   for prefix in objective_prefixes):
+            raise AssertionError("ANT EYE status lost its readable objective")
         report["hud_target_tile"] = target_tile
         report["ui"]["eye_commands_grouped"] = True
 
