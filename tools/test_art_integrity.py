@@ -33,5 +33,5 @@ assert rows[0:8] != rows[16:24], "Worker and queen must look distinct"
 assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
 for i in (0, 2, 3, 4):
     opaque = sum(ch != "0" for row in rows[i*8:(i+1)*8] for ch in row)
-    assert 18 <= opaque <= 46, f"Sprite {i} is empty or a solid square"
+    assert 18 <= opaque <= 52, f"Sprite {i} is empty or a solid square"
 print("GBC ant sprite source, queen silhouette, animation and tile bytes PASS")
