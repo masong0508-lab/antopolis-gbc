@@ -33,3 +33,5 @@ test:
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_route.c -o build/test_colony_route
 	./build/test_colony_route
 	python3 tools/test_colony_route_source.py
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_results_calc.c -o build/test_results_calc
+	./build/test_results_calc
