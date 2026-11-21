@@ -33,6 +33,28 @@ int main(void) {
              (uint8_t)(t%100u),(uint8_t)((t>>5u)%8u));
   // Independent of the score output pointer's starting contents.
   expect(65535,2,25,99,7);
-  puts("GBC bank-3 match time/score: exact original formula, all level and rollover boundaries PASS");
+  // Verify 18-byte battery-save record layout and all three difficulty
+  // slots after moving rare end-of-match logic into switchable ROM.
+  {
+    ResultsRecord r = {{0},{0},{0},{0}};
+    uint8_t d;
+    assert(sizeof(r) == 18u);
+    for(d=0; d<3u; ++d) {
+      assert(results_record_update(&r,d,0,500,450)==0u);
+      assert(r.l[d]==1u && r.w[d]==0u);
+      assert(results_record_update(&r,d,1,500,450)==3u);
+      assert(r.w[d]==1u && r.t[d]==500u && r.s[d]==450u);
+      assert(results_record_update(&r,d,1,500,450)==0u);
+      assert(results_record_update(&r,d,1,499,450)==1u);
+      assert(results_record_update(&r,d,1,499,451)==2u);
+      assert(r.t[d]==499u && r.s[d]==451u);
+      r.l[d]=r.w[d]=99u;
+      assert(results_record_update(&r,d,0,0,0)==0u);
+      assert(results_record_update(&r,d,1,501,0)==0u);
+      assert(r.l[d]==99u && r.w[d]==99u);
+    }
+    assert(r.t[0]==499u && r.t[1]==499u && r.t[2]==499u);
+  }
+  puts("GBC bank-3 match score and 18-byte records: all levels, win/loss saturation PASS");
   return 0;
 }
