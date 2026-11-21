@@ -48,8 +48,10 @@ assert "sys_time & 3u" in sprite_pass, (
 banked = Path("src/eye_render.c").read_text()
 assert "void eye_animate_walkers(uint8_t visible, uint8_t phase," in banked
 assert "const uint8_t *carrying) BANKED" in banked
-assert "carrying[i >> 3]" in banked
-assert "5u + frame : 3u + frame" in banked
+frames = Path("src/sprite_logic.h").read_text()
+assert "carrying[index >> 3]" in frames
+assert "5u + frame : 3u + frame" in frames
+assert "colony_walker_frame(i, phase, carrying)" in banked
 assert "set_sprite_data(0, 7, SPT)" in gameplay
 assert "carrying[s >> 3]" in sprite_pass
 assert "shadow_OAM[4u + i].tile =" in banked, (
