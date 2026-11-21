@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #define EYE_UI_HOST_TEST 1
+// The banked HUD reads the live game terrain instead of allocating a map.
+uint8_t hgt[32][32];
 #include "../src/eye_ui.c"
 
 static char row[21];
@@ -23,6 +25,9 @@ static void expect(const char *want) {
 }
 
 int main(void) {
+  // Level terrain makes the home leg legal by default. Water and cliffs
+  // are varied below to ensure the HUD does not lead into blocked tiles.
+  memset(hgt, 1, sizeof hgt);
   static const char *const hazards[] = {
     "AHEAD: MAP EDGE", "AHEAD: WATER BLOCKS", "AHEAD: STEEP CLIFF",
     "AHEAD: CLEAR PATH", "AHEAD: FOOD WALK", "AHEAD: FRIENDLY ANT",
@@ -58,6 +63,22 @@ int main(void) {
   expect("HOME: HERE");
   eye_ui_guide(row, 0, 1, 0, 0, 2, 2);
   expect("HOME: SOUTHEAST");
+  // Northward ground is water but west is open: do not advertise NW.
+  hgt[9][10] = 0;
+  eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
+  expect("HOME: WEST");
+  hgt[10][9] = 0;
+  eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
+  expect("HOME: CHECK MAP");
+  // Restore the northwest leg, then make the diagonal a steep cliff.
+  hgt[9][10] = hgt[10][9] = 1;
+  hgt[9][9] = 3;
+  eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
+  expect("HOME: WEST");
+  // Directly north and blocked: no false "HOME: NORTH" bearing.
+  hgt[9][10] = 0;
+  eye_ui_guide(row, 0, 1, 10, 10, 10, 4);
+  expect("HOME: CHECK MAP");
   puts("GBC ANT EYE UI: all actions, objectives and terrain labels fit 20 tiles");
   return 0;
 }
