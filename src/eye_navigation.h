@@ -38,6 +38,20 @@ static uint8_t eye_ground_class(uint8_t h, uint8_t x, uint8_t y,
   if (h == 3) return 3;
   return (uint8_t)(depth > 14 || !((x + y) & 1u) ? 2u : 1u);
 }
+// Banked 3D ray code cannot safely call the compiler's ordinary 16-bit
+// multiply helper: in this large GBC build __mulint resides in switchable
+// ROM1, which disappears whenever ROM3 is mapped. Multiply by a signed
+// small column offset using shifts and additions in the SAME bank.
+static int16_t eye_mul_small(int8_t sine, int8_t column) {
+  int16_t addend = sine, sum = 0;
+  uint8_t magnitude = (uint8_t)(column < 0 ? -(int16_t)column : column);
+  while (magnitude) {
+    if (magnitude & 1u) sum += addend;
+    addend += addend;
+    magnitude >>= 1;
+  }
+  return column < 0 ? -sum : sum;
+}
 // ATTACK and WALK share a single facing/corner rule. A bite checks the tile
 // ahead WITHOUT moving the scout. Avoid phasing through walls or water and
 // avoid 4-way attacks aimed away from the visual 3D facing.

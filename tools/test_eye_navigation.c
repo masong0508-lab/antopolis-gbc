@@ -54,6 +54,11 @@ int main(void) {
   berries[8][9] = berries[10][13] = 0;
   berries[30][30] = 1;
   assert(!eye_food_bearing(terrain, berries, 10, 10));
+  // Reproduce every ANT EYE ray column term, including negative sines,
+  // without crossing banks to the 16-bit SDCC multiply helper.
+  for (int16_t s = -64; s <= 64; s += 8)
+    for (int16_t c = -19; c <= 19; c += 2)
+      assert(eye_mul_small((int8_t)s, (int8_t)c) == s * c);
   // Terrain classes are stable across near/distant columns, with a distinct
   // water class, brown high land, and darkened grass beyond fourteen steps.
   assert(eye_ground_class(0, 0, 0, 1) == 4);

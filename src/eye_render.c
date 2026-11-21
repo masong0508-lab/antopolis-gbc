@@ -19,8 +19,12 @@ static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5,
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
   int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
   uint8_t n, x, y, h, o, col, lim = VR * 8, lb;
-  rx = (int16_t)SIN16[(vang + 4) & 15] * 32 - (int16_t)SIN16[vang] * t;
-  ry = (int16_t)SIN16[vang] * 32 + (int16_t)SIN16[(vang + 4) & 15] * t;
+  // Never use 16-bit variable '*' inside a banked routine. GBDK would
+  // call __mulint from switchable ROM1, switching out this ROM3 routine.
+  rx = (int16_t)SIN16[(vang + 4) & 15] * 32 -
+       eye_mul_small(SIN16[vang], (int8_t)t);
+  ry = (int16_t)SIN16[vang] * 32 +
+       eye_mul_small(SIN16[(vang + 4) & 15], (int8_t)t);
   rx >>= 4; ry >>= 4;                                // one step = half a cell forward
   for (n = 0; n < VR * 8; n++) cls[n] = 0;
   for (n = 1; n <= VN && lim; n++) {

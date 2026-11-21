@@ -80,3 +80,13 @@ ROM0 slot at 0x0200 for `_HOME` before linking `_CODE` at 0x0500;
 CI inspects the actual symbol address and fails builds if `_HOME`
 moves into switchable space. This must still pass a real ANT EYE emulator
 screen-transition test, not just a bank-space assertion.
+
+## ANT EYE bank3 arithmetic boundary
+
+Ray projection must never invoke an unbanked compiler arithmetic helper
+that the linker has placed in the **switchable** part of ROM1. In particular,
+the ray angle multiplied by a variable column offset used to compile into
+a call to `__mulint` in ROM1. Under bank3 that address resolves to unrelated
+instructions, causing LCD shutdown. The ray now computes these tiny products
+with a bank-local shift/add routine. Keep the native signed-multiplication
+regression test and the full actual-ROM emulator smoke in CI.
