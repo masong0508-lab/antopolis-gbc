@@ -933,13 +933,12 @@ static void raise_land(void) {
 }
 static void lower_land(void) {
   if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) {
-    uint8_t drowned;
     hgt[cy][cx]--; mana--;
-    drowned = (uint8_t)(!hgt[cy][cx] && food[cy][cx]);
-    if (!hgt[cy][cx]) food[cy][cx] = 0;
+    if (!hgt[cy][cx]) {
+      say(food[cy][cx] ? "FOOD WASHED AWAY" : "MOAT DUG");
+      food[cy][cx] = 0;
+    } else say(hgt[cy][cx] == 2 ? "HILL CUT DOWN" : "RAMP LOWERED");
     draw_cell(cx, cy); refresh_terrain_neighbors(cx, cy); sfx_lower(); tev |= 4;
-    say(drowned ? "FOOD WASHED AWAY" : hgt[cy][cx] == 2 ? "HILL CUT DOWN" :
-        hgt[cy][cx] == 1 ? "RAMP LOWERED" : "MOAT DUG");
     return;
   }
   sfx_deny();
