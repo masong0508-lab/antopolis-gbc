@@ -917,14 +917,18 @@ static void place(uint8_t s, uint8_t x, uint8_t y) {
   if (sx > -8 && sx < 160 && sy > -8 && sy < 128) move_sprite(s, (uint8_t)(sx + 8), (uint8_t)(sy + 16));
   else move_sprite(s, 0, 0);
 }
-void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED;
+void eye_animate_walkers(uint8_t visible, uint8_t phase,
+                         const uint8_t *carrying) BANKED;
 static void draw_sprites(void) {
-  uint8_t i, s = 0;
+  uint8_t i, s = 0, carrying[5] = {0, 0, 0, 0, 0};
   int16_t sx, sy;
   for (i = 0; i < MAXA && s < NSPR; i++) {            // only ants inside the view get one of the NSPR sprites
     if (!ant[i].alive) continue;
     sx = (int16_t)ant[i].x * 8 - scx; sy = (int16_t)ant[i].y * 8 - scy;
     if (sx > -8 && sx < 160 && sy > -8 && sy < 128) {
+      // Pack only five local bytes for 36 visible ants. Bank 3 consumes the
+      // mask every four frames; no new VRAM, permanent WRAM or sprite slots.
+      if (ant[i].carry) carrying[s >> 3] |= (uint8_t)(1u << (s & 7u));
       move_sprite(ANTSPR + s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(ANTSPR + s, ant[i].team); s++;
     }
   }
@@ -933,7 +937,7 @@ static void draw_sprites(void) {
   // never interrupts while the switchable ROM bank is selected.
   if (!(sys_time & 3u)) {
     disable_interrupts();
-    eye_animate_walkers(s, (uint8_t)(sys_time >> 3));
+    eye_animate_walkers(s, (uint8_t)(sys_time >> 3), carrying);
     enable_interrupts();
   }
   while (s < NSPR) move_sprite(ANTSPR + s++, 0, 0);
@@ -1664,7 +1668,7 @@ void main(void) {
   set_bkg_data(UI_SEPARATOR, 1, buf + 32);
   set_bkg_data(WORLD_DETAIL, 8, BGT_ALT);
   cfg_load();                                            // remembered level + records from cartridge RAM
-  set_sprite_data(0, 5, SPT);
+  set_sprite_data(0, 7, SPT);  // two animated carrying-food silhouettes in tiles 5/6
   set_bkg_palette(0, 8, bpal);
   disable_interrupts(); eye_init_offsets(); enable_interrupts();
   set_sprite_palette(0, 3, spal);
