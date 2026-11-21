@@ -134,19 +134,55 @@ def main():
         press("start")
         pyboy.tick(350, True, False)
         snapshot("02_strategy")
+        # Check the directional seam against the ACTUAL live world heights.
+        # The previous >=100 random-accents count does not apply when tiles
+        # are reserved for true shorelines/cliffs. This catches inverted
+        # edges, stale seams and ROM-bank render errors on a real cartridge.
+        height_base = world_address("hgt")
+        def height_at(x, y):
+            return pyboy.memory[height_base + 32 * y + x]
+        def expected_edge(x, y):
+            h = height_at(x, y)
+            if h not in (0, 3):
+                return 0
+            around = (
+                height_at(x, y - 1) if y else h,
+                height_at(x, y + 1) if y < 31 else h,
+                height_at(x - 1, y) if x else h,
+                height_at(x + 1, y) if x < 31 else h,
+            )
+            for direction, adjacent in enumerate(around):
+                if (h == 0 and adjacent > 0) or (h == 3 and adjacent < 3):
+                    return 1 + direction + (4 if h == 3 else 0)
+            return 0
         bank = pyboy.memory[0xFF4F]
         pyboy.memory[0xFF4F] = 0
         try:
-            detail_tiles = sum(
-                204 <= pyboy.memory[0x9800 + i] <= 211 for i in range(1024)
-            )
+            detail_tiles = 0
+            edge_types = set()
+            for y in range(32):
+                for x in range(32):
+                    tile = pyboy.memory[0x9800 + y * 32 + x]
+                    if 204 <= tile <= 211:
+                        want = expected_edge(x, y)
+                        if tile != 203 + want:
+                            raise AssertionError(
+                                f"World transition at ({x},{y}): tile {tile} "
+                                f"but terrain requires {203 + want}"
+                            )
+                        detail_tiles += 1
+                        edge_types.add("shore" if tile <= 207 else "cliff")
         finally:
             pyboy.memory[0xFF4F] = bank & 1
-        if detail_tiles < 100:
+        if detail_tiles < 12:
             raise AssertionError(
-                "Detailed water/sand/grass/rock tiles missing from world map: "
+                "Actual shore/cliff geometry has no visible transitions: "
                 + repr(detail_tiles)
             )
+        report["shoreline_and_cliff_tiles"] = {
+            "count": detail_tiles, "types": sorted(edge_types),
+            "aligned_to_live_heights": True
+        }
         strategy_head = pyboy.memory[ANT_EYE_HEADER]
         if strategy_head != 136 + 23:  # 'M' from the MANA HUD in row zero
             raise AssertionError(
