@@ -1370,7 +1370,8 @@ static void eye(void) {                              // pilot a black ant; food,
       // The selected ant and ahead object have their own information bars.
       // Rendering is updated only on a player action, not each frame.
       put_num(11, 0, (uint8_t)(vi + 1u));
-      put_char(19, 0, ' ');
+      // Each compass string is exactly two characters, with space padding
+      // for N/S/E/W; do not waste fixed ROM clearing its last cell twice.
       put_str(18, 0, COMPASS[vang >> 1]);
       disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
       disable_interrupts();
