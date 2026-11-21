@@ -1374,11 +1374,14 @@ static void eye(void) {                              // pilot a black ant; food,
       put_str(0, 14, (const char *)tbuf + 480);
     }
     vsync();
+    // Two columns per input interval instead of four. Full 20-column
+    // sweeps need ten short slices rather than five long stalls; controls
+    // get sampled more often during the same 240-tile redraw.
     if (vcol < VX) {
 #ifndef EYE_DIAG_NO_RAY
-      view_cols(vx, vy, vcol, (uint8_t)(vcol + 4));
+      view_cols(vx, vy, vcol, (uint8_t)(vcol + 2));
 #endif
-      vcol += 4;
+      vcol += 2;
       if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }
     }   // complete every sweep; redo after camera changes during a sweep
     k = joypad(); p = k & ~prev; prev = k;

@@ -197,3 +197,11 @@ rectangle across the viewport. Queens are visibly larger but bounded.
 Turning and moving should preserve the actual underlying hit and food
 locations. Host tests enforce the render-footprint and height limits;
 emulator screenshots are retained for visual review.
+
+## Short input during live ANT EYE redraw
+
+Input is sampled after each two-column software render slice. The emulator
+must demonstrate that a short B press, movement, and the title-map exit
+remain responsive during live drawing, and that the ray sweep completes
+all twenty columns even after repeated turns. Never increase the per-slice
+budget to an unbounded full viewport redraw.
