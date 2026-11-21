@@ -761,7 +761,7 @@ static void step_ant(Ant *a) {
   uint8_t d, t = a->team, e = t ^ 1, found = 0, bd = 0, tx, ty, de;
   int16_t sc, best = -32000;
   uint8_t soldier = !a->carry && qhp[e] && ncnt[t] >= thr[t] && a->sol;  // soldiers only march once the colony is big enough
-  if (!a->carry && hgt[a->y][a->x] && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
+  if (!a->carry && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
   if (a->carry) { uint8_t p = ph[a->y][a->x]; ph[a->y][a->x] = p > 215 ? 255 : p + 40; }
   for (d = 0; d < 4; d++) {
     if (!can_go(a->x, a->y, DX[d], DY[d])) continue;
@@ -1270,7 +1270,7 @@ void eye_init_offsets(void) BANKED;
 uint8_t tcol[VR * 16];
 static void occ_set(void) {                    // mark real food, ants and queens; callers clear stale cells
   uint8_t i, x, y;
-  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (hgt[y][x] && food[y][x]) occ[y][x] = 5;
+  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = 5;
   for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = ant[i].team + 1;
   for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = 3 + i;
 }
@@ -1365,7 +1365,7 @@ static uint8_t eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
   a = &ant[vi]; a->x = vx; a->y = vy;
   cx = vx; cy = vy; // map cursor tracks the real piloted worker
   if (scent) ph[vy][vx] = 255;
-  if (!a->carry && hgt[vy][vx] && food[vy][vx]) {
+  if (!a->carry && food[vy][vx]) {
     food[vy][vx] = 0; a->carry = 1; draw_cell(vx, vy); sfx_food();
     event = 2;
   }
