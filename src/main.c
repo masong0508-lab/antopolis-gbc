@@ -1230,9 +1230,11 @@ static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
 // bodies remain team-colored; transparent gaps read as deep shadow.
 // Continuous head/thorax/abdomen instead of repeated checkerboard holes.
 // The two static patterns occupy the exact same 16 ROM bytes.
-static const uint8_t EYE_BODY[8]={0x18,0x3C,0x3C,0x18,0x3C,0x7E,0x7E,0x3C};
-// Two outward leg pixels per limb row: no duplicated 8px-wide body wall.
-static const uint8_t EYE_LIMBS[8]={0x81,0x81,0x81,0x81,0x81,0x81,0x81,0x81};
+// Tapered 3D silhouettes: wider head, pinched thorax, rounded abdomen.
+// Original ray count and 16 bytes of mask data stay exactly unchanged.
+static const uint8_t EYE_BODY[8]={0x18,0x3C,0x7E,0x18,0x18,0x3C,0x7E,0x3C};
+// Alternate paired leg angles instead of eight identical vertical rails.
+static const uint8_t EYE_LIMBS[8]={0x81,0x42,0x81,0x24,0x81,0x42,0x81,0x42};
 const uint8_t PMAP[5][11] = {
   {0,1,2,3,0,0,0,0,0,0,0}, // land
   {0,2,3,3,1,0,0,0,0,0,0}, // water
