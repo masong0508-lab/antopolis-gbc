@@ -1,3 +1,10 @@
+### Art provenance and sprite consistency
+
+The GitHub native-test job now checks that all five 8×8 source sprite sketches
+exactly match the 80 committed Game Boy tile bytes, that queens are distinct
+from workers, and that the two walking frames actually differ. This catches
+stale generated art before shipping a ROM, with no runtime code or memory cost.
+
 ### ANT EYE organic creature silhouette
 
 3D ants now use connected filled head/thorax/abdomen pixels and sparse

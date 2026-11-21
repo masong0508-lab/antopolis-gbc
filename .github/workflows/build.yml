@@ -14,6 +14,8 @@ jobs:
       - run: make test
       - name: Check UI text layout and font glyphs
         run: python3 tools/test_ui_copy.py
+      - name: Check generated game sprite artwork
+        run: python3 tools/test_art_integrity.py
 
   ant-eye-emulator-smoke:
     name: Headless GBC ANT EYE emulator smoke
