@@ -74,3 +74,31 @@ void terrain_seed_nest_food(uint8_t heights[TERRAIN_SIZE][TERRAIN_SIZE],
     }
   }
 }
+
+/* A cell's appearance is derived from the actual terrain heights, NOT
+   from a random overlay. Zero means the regular material tile; 1-4 are
+   water against land (N,S,W,E), 5-8 are raised rock against lower ground.
+   A single directional crest/foam tile is chosen with N>S>W>E priority
+   at corners, so the visual never claims a passage where one does not
+   exist. Physical heights and ant collisions are never changed.
+   Only read-only neighbor checks; no buffers, allocations or RNG.
+   Runs in ROM3 to keep the dangerously full fixed ROM bank small. */
+uint8_t terrain_edge_pick(const uint8_t heights[32][32],
+                          uint8_t x, uint8_t y) BANKED {
+  uint8_t h;
+  if(x >= 32 || y >= 32) return 0;
+  h = heights[y][x];
+  if(h != 0 && h != 3) return 0;
+  if(h == 0) {
+    if(y && heights[y-1u][x]) return 1;
+    if(y < 31u && heights[y+1u][x]) return 2;
+    if(x && heights[y][x-1u]) return 3;
+    if(x < 31u && heights[y][x+1u]) return 4;
+  } else {
+    if(y && heights[y-1u][x] < 3u) return 5;
+    if(y < 31u && heights[y+1u][x] < 3u) return 6;
+    if(x && heights[y][x-1u] < 3u) return 7;
+    if(x < 31u && heights[y][x+1u] < 3u) return 8;
+  }
+  return 0;
+}
