@@ -31,6 +31,17 @@ assert len(actual) == 80, f"SPT contains {len(actual)}, expected 80 bytes"
 assert actual == encoded, "Hand-drawn source art and GBC tile bytes are out of sync"
 assert rows[0:8] != rows[16:24], "Worker and queen must look distinct"
 assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
+# The walking tiles were previously only used on the title screen:
+# verify the actual gameplay sprite pass consumes both distinct frames.
+gameplay = Path("src/main.c").read_text()
+sprite_pass = gameplay[gameplay.index("static void draw_sprites(void) {"):]
+sprite_pass = sprite_pass[:sprite_pass.index("// ---------- screens ----------")]
+assert "set_sprite_tile(s, TW +" in sprite_pass, (
+    "Overhead colony ants regressed to static worker markers"
+)
+assert "sys_time & 3u" in sprite_pass, (
+    "Sprite tile writes lost their low-overhead four-frame cadence"
+)
 for i in (0, 2, 3, 4):
     opaque = sum(ch != "0" for row in rows[i*8:(i+1)*8] for ch in row)
     assert 18 <= opaque <= 52, f"Sprite {i} is empty or a solid square"
