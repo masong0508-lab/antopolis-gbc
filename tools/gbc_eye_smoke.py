@@ -309,7 +309,19 @@ def main():
         # crash the new ROM3 target classifier.
         standing = position_glyphs()
         press("b", 18)
+        # The action result must be immediately visible, not just a sound.
+        # Nearby targets may differ with procedural world generation, so
+        # accept a missed bite, defeated worker, or hit on a queen.
+        feedback_letter = tile0(0, 14)
+        if feedback_letter not in {glyph("B"), glyph("E"), glyph("Q")}:
+            raise AssertionError(
+                "ANT EYE bite gave no legible outcome feedback: "
+                + repr(feedback_letter)
+            )
+        report["combat_feedback_tile"] = feedback_letter
         pyboy.tick(84, True, False)
+        if tile0(11, 14) != glyph("X") or tile0(15, 14) != glyph("Y"):
+            raise AssertionError("ANT EYE feedback did not restore navigation HUD")
         if not (pyboy.memory[0xFF40] & 0x80):
             raise AssertionError("ANT EYE bite shut off the GBC display")
         if position_glyphs() != standing:
