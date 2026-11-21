@@ -730,12 +730,18 @@ static void pick(uint8_t i) {
 // 3x3 patch around (px,py): every tile sinks one level (FLASH FLOOD, and the player's flood). q = EARTHQUAKE: each tile goes up or down.
 static void hit(uint8_t px, uint8_t py, uint8_t q) {
   int8_t x, y;
+  // Resolve the full 3x3 event BEFORE painting any transition tiles.
+  // Keep the exact original RNG order for deterministic two-player games.
   for (y = (int8_t)py - 1; y <= (int8_t)py + 1; y++) for (x = (int8_t)px - 1; x <= (int8_t)px + 1; x++)
     if (x >= 0 && y >= 0 && x < W && y < H && !is_nest(x, y)) {
       if (q && (rand() & 1)) { if (hgt[y][x] < 3) hgt[y][x]++; } else if (hgt[y][x]) hgt[y][x]--;
-      draw_cell((uint8_t)x, (uint8_t)y);
-      refresh_terrain_neighbors((uint8_t)x, (uint8_t)y);
     }
+  // 5x5 maximum one-write-per-cell pass instead of 9 x (1+4)=45
+  // redundant map writes/banked seam lookups. All surrounding edges
+  // reflect final heights, with no new RAM or runtime framebuffer.
+  for (y = (int8_t)py - 2; y <= (int8_t)py + 2; y++) for (x = (int8_t)px - 2; x <= (int8_t)px + 2; x++)
+    if (x >= 0 && y >= 0 && x < W && y < H)
+      draw_cell((uint8_t)x, (uint8_t)y);
 }
 static void disaster(void) {                       // hits both colonies alike, anywhere on the map
   uint8_t q = rand() & 1;
