@@ -1147,6 +1147,9 @@ const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, 
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
 // 8 = golden pheromone trace. Palette 6 retains real green ground instead
 // of tinting the whole cell red (the combat/food palette would do that).
+// Precomputed 1-bit texture masks avoid a variable shift inside the
+// 240-tile ANT EYE sweep; 8 ROM bytes, no RAM or extra rendering passes.
+static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
 const uint8_t PMAP[5][9] = {
   {0, 1, 2, 3, 0, 0, 0, 0, 0}, // land
   {0, 2, 3, 3, 1, 0, 0, 0, 0}, // water
@@ -1196,7 +1199,7 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
       p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0;
       if (p == 0 && r < 3 && cls[r * 8 + 7] == 0) p = 4;
       for (k = 0; k < 8; k++) {
-        uint8_t bit = (uint8_t)(0x80u >> ((c + r + k) & 7u));
+        uint8_t bit = EYE_GRAIN[(c + r + k) & 7u];
         uint8_t lo, hi;
         v = cls[r * 8 + k];
         lo = (PMAP[p][v] & 1u) ? 0xFFu : 0;
