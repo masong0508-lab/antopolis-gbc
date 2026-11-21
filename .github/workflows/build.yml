@@ -123,8 +123,8 @@ jobs:
           code = re.search(r'([0-9A-Fa-f]{8})\s+s__CODE\b', data)
           assert code, "Missing _CODE area in linker map"
           code_start = int(code[1], 16)
-          assert 0x0150 <= address and address + length <= code_start < 0x4000, (
-              "BANKED trampoline overlaps fixed code or cartridge header"
+          assert 0x0200 <= address and address + length <= code_start < 0x4000, (
+              "BANKED trampoline overlaps CRT0 startup, fixed CODE or a ROM bank"
           )
           PY
       - name: ROM report
