@@ -38,7 +38,7 @@ Food navigation now checks the ant's actual first step before showing a directio
 
 ### ANT EYE action feedback
 
-The first-person command panel now clearly reports **PATH BLOCKED**, **FOOD PICKED UP**, **FOOD DELIVERED**, **BITE MISSED**, **ENEMY DEFEATED**, or **QUEEN HIT!** after real gameplay actions. Messages come from actual movement, inventory and hit results, not decorative guesses; the standard food/home bearings and X/Y coordinates return when the player moves or turns. Invalid bites and blocked steps no longer waste ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers. The pause guide has been updated to describe the new visible feedback.
+The first-person command panel now reports **BLOCKED: TURN FIRST**, **FOOD PICKED UP**, **FOOD DELIVERED**, **NO ENEMY IN REACH**, **ENEMY ANT DEFEATED**, or **RED QUEEN DAMAGED** after real gameplay actions. These are actual movement, inventory and hit results, not decorative guesses; readable **FOOD: NORTHWEST** and **HOME: SOUTHEAST** directions replace raw X/Y diagnostics when the player moves or turns. Invalid bites and blocked steps avoid unnecessary ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers.
 
 ### Explicit direction
 
@@ -50,7 +50,7 @@ The overhead colony now labels its top resources **MANA** and **FOOD** in words,
 
 ### ANT EYE HUD redesign
 
-First-person mode now uses a high-contrast gold **ANT EYE / WORKER** header, a human-readable target name with compass heading, and a four-row contextual command bar. The navigation strip shows nearby food or the direction home and real worker X/Y coordinates. Movement, A/B combat, and SELECT/START shortcuts occupy separate consistent rows. The old overlapping debug readouts have been removed. Bank-3 HUD formatting uses only unused bytes 480-500 of existing scratch RAM; it runs on player changes, not per video frame. Emulator checks validate the actual VRAM text and worker movement.
+First-person mode uses a distinct **ANT EYE** header, human-readable look-ahead warnings such as **AHEAD: WATER BLOCKS** and **AHEAD: ENEMY BITE**, and separate command rows. Food/home guidance now spells out whole directions instead of displaying cryptic compass bytes and X/Y debug values. ANT EYE resolves pickups or deliveries immediately when switching to a worker already on food or at the nest. The formatter uses scratch bytes 480-500, updates on player actions, and is covered by native 20-column glyph/label tests and emulator text checks.
 
 # EMPIRE-ANTS (GBC)
 
@@ -136,9 +136,10 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
   movement directions (the camera still rotates through sixteen angles).
   A diagonal step checks both adjacent cells and the destination, avoiding
   unrealistic corner-cutting through water or cliffs. When not carrying
-  food, the top HUD has a compact `F:> N`-style cue toward the nearest
-  berry within eight tiles; `NOFOOD` means no food is within that radius.
-  N/S indicate north/south, </> west/east, and O means the axis is aligned.
+  food, the HUD shows plain-language hints such as `FOOD: NORTHWEST`
+  toward a nearby berry within eight tiles; `NO FOOD NEARBY` means none
+  is within that scan radius. When carrying food the HUD instead gives
+  `HOME: SOUTH`-style directions toward the black nest.
   The bearing is a proximity hint, not pathfinding around obstacles; use
   the overhead map and terraform blocked paths. The food search runs only
   after changing workers or tiles, not during every camera frame. The
