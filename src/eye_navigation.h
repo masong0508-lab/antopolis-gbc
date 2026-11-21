@@ -48,16 +48,19 @@ static uint8_t eye_attack_target(uint8_t heights[EYE_WORLD][EYE_WORLD],
   *tx = x; *ty = y;
   return 1;
 }
-// Food scan is bounded to an 8-tile radius and only runs when the selected
+#ifndef EYE_NAV_RADIUS
+#define EYE_NAV_RADIUS 8
+#endif
+// Food scan is bounded to a configurable 8-tile radius and only runs when the selected
 // ant CHANGES TILE, not on every ray/turn/frame. Return x/y bearing bits.
 static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
                                 uint8_t berries[EYE_WORLD][EYE_WORLD],
                                 uint8_t vx, uint8_t vy) {
   uint8_t x, y, best = 255, tx = vx, ty = vy, d;
-  uint8_t x0 = vx > 8 ? vx - 8 : 0;
-  uint8_t x1 = vx < 23 ? vx + 8 : 31;
-  uint8_t y0 = vy > 8 ? vy - 8 : 0;
-  uint8_t y1 = vy < 23 ? vy + 8 : 31;
+  uint8_t x0 = vx > EYE_NAV_RADIUS ? vx - EYE_NAV_RADIUS : 0;
+  uint8_t x1 = vx < (31 - EYE_NAV_RADIUS) ? vx + EYE_NAV_RADIUS : 31;
+  uint8_t y0 = vy > EYE_NAV_RADIUS ? vy - EYE_NAV_RADIUS : 0;
+  uint8_t y1 = vy < (31 - EYE_NAV_RADIUS) ? vy + EYE_NAV_RADIUS : 31;
   for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) {
     if (!berries[y][x] || !heights[y][x]) continue;
     d = (uint8_t)((x > vx ? x - vx : vx - x) +

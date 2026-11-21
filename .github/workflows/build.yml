@@ -54,10 +54,22 @@ jobs:
           python-version: '3.12'
       - name: Install PyBoy and Pillow
         run: python3 -m pip install pyboy==2.9.0 Pillow==12.0.0
-      - name: Build temporary no-ray, no-food-scan diagnostic ROM
-        run: make GBDK_HOME="$PWD/gbdk" LCCFLAGS="-DEYE_DIAG_NO_RAY -DEYE_DIAG_NO_FOOD"
-      - name: Test ANT EYE without ray marcher
-        run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --diagnostic-only --out build/eye-diag
+      - name: Check normal renderer without food scan
+        run: |
+          make GBDK_HOME="$PWD/gbdk" LCCFLAGS="-DEYE_DIAG_NO_FOOD"
+          python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --out build/eye-diag/normal-without-food
+      - name: Check banked trivial food function without renderer
+        if: always()
+        run: |
+          make clean
+          make GBDK_HOME="$PWD/gbdk" LCCFLAGS="-DEYE_DIAG_NO_RAY -DEYE_DIAG_FOOD_TRIVIAL"
+          python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --diagnostic-only --out build/eye-diag/trivial-food
+      - name: Check short food scan without renderer
+        if: always()
+        run: |
+          make clean
+          make GBDK_HOME="$PWD/gbdk" LCCFLAGS="-DEYE_DIAG_NO_RAY -DEYE_NAV_RADIUS=2"
+          python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --diagnostic-only --out build/eye-diag/small-food
       - uses: actions/upload-artifact@v4
         if: always()
         with:

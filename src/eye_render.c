@@ -63,7 +63,12 @@ void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED {
 /* Bounded nearby berry bearing: 0 if none, otherwise bit7 present,
    bits 0/1 east/west, bits 2/3 south/north. */
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED {
+#ifdef EYE_DIAG_FOOD_TRIVIAL
+  (void)vx; (void)vy;
+  return 0;
+#else
   return eye_food_bearing(hgt, food, vx, vy);
+#endif
 }
 
 /* A bite hits the adjacent reachable tile along the same eight-direction
