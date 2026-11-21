@@ -29,3 +29,4 @@ test:
 	./build/test_sprite_logic
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_route.c -o build/test_colony_route
 	./build/test_colony_route
+	python3 tools/test_colony_route_source.py
