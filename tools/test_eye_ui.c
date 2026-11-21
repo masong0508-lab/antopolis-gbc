@@ -11,6 +11,12 @@ static char row[21];
 static void expect(const char *want) {
   size_t n = strlen(want), i;
   assert(n <= 20);
+  // GBC's generated raised font supports letters, numbers, spaces and :!/
+  for (i = 0; i < n; ++i) {
+    char c = want[i];
+    assert(c == ' ' || c == ':' || c == '!' || c == '/' ||
+           (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'));
+  }
   assert(strlen(row) == 20);
   assert(strncmp(row, want, n) == 0);
   for (i = n; i < 20; ++i) assert(row[i] == ' ');
@@ -18,9 +24,9 @@ static void expect(const char *want) {
 
 int main(void) {
   static const char *const hazards[] = {
-    "AHEAD: MAP EDGE", "AHEAD: WATER - STOP", "AHEAD: STEEP CLIFF",
-    "AHEAD: CLEAR PATH", "AHEAD: FOOD - WALK", "AHEAD: FRIENDLY ANT",
-    "AHEAD: ENEMY - BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
+    "AHEAD: MAP EDGE", "AHEAD: WATER BLOCKS", "AHEAD: STEEP CLIFF",
+    "AHEAD: CLEAR PATH", "AHEAD: FOOD WALK", "AHEAD: FRIENDLY ANT",
+    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
   };
   static const char *const actions[] = {
     "", "BLOCKED: TURN FIRST", "FOOD PICKED UP", "FOOD DELIVERED",
