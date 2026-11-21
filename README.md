@@ -89,14 +89,17 @@ contrasting food packet above the ant's moving body. They occupy only
 two extra **16-byte 2bpp sprite tiles** on the cartridge. The existing
 black/red sprite palettes and hardware OAM positions are preserved.
 
-The map sprite pass packs the 36 visible ants' carry flags into a
-**five-byte temporary stack mask** and applies the correct empty or
-carrying animation together in ROM bank 3 every fourth video frame.
-No extra framebuffer, permanent WRAM array, OAM allocation or
-world-tick change is required. Native tests check every worker index,
-both walking phases, all mask-byte boundaries and 256 combinations
-of food carriers; generated artwork is compared byte-for-byte with
-the checked-in tile data.
+The map sprite pass reuses the **first 36 bytes of the game's existing
+640-byte title/help scratch buffer** for the 36 visible ants' carry
+flags. The buffer is idle throughout ordinary overhead-map gameplay.
+This avoids the costly variable-bit-shift code of an earlier packed-mask
+implementation and restores fixed ROM headroom. The correct empty or
+carrying tile is selected together in ROM bank 3 every fourth frame.
+No additional permanent WRAM, per-frame scan, framebuffer, OAM
+allocation or world-tick change is required. Native tests check every
+worker index, both walking phases, array boundaries and 256 combinations
+of carriers; artwork is compared byte-for-byte with the generated
+2bpp tiles.
 
 ### GBC fixed-ROM headroom and actual colony animation
 
