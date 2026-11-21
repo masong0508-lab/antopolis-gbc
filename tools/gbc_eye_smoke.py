@@ -80,7 +80,15 @@ def main():
             pyboy.memory[0xFF4F] = bank & 1
 
     def glyph(letter):
-        return 136 + 11 + ord(letter) - ord("A")
+        # The cartridge's compact font does not use ASCII tile indices:
+        # space, digits, letters and punctuation have separate slots.
+        if letter == " ":
+            return 136
+        if "0" <= letter <= "9":
+            return 137 + ord(letter) - ord("0")
+        if "A" <= letter <= "Z":
+            return 147 + ord(letter) - ord("A")
+        return {":": 173, "!": 174, "/": 175}[letter]
 
     def text_tile(character):
         # The generated GBC font maps punctuation outside the A-Z glyph run.
