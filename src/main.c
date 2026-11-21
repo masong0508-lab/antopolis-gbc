@@ -1253,7 +1253,11 @@ static void eye(void) {                              // pilot a black ant; food,
   HIDE_SPRITES;
   VBK_REG = VBK_TILES;
   for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
-  for (y = 14; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
+  // Clean the bottom four status rows AND the top two header rows with one
+  // bounded loop. Otherwise stale strategy-map/UI glyphs bleed into ANT EYE.
+  for (y = 14; y < 20; y++)
+    for (x = 0; x < VX; x++) set_win_tile_xy(x, (uint8_t)(y < 18 ? y : y - 18), FT);
+  put_str(0, 0, "ANT EYE");
   put_str(0, 14, "A:NEXT ANT B:BITE   ");
   put_str(0, 15, "L/R TURN U/D WALK   ");
   put_str(0, 16, "SEL:SCENT START:MAP ");

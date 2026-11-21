@@ -42,8 +42,12 @@ emulator that supports two linked Game Boy Color consoles.
   within eight tiles, or NOFOOD if none exists nearby. Pickup should
   switch to the HOME arrows; after delivery the nearest berry cue should
   reappear. Rotating in place must not force a food scan every frame.
-- Run `make test` with a normal C compiler to exercise the movement,
-  corner-collision and compass rules before testing ROM hardware.
+- Enter ANT EYE after viewing a menu or pause screen: the upper two window
+  rows must not retain stale old-map/help text. "ANT EYE" labels the view.
+  Hill crests should show a 1-pixel dark ridge; distant grass should be
+  subdued without affecting water or close-up food and ants.
+- Run `make test` with a normal C compiler to exercise movement, corner
+  collisions, compass bearings, and depth-based terrain classes.
 - GBC does **not** yet have simultaneous link-cable ANT EYE or Internet
   multiplayer. Do not advertise those features as supported.
 

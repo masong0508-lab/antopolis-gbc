@@ -29,6 +29,15 @@ static uint8_t eye_try_step(uint8_t heights[EYE_WORLD][EYE_WORLD],
   *x += dx; *y += dy;
   return 1;
 }
+// Color IDs consumed by ANT EYE's existing palette mapper. Distant grass
+// shares one darker shade rather than the close-up checker pattern; height-3
+// walls remain brown and water stays blue through the water palette.
+static uint8_t eye_ground_class(uint8_t h, uint8_t x, uint8_t y,
+                                uint8_t depth) {
+  if (!h) return 4;
+  if (h == 3) return 3;
+  return (uint8_t)(depth > 14 || !((x + y) & 1u) ? 2u : 1u);
+}
 // Food scan is bounded to an 8-tile radius and only runs when the selected
 // ant CHANGES TILE, not on every ray/turn/frame. Return x/y bearing bits.
 static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],

@@ -40,6 +40,13 @@ int main(void) {
   berries[8][9] = berries[10][13] = 0;
   berries[30][30] = 1;
   assert(!eye_food_bearing(terrain, berries, 10, 10));
-  puts("GBC ANT EYE navigation, collision and food guidance passed");
+  // Terrain classes are stable across near/distant columns, with a distinct
+  // water class, brown high land, and darkened grass beyond fourteen steps.
+  assert(eye_ground_class(0, 0, 0, 1) == 4);
+  assert(eye_ground_class(3, 0, 0, 1) == 3);
+  assert(eye_ground_class(1, 2, 3, 2) == 1);
+  assert(eye_ground_class(2, 2, 3, 15) == 2);
+  assert(eye_ground_class(1, 2, 2, 2) == 2);
+  puts("GBC ANT EYE movement, collisions, food guidance and terrain shading passed");
   return 0;
 }

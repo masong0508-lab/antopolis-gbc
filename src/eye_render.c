@@ -32,8 +32,12 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
     lb = lim;
     if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
       a = yt < 0 ? 0 : yt;
-      col = h == 0 ? 4 : h == 3 ? 3 : ((x + y) & 1) ? 1 : 2;
+      col = eye_ground_class(h, x, y, n);
       for (r = a; r < lb; r++) cls[r] = col;
+      // A single brown contour pixel on nearby land crests makes actual
+      // cliff/step geometry visible instead of a seamless flat green slab.
+      // Keep the waterline untouched and never write outside the 96px view.
+      if (h && n <= 14 && a < VR * 8) cls[a] = 3;
       lim = (uint8_t)a;
     }
     o = occ[y][x];
