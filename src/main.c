@@ -559,10 +559,13 @@ static void draw_cell(uint8_t x, uint8_t y) {
 // Only four existing map tiles refresh; world state, collision, saves and
 // camera are unchanged. Larger 3x3 disasters use one 5x5 redraw.
 static void refresh_terrain_neighbors(uint8_t x, uint8_t y) {
-  if (x) draw_cell(x - 1u, y);
-  if (x < 31u) draw_cell(x + 1u, y);
-  if (y) draw_cell(x, y - 1u);
-  if (y < 31u) draw_cell(x, y + 1u);
+  // At world edges a wrapped draw only recomputes the opposite map tile:
+  // draw_cell always uses its actual nonwrapping neighbors. No game-state
+  // or visual seam wraps, but four conditional branches disappear.
+  draw_cell((uint8_t)((x + 31u) & 31u), y);
+  draw_cell((uint8_t)((x + 1u) & 31u), y);
+  draw_cell(x, (uint8_t)((y + 31u) & 31u));
+  draw_cell(x, (uint8_t)((y + 1u) & 31u));
 }
 
 static uint8_t can_go(uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
