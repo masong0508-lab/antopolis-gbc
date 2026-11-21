@@ -165,6 +165,36 @@ def main():
                         "raised_font_first_row": capital_a_first_row,
                         "detailed_world_cells": detail_tiles}
 
+        # Check the *real hardware OAM*, not merely source sprite assets:
+        # the same two ant walking frames used on the title must animate
+        # workers during actual overhead gameplay. Read only slots 0..35;
+        # the final four OAM entries are queens/player cursors.
+        def visible_worker_frames():
+            workers = {}
+            for sprite in range(36):
+                oam = 0xFE00 + 4 * sprite
+                sy, sx, frame = (pyboy.memory[oam + j] for j in (0, 1, 2))
+                if 16 <= sy < 144 and 8 <= sx < 168:
+                    workers[sprite] = frame
+            return workers
+
+        walker_samples = [visible_worker_frames()]
+        for _ in range(3):
+            pyboy.tick(8, True, False)
+            walker_samples.append(visible_worker_frames())
+        stable_workers = set.intersection(*(set(frames) for frames in walker_samples))
+        if not stable_workers:
+            raise AssertionError("No stable on-screen colony worker OAM sprites")
+        if not any(
+            all(sample[i] in (3, 4) for sample in walker_samples)
+            and len({sample[i] for sample in walker_samples}) == 2
+            for i in stable_workers
+        ):
+            raise AssertionError(
+                "Overhead GBC workers are still static or missing walking silhouettes"
+            )
+        report["ui"]["walking_ants_animated"] = True
+
         # Pause/help is a navigable full-screen guide, not just a label.
         press("start", 18)
         pyboy.tick(35, True, False)
