@@ -706,17 +706,19 @@ static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = ne
 // ---------- popularity + elections ----------
 static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
 static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
-// 6 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
-static const char PN[] = "FLOOD 4FASTEGGMANA UPCALM   QUEENUPSLOWRED";
+// Election names are copied only on demand from ROM3 to the existing
+// 20-byte HUD buffer. Do not store this constant string in fixed ROM.
+void ui_fill_perk_labels(char *out, uint8_t first, uint8_t second) BANKED;
 static char pbuf[20];
 static void offer(void) {                          // two different perks you do not own yet
-  uint8_t i;
   if (perk == 63) return;
   do pa = rand() & 7; while (pa > 5 || ((perk >> pa) & 1));
   pb = pa;
   do pb = pb > 4 ? 0 : pb + 1; while ((perk >> pb) & 1);      // next free perk after pa (pa itself if it is the last one)
   pbuf[0] = 'A'; pbuf[1] = ':'; pbuf[9] = ' '; pbuf[10] = 'B'; pbuf[11] = ':';
-  for (i = 0; i < 7; i++) { pbuf[2 + i] = PN[pa * 7 + i]; pbuf[12 + i] = PN[pb * 7 + i]; }
+  disable_interrupts();
+  ui_fill_perk_labels(pbuf, pa, pb);
+  enable_interrupts();
   pbuf[19] = 0;
   pend = 80;                                       // about 10 s to choose
 }
