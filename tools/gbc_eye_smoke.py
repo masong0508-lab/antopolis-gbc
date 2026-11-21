@@ -228,13 +228,27 @@ def main():
         stable_workers = set.intersection(*(set(frames) for frames in walker_samples))
         if not stable_workers:
             raise AssertionError("No stable on-screen colony worker OAM sprites")
-        if not any(
-            all(sample[i] in (3, 4) for sample in walker_samples)
-            and len({sample[i] for sample in walker_samples}) == 2
-            for i in stable_workers
-        ):
+        # A food carrier uses the *other* two-frame silhouette (5/6),
+        # not a static ordinary worker (3/4). Both pairs must be tested;
+        # the old assertion falsely rejected genuinely animated carriers.
+        worker_pairs = ((3, 4), (5, 6))
+        animated = [
+            i for i in stable_workers
+            if any(
+                all(sample[i] in pair for sample in walker_samples)
+                and len({sample[i] for sample in walker_samples}) == 2
+                for pair in worker_pairs
+            )
+        ]
+        report["ui"]["walker_frames_sampled"] = [
+            {str(i): sample[i] for i in sorted(stable_workers)}
+            for sample in walker_samples
+        ]
+        if not animated:
             raise AssertionError(
-                "Overhead GBC workers are still static or missing walking silhouettes"
+                "Overhead GBC workers do not alternate within either "
+                "walking (3/4) or carrying (5/6) frame pair: "
+                + repr(report["ui"]["walker_frames_sampled"])
             )
         report["ui"]["walking_ants_animated"] = True
 
