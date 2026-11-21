@@ -55,9 +55,9 @@ static uint8_t eye_entity_centered(uint16_t px, uint16_t py) {
 // Ants should be distinct silhouettes, not giant vertical tiled pillars.
 // A queen stays larger than a worker; berries remain small in perspective.
 static uint8_t eye_entity_height(uint8_t base, uint8_t kind) {
-  if (kind == 5) return (uint8_t)(base > 12u ? 12u : (base >> 1));
-  if (kind > 2) return (uint8_t)(base > 15u ? 30u : (base << 1));
-  return (uint8_t)(base > 21u ? 21u : base);
+  if (kind == 5) return (uint8_t)(base > 12 ? 12 : (base >> 1));
+  if (kind > 2) return (uint8_t)(base > 15 ? 30 : (base << 1));
+  return (uint8_t)(base > 21 ? 21 : base);
 }
 // Gold scent only appears on reachable soil near the camera and near the
 // center of a sampled cell. This avoids filling the whole horizon with dots,
