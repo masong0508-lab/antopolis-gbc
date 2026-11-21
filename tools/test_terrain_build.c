@@ -88,6 +88,54 @@ int main(void) {
         assert(!berries[y][x]);
     }
   }
-  puts("GBC banked terrain generation: borders, 50 maps, fair reachable starter food PASS");
+  /* Directional coast and rock art is chosen from true neighbor height:
+     four possible orientations for water and four for a raised cliff.
+     Corners always select north, then south, west and east. The pure
+     renderer must never change heights or gameplay collision. */
+  {
+    uint8_t before[TERRAIN_SIZE][TERRAIN_SIZE];
+    unsigned direction;
+    const int8_t dx[4]={0,0,-1,1},dy[4]={-1,1,0,0};
+    for(direction=0;direction<4;direction++) {
+      memset(h,0,sizeof h);
+      h[(unsigned)(16+dy[direction])][(unsigned)(16+dx[direction])]=1;
+      memcpy(before,h,sizeof h);
+      assert(terrain_edge_pick(h,16,16)==1u+direction);
+      assert(!memcmp(before,h,sizeof h));
+      memset(h,3,sizeof h);
+      h[(unsigned)(16+dy[direction])][(unsigned)(16+dx[direction])]=2;
+      memcpy(before,h,sizeof h);
+      assert(terrain_edge_pick(h,16,16)==5u+direction);
+      assert(!memcmp(before,h,sizeof h));
+    }
+    memset(h,1,sizeof h);
+    assert(!terrain_edge_pick(h,16,16)); // ordinary soil
+    h[16][16]=2;
+    assert(!terrain_edge_pick(h,16,16)); // ordinary grassy plateau
+    memset(h,0,sizeof h);
+    assert(!terrain_edge_pick(h,16,16)); // open water
+    assert(!terrain_edge_pick(h,32,0));  // invalid x
+    assert(!terrain_edge_pick(h,0,32));  // invalid y
+    h[0][0]=1;
+    assert(terrain_edge_pick(h,0,1)==1); // coast touches top boundary
+    h[1][0]=3;
+    assert(terrain_edge_pick(h,1,1)==7); // rock cliffs face lower west
+    memset(h,0,sizeof h);
+    h[15][16]=1; h[17][16]=1; h[16][15]=1; h[16][17]=1;
+    assert(terrain_edge_pick(h,16,16)==1); // deterministic N priority
+    memset(h,3,sizeof h);
+    h[15][16]=2; h[17][16]=2; h[16][15]=2; h[16][17]=2;
+    assert(terrain_edge_pick(h,16,16)==5);
+    // Steady output on generated worlds with same height/collision data.
+    for(seed=0;seed<32;seed++) {
+      for(y=0;y<TERRAIN_SIZE;y++) for(x=0;x<TERRAIN_SIZE;x++)
+        h[y][x]=(uint8_t)((x*11u + y*23u + seed*7u) & 3u);
+      memcpy(before,h,sizeof h);
+      for(y=0;y<TERRAIN_SIZE;y++) for(x=0;x<TERRAIN_SIZE;x++)
+        assert(terrain_edge_pick(h,(uint8_t)x,(uint8_t)y)<=8);
+      assert(!memcmp(before,h,sizeof h));
+    }
+  }
+  puts("GBC banked terrain: 32 maps, directional coasts and cliffs, starter food PASS");
   return 0;
 }
