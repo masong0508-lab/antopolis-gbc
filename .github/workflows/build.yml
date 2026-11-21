@@ -51,11 +51,13 @@ jobs:
 
   ray-diagnostic:
     name: Diagnose GBC ANT EYE without rendering or food scan
-    # Three separate debug cartridge builds are useful for regressions
-    # but overwhelm routine gameplay/UI pushes. Normal pushes still run
-    # the actual ROM build, host tests and full real-PyBoy playthrough.
-    # Keep deep isolation checks available on PR and manual dispatch.
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    # These three A/B debug ROMs intentionally omit the renderer or
+    # food scan and are *not* normal playable cartridges. A full-game
+    # visual smoke check is not a meaningful pass/fail gate for them.
+    # Keep the isolation experiments available through manual dispatch;
+    # normal push/PR checks still gate on the real ROM, bank layout,
+    # native tests and full real-PyBoy playthrough.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
