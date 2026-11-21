@@ -34,6 +34,16 @@ emulator that supports two linked Game Boy Color consoles.
 - Entering ANT EYE with no living worker must return to the strategy map
   with an explanation. Re-enter after food and workers change; old occupancy
   sprites must not remain as ghosts in the ray view.
+- Move in all 16 camera directions. Walking should quantize to eight
+  cardinal/diagonal steps, including safe backward steps, without crossing
+  water or cliffs diagonally through a blocked corner. Camera turns must
+  not snap unexpectedly when moving.
+- Without carrying food, the F HUD cue should point to the nearest berry
+  within eight tiles, or NOFOOD if none exists nearby. Pickup should
+  switch to the HOME arrows; after delivery the nearest berry cue should
+  reappear. Rotating in place must not force a food scan every frame.
+- Run `make test` with a normal C compiler to exercise the movement,
+  corner-collision and compass rules before testing ROM hardware.
 - GBC does **not** yet have simultaneous link-cable ANT EYE or Internet
   multiplayer. Do not advertise those features as supported.
 

@@ -1199,12 +1199,9 @@ static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
   put_str(12, 17, "FACING"); put_str(18, 17, COMPASS[vang >> 1]);
 }
-static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward/back; same cliff and water rules as ants
-  int8_t fx = SIN16[(vang + 4) & 15], fy = SIN16[vang], dx = 0, dy = 0;
-  if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1; else dy = fy < 0 ? -1 : 1;
-  dx *= dir; dy *= dir;
-  if (can_go(*vx, *vy, dx, dy)) { *vx += dx; *vy += dy; }
-}
+// Moved to switchable bank 3, preserving scarce fixed bank space.
+void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
+uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
@@ -1247,7 +1244,7 @@ static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
 }
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
-  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0;
+  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, navx = 255, navy = 255, nvi = MAXA;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   // There is no controllable ant until the colony hatches a living worker.
@@ -1267,6 +1264,15 @@ static void eye(void) {                              // pilot a black ant; food,
   while (1) {
     if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
       if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
+      // Search food only after moving to another cell or selecting a worker,
+      // never per frame while rotating; limit ROM bank switches and audio IRQ
+      // masking to the actual search, not the whole render loop.
+      if (navx != vx || navy != vy || nvi != vi) {
+        navx = vx; navy = vy; nvi = vi;
+        if (!ant[vi].carry) {
+          disable_interrupts(); nav = eye_food_hint(vx, vy); enable_interrupts();
+        }
+      }
       // Complete the in-progress ray sweep before restarting. Holding a
       // direction previously reset column 0 every four frames, so the
       // right half of the picture could remain stale indefinitely.
@@ -1280,7 +1286,16 @@ static void eye(void) {                              // pilot a black ant; food,
         put_str(12, 14, " Y");
         put_char(14, 14, vy < nesty[0] ? 'S' : vy > nesty[0] ? 'N' : 'O');
         put_str(15, 14, "     ");
-      } else put_str(0, 14, "A:NEXT ANT B:BITE   ");
+      } else {
+        put_str(0, 14, "A:NEXT B:BITE ");
+        if (nav & 0x80) {
+          put_str(14, 14, "F:");
+          put_char(16, 14, (nav & 1) ? '>' : (nav & 2) ? '<' : 'O');
+          put_char(17, 14, ' ');
+          put_char(18, 14, (nav & 4) ? 'S' : (nav & 8) ? 'N' : 'O');
+          put_char(19, 14, ' ');
+        } else put_str(14, 14, "NOFOOD");
+      }
     }
     vsync();
     if (vcol < VX) {

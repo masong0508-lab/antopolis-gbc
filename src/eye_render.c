@@ -4,13 +4,14 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdint.h>
+#include "eye_navigation.h"
 #define W 32
 #define H 32
 #define VX 20
 #define VR 12
 #define VY0 2
 #define VN 24
-extern uint8_t hgt[H][W], occ[H][W], cls[VR * 8], vang;
+extern uint8_t hgt[H][W], food[H][W], occ[H][W], cls[VR * 8], vang;
 extern int8_t OFF[7][VN + 1];
 static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
 static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
@@ -49,3 +50,14 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
 }
 
 
+
+/* Real eight-direction ant movement lives with the renderer in bank 3,
+   keeping the very full 32 KB fixed ROM area from growing. */
+void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED {
+  (void)eye_try_step(hgt, vx, vy, vang, dir);
+}
+/* Bounded nearby berry bearing: 0 if none, otherwise bit7 present,
+   bits 0/1 east/west, bits 2/3 south/north. */
+uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED {
+  return eye_food_bearing(hgt, food, vx, vy);
+}

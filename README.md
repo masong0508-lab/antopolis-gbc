@@ -8,6 +8,18 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 - **2 players:** on the title screen press DOWN, choose SAME GB (30-second turns) or LINK CABLE (two GBCs). The serial exchange has a finite timeout, and the multiplayer greeting uses a revised version token so older incompatible ROMs are rejected. **Both GBCs must run the newest matching game build.** This is serial-cable versus, not Internet multiplayer.
 - **Playable ANT EYE:** in single-player gameplay hold SELECT and press START to inhabit the nearest living black worker. If none exist, the game explains that a worker must hatch before entering. A switches worker, L/R or LEFT/RIGHT turn, UP/DOWN walk, B bites an enemy directly ahead, and hold SELECT to leave a worker-followed scent trail. Walk onto food to pick it up; the ANT EYE HUD now shows east/west arrows and N/S letters toward the home nest while carrying food (O means aligned). Return to its centre to deliver food and mana. Worker switching skips the queen camera; entering ANT EYE clears stale occupancy markers. START returns to the strategy map at the ant's actual position.
+- **GBC ANT EYE controls and guidance:** first-person movement now uses eight
+  movement directions (the camera still rotates through sixteen angles).
+  A diagonal step checks both adjacent cells and the destination, avoiding
+  unrealistic corner-cutting through water or cliffs. When not carrying
+  food, the top HUD has a compact `F:> N`-style cue toward the nearest
+  berry within eight tiles; `NOFOOD` means no food is within that radius.
+  N/S indicate north/south, </> west/east, and O means the axis is aligned.
+  The bearing is a proximity hint, not pathfinding around obstacles; use
+  the overhead map and terraform blocked paths. The food search runs only
+  after changing workers or tiles, not during every camera frame. The
+  movement and navigation helpers are kept in the spacious switchable
+  ROM bank 3 and have independent native regression tests.
 - **World continuity:** first-person food, enemies, queen damage, movement and scent trails now use the same tile-state and colony data as the strategy view. The wider colony simulation remains paused while the low-power GBC draws ANT EYE. The ray-marching calculations live in switchable ROM bank 3; actual VRAM drawing remains in the main bank, and interrupts are masked briefly during each ray calculation to protect audio code. Holding a movement/turn direction now allows every column of a ray pass to finish before another full pass starts, preventing stale portions of the 3D picture.
 - **Current multiplayer scope:** GBC LINK CABLE multiplayer is versus on the strategy map. First-person and Internet-synchronized multiplayer are not yet supported for two connected GBCs. Build success is not proof of real-hardware link reliability; validate with two linked emulators or physical consoles.
 
@@ -81,7 +93,7 @@ P1 is black (gold cursor), P2 is red (red cursor). Both colonies play by the sam
 `make GBDK_HOME=/path/to/gbdk` -> `build/empire-ants.gbc` (CGB-only ROM).
 
 ## Status
-**Not yet built with real GBDK or run on hardware/emulator**: the build environment had no GBDK. The CI workflow (`.github/workflows/build.yml`) builds the ROM and uploads it as an artifact.
+**Built through GitHub Actions using GBDK-2020, not yet validated on real hardware or linked emulators.** The CI workflow (`.github/workflows/build.yml`) checks the ROM and fixed-bank usage, runs a native navigation regression test and uploads the .gbc ROM as an artifact.
 
 Things to check first on a real build:
 - HUD/terrain tiles overlapping: terrain tiles start at VRAM tile 128 and the font at 136.
