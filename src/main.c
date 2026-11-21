@@ -920,15 +920,17 @@ static void place(uint8_t s, uint8_t x, uint8_t y) {
 void eye_animate_walkers(uint8_t visible, uint8_t phase,
                          const uint8_t *carrying) BANKED;
 static void draw_sprites(void) {
-  uint8_t i, s = 0, carrying[5] = {0, 0, 0, 0, 0};
+  uint8_t i, s = 0;
   int16_t sx, sy;
   for (i = 0; i < MAXA && s < NSPR; i++) {            // only ants inside the view get one of the NSPR sprites
     if (!ant[i].alive) continue;
     sx = (int16_t)ant[i].x * 8 - scx; sy = (int16_t)ant[i].y * 8 - scy;
     if (sx > -8 && sx < 160 && sy > -8 && sy < 128) {
-      // Pack only five local bytes for 36 visible ants. Bank 3 consumes the
-      // mask every four frames; no new VRAM, permanent WRAM or sprite slots.
-      if (ant[i].carry) carrying[s >> 3] |= (uint8_t)(1u << (s & 7u));
+      // The 640-byte title/help scratch is otherwise unused during live
+      // overhead play. One existing byte per visible worker is cheaper
+      // than a dynamic 8-bit shift/mask in this nearly full fixed bank.
+      // No new WRAM, stack arrays, sprite slots or per-frame scans.
+      tbuf[s] = ant[i].carry;
       move_sprite(ANTSPR + s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(ANTSPR + s, ant[i].team); s++;
     }
   }
@@ -937,7 +939,7 @@ static void draw_sprites(void) {
   // never interrupts while the switchable ROM bank is selected.
   if (!(sys_time & 3u)) {
     disable_interrupts();
-    eye_animate_walkers(s, (uint8_t)(sys_time >> 3), carrying);
+    eye_animate_walkers(s, (uint8_t)(sys_time >> 3), tbuf);
     enable_interrupts();
   }
   while (s < NSPR) move_sprite(ANTSPR + s++, 0, 0);
