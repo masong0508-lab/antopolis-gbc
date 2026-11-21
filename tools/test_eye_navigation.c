@@ -122,14 +122,17 @@ int main(void) {
   assert(!eye_show_scent(255, 3, 4, 1));
   assert(!eye_show_scent(255, 1, 19, 1));
   assert(!eye_show_scent(255, 1, 4, 0));
-  // First-person land colours must correspond to the map's four heights:
-  // water=blue, sand=tan, grass=green, hill=rock. Test near/far grass.
+  // World terrain must have stable material colors across x/y and
+  // distance. No full grass-cell checkerboard: per-pixel renderer grain
+  // already provides the natural surface texture at much finer scale.
   assert(eye_ground_class(0, 0, 0, 1) == 4);
   assert(eye_ground_class(1, 2, 3, 2) == 2);
   assert(eye_ground_class(1, 2, 2, 22) == 2);
-  assert(eye_ground_class(2, 2, 3, 2) == 2);
-  assert(eye_ground_class(2, 2, 2, 2) == 1);
-  assert(eye_ground_class(2, 2, 3, 15) == 1);
+  for (y = 0; y < 32; y++)
+    for (x = 0; x < 32; x++) {
+      assert(eye_ground_class(2, x, y, 1) == 1);
+      assert(eye_ground_class(2, x, y, 24) == 1);
+    }
   assert(eye_ground_class(3, 0, 0, 1) == 3);
   puts("GBC ANT EYE movement, targeting, food, scent visibility and terrain shading passed");
   return 0;
