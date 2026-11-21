@@ -74,6 +74,20 @@ def main():
         press("start")                   # skip DippInn studio splash
         pyboy.tick(300, True, False)
         snapshot("01_title")
+        # Visual identity regression: the new raised 5x7 A has a lit top
+        # row, whereas the former 3x5 typeface always left it empty.
+        bank = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            capital_a_first_row = pyboy.memory[0x8000 + glyph("A") * 16]
+        finally:
+            pyboy.memory[0xFF4F] = bank & 1
+        if capital_a_first_row != 0x38:
+            raise AssertionError(
+                "5x7 interface font not installed: " + repr(capital_a_first_row)
+            )
+        if tile0(0, 8) != 203:
+            raise AssertionError("Title bronze separator missing")
         if tile0(0, 11) != glyph("A") or tile0(1, 12) != glyph("S"):
             raise AssertionError("Title tutorial/sandbox shortcuts are missing")
 
@@ -81,6 +95,19 @@ def main():
         press("start")
         pyboy.tick(350, True, False)
         snapshot("02_strategy")
+        bank = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            detail_tiles = sum(
+                204 <= pyboy.memory[0x9800 + i] <= 211 for i in range(1024)
+            )
+        finally:
+            pyboy.memory[0xFF4F] = bank & 1
+        if detail_tiles < 100:
+            raise AssertionError(
+                "Detailed water/sand/grass/rock tiles missing from world map: "
+                + repr(detail_tiles)
+            )
         strategy_head = pyboy.memory[ANT_EYE_HEADER]
         if strategy_head != 136 + 23:  # 'M' from the MP HUD in row zero
             raise AssertionError(
@@ -92,7 +119,9 @@ def main():
         if terrain_tile not in {glyph(c) for c in "WSGH"}:
             raise AssertionError("Strategy HUD does not show the cursor terrain")
         report["ui"] = {"title_shortcuts": True,
-                        "cursor_terrain_tile": terrain_tile}
+                        "cursor_terrain_tile": terrain_tile,
+                        "raised_font_first_row": capital_a_first_row,
+                        "detailed_world_cells": detail_tiles}
 
         # Pause/help is a navigable full-screen guide, not just a label.
         press("start", 18)
@@ -174,6 +203,22 @@ def main():
                 "SELECT+START never loaded the ANT EYE header and 3D tiles: "
                 + repr(report["vram"])
             )
+        # The upper sky has its own CGB palette (7), and the 1px terrain
+        # grain leaves non-solid bitplane bytes in bank 1's ray tiles.
+        bank = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 1
+        try:
+            upper_sky_palette = pyboy.memory[WINDOW_MAP + 2 * 32] & 7
+            grain_bytes = sum(
+                0 < pyboy.memory[0x8000 + i] < 255 for i in range(240 * 16)
+            )
+        finally:
+            pyboy.memory[0xFF4F] = bank & 1
+        report["render_detail"] = {"upper_sky_palette": upper_sky_palette,
+                                   "textured_vram_bytes": grain_bytes}
+        if upper_sky_palette != 7 or grain_bytes < 20:
+            raise AssertionError("ANT EYE lost atmospheric sky / terrain detail")
+
         if len(eye.getcolors(maxcolors=160 * 144) or []) < 4:
             raise AssertionError("ANT EYE picture looks blank or uses too few colors")
         # Read VRAM bank 0: the foreground palette attribute plane is bank 1.
