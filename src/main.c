@@ -1266,6 +1266,7 @@ uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
 void eye_ui_ahead(char *b, uint8_t target) BANKED;
+void eye_ui_notice(char *b, uint8_t result) BANKED;
 void eye_ui_guide(char *b, uint8_t nav, uint8_t carry,
                   uint8_t x, uint8_t y, uint8_t hx, uint8_t hy) BANKED;
 
@@ -1291,23 +1292,25 @@ static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
 }
 
 // A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
-static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
-  uint8_t tx, ty, i;
-  if (vi >= MAXA || !vok(vi)) return;
+static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
+  uint8_t tx, ty, i, result = 5;
+  if (vi >= MAXA || !vok(vi)) return 4;
   // Bank 3 owns attack geometry so the tight fixed bank does not need
   // separate 4-way trig code that disagrees with ANT EYE movement.
-  if (!eye_bite_target(vx, vy, &tx, &ty)) { sfx_deny(); return; }
+  if (!eye_bite_target(vx, vy, &tx, &ty)) { sfx_deny(); return 4; }
   for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == 1 && ant[i].x == tx && ant[i].y == ty) {
     die(&ant[i]); sfx_fight(); break;
   }
   if (i == MAXA && tx == nestx[1] && ty == nesty[1] && qhp[1]) {
-    qhp[1]--; sfx_hit(); if (!qhp[1]) over = 1;
-  } else if (i == MAXA) { sfx_deny(); return; }
+    qhp[1]--; sfx_hit(); result = 6; if (!qhp[1]) over = 1;
+  } else if (i == MAXA) { sfx_deny(); return 4; }
   memset(occ, 0, sizeof occ); occ_set();
+  return result;
 }
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, need_nav = 1;
+  uint8_t notice = 0, notice_frames = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   // There is no controllable ant until the colony hatches a living worker.
@@ -1366,10 +1369,19 @@ static void eye(void) {                              // pilot a black ant; food,
       disable_interrupts();
       eye_ui_guide((char *)tbuf + 480, nav, ant[vi].carry,
                    vx, vy, nestx[0], nesty[0]);
+      if (notice) eye_ui_notice((char *)tbuf + 480, notice);
       enable_interrupts();
       put_str(0, 14, (const char *)tbuf + 480);
     }
     vsync();
+    if (notice_frames && !--notice_frames) {
+      notice = 0;
+      disable_interrupts();
+      eye_ui_guide((char *)tbuf + 480, nav, ant[vi].carry,
+                   vx, vy, nestx[0], nesty[0]);
+      enable_interrupts();
+      put_str(0, 14, (const char *)tbuf + 480);
+    }
     if (vcol < VX) {
 #ifndef EYE_DIAG_NO_RAY
       view_cols(vx, vy, vcol, (uint8_t)(vcol + 4));
@@ -1379,7 +1391,15 @@ static void eye(void) {                              // pilot a black ant; food,
     }   // complete every sweep; redo after camera changes during a sweep
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
-    if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
+    if (p & J_B) {
+      notice = eye_bite(vi, vx, vy); notice_frames = 48;
+      if (notice != 4) go = 2;  // Only rerender rays if an enemy really changed.
+      else {
+        disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
+        put_str(0, 14, (const char *)tbuf + 480);
+      }
+      if (over) break;
+    }
     if (p & J_A) {
       // Switch only among living workers. The old loop could select the
       // queen as an unmovable camera, despite advertising NEXT ANT.
@@ -1394,12 +1414,24 @@ static void eye(void) {                              // pilot a black ant; food,
     if (dirs != last) { rep = 0; last = dirs; }
     if (dirs) {
       if (rep == 0 || (rep >= 8 && !(rep & 3))) {
-        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; go = 2; }
-        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; go = 2; }
+        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; notice = notice_frames = 0; go = 2; }
+        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; notice = notice_frames = 0; go = 2; }
         else {
           x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
-          if (vx != x || vy != y) { eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT)); go = 2; need_nav = 1; }
-          else sfx_deny();
+          if (vx != x || vy != y) {
+            p = ant[vi].carry;
+            eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT));
+            notice = (p != ant[vi].carry) ? (ant[vi].carry ? 2 : 3) : 0;
+            notice_frames = notice ? 50 : 0;
+            go = 2; need_nav = 1;
+          } else {
+            sfx_deny();
+            if (notice != 1) {
+              notice = 1; notice_frames = 44;
+              disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
+              put_str(0, 14, (const char *)tbuf + 480);
+            }
+          }
         }
       }
       if (rep < 250) rep++;

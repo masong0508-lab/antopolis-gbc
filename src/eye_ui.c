@@ -9,6 +9,16 @@ static void digits(char *b,uint8_t x,uint8_t v){
   uint8_t n=0;if(v>99)v=99;while(v>=10){v-=10;n++;}
   b[x]='0'+n;b[x+1]='0'+v;
 }
+// Feedback codes are shared with the fixed-bank input loop:
+ // 1 blocked, 2 picked up, 3 delivered, 4 missed, 5 enemy, 6 queen.
+void eye_ui_notice(char *b,uint8_t result) BANKED {
+  static const char *const messages[7]={
+    "", "PATH BLOCKED", "FOOD PICKED UP", "FOOD DELIVERED",
+    "BITE MISSED", "ENEMY DEFEATED", "QUEEN HIT!"
+  };
+  blank(b);
+  if(result<7) field(b,0,messages[result]);
+}
 void eye_ui_ahead(char *b,uint8_t target) BANKED {
   static const char *const names[9]={
     "EDGE","WATER","CLIFF","OPEN","FOOD","ALLY","ENEMY","OUR QUEEN","RED QUEEN"
