@@ -59,6 +59,18 @@ are made. The pure visibility and silhouette-size rules are native-tested.
 
 Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.
 
+### Safer first-person return-home guidance
+
+When carrying a berry, ANT EYE now checks the next actual terrain step
+before suggesting a direction home. Water, cliffs and blocked diagonal
+corners no longer generate a misleading compass instruction: the HUD
+chooses an open cardinal alternative where possible or shows
+`HOME: CHECK MAP` when the direct approach is blocked. This is an honest
+**one-step safety check**, not a claim that a complete route through the
+maze has been found. It reuses the existing world-height array, performs
+no per-frame scan, and adds no VRAM/framebuffer or RAM map allocation.
+Native tests cover water, diagonal cliffs and fully blocked approaches.
+
 ### ANT EYE action feedback
 
 The first-person command panel now reports **BLOCKED: TURN FIRST**, **FOOD PICKED UP**, **FOOD DELIVERED**, **NO ENEMY IN REACH**, **ENEMY ANT DEFEATED**, or **RED QUEEN DAMAGED** after real gameplay actions. These are actual movement, inventory and hit results, not decorative guesses; readable **FOOD: NORTHWEST** and **HOME: SOUTHEAST** directions replace raw X/Y diagnostics when the player moves or turns. Invalid bites and blocked steps avoid unnecessary ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers.
