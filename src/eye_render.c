@@ -123,11 +123,18 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
    queen/player visibility; only slots 4..39 are touched. Never call
    bank-1 drawing/VRAM helpers while bank 3 is mapped. The caller disables
    banked audio interrupts and runs this at one-quarter of the frame rate.
+   Five stack bytes describe which visible ants carry a berry. A carrier
+   receives tile 5/6 rather than tile 3/4, retaining its team palette.
    This saves expensive per-ant tile updates in the full fixed ROM bank. */
-void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED {
-  uint8_t i;
-  for (i = 0; i < visible; ++i)
-    shadow_OAM[4u + i].tile = (uint8_t)(3u + ((i + phase) & 1u));
+void eye_animate_walkers(uint8_t visible, uint8_t phase,
+                         const uint8_t *carrying) BANKED {
+  uint8_t i, frame;
+  for (i = 0; i < visible; ++i) {
+    frame = (uint8_t)((i + phase) & 1u);
+    shadow_OAM[4u + i].tile =
+      (uint8_t)(((carrying[i >> 3] >> (i & 7u)) & 1u)
+                ? 5u + frame : 3u + frame);
+  }
 }
 
 /* Real eight-direction ant movement lives with the renderer in bank 3,
