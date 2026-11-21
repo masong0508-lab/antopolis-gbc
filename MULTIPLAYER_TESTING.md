@@ -27,7 +27,8 @@ emulator that supports two linked Game Boy Color consoles.
 - ANT EYE: single-player only on GBC. Collect food, return it to the nest,
   lay scent with SELECT and bite with B. The colony map must reflect these
   changes when returning with START.
-- Carrying food must show correct X/Y HOME arrows in the HUD,
+- Carrying food must show correct X HOME arrows and Y N/S directions in the HUD; O
+  marks an aligned axis (no blank glyphs),
   updating as the ant walks. A cycles living workers without silently
   switching to an unmovable queen camera.
 - Entering ANT EYE with no living worker must return to the strategy map

@@ -1273,12 +1273,12 @@ static void eye(void) {                              // pilot a black ant; food,
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
       eye_status(vx, vy);
       if (ant[vi].carry) {
-        // Two axis arrows instead of a large compass helper in scarce
-        // fixed ROM bank: '>' east, '<' west, '^' north, 'v' south.
+        // Use glyphs present in the tiny font. '<' and '>' have dedicated
+        // tiles; N/S/O are printable while '^', 'v' and '=' are blank.
         put_str(0, 14, "FOOD HOME X");
-        put_char(11, 14, vx < nestx[0] ? '>' : vx > nestx[0] ? '<' : '=');
+        put_char(11, 14, vx < nestx[0] ? '>' : vx > nestx[0] ? '<' : 'O');
         put_str(12, 14, " Y");
-        put_char(14, 14, vy < nesty[0] ? 'v' : vy > nesty[0] ? '^' : '=');
+        put_char(14, 14, vy < nesty[0] ? 'S' : vy > nesty[0] ? 'N' : 'O');
         put_str(15, 14, "     ");
       } else put_str(0, 14, "A:NEXT ANT B:BITE   ");
     }
