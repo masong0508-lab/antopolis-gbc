@@ -44,8 +44,14 @@ assert "sys_time & 3u" in sprite_pass, (
 )
 banked = Path("src/eye_render.c").read_text()
 assert "void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED" in banked
-assert "shadow_OAM[i].tile =" in banked, (
-    "Walker update must use shadow OAM, not bank-1 VRAM helpers from bank 3"
+assert "shadow_OAM[4u + i].tile =" in banked, (
+    "Walker update must use only OAM 4..39, reserving queen/player slots"
+)
+assert "#define QSPR 0" in gameplay and "#define ANTSPR 4" in gameplay, (
+    "Queen/cursor priorities must beat crowded worker scanlines"
+)
+assert "move_sprite(ANTSPR + s," in sprite_pass, (
+    "Overhead workers must not overwrite reserved queen OAM slots"
 )
 assert "disable_interrupts();" in sprite_pass and "enable_interrupts();" in sprite_pass, (
     "Switchable-ROM walker animation must guard the bank-1 audio ISR"
