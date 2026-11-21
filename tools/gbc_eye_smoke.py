@@ -179,13 +179,25 @@ def main():
         snapshot("05_walked_and_scent_marked")
 
         # Leave first person and make sure the regular 2D tile map returns.
-        press("start")
-        pyboy.tick(90, True, False)
+        # A ray sweep may span more than three emulated frames; hold START
+        # long enough for the game to sample it rather than sending an
+        # impossibly short emulator-only tap during VRAM uploads.
+        press("start", 18)
+        pyboy.tick(120, True, False)
         snapshot("06_back_to_strategy")
-        returned = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+        vbk = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            returned = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+        finally:
+            pyboy.memory[0xFF4F] = vbk & 1
         report["vram"]["return_row2_tile1"] = returned
-        if returned == 12:
-            raise AssertionError("Exited ANT EYE without restoring the map HUD")
+        report["vram"]["return_window_y"] = pyboy.memory[0xFF4A]
+        if returned == 12 or pyboy.memory[0xFF4A] != 128:
+            raise AssertionError(
+                "ANT EYE did not restore the 2D HUD and window position: "
+                + repr(report["vram"])
+            )
         report["result"] = "PASS: GBC boot, strategy, 3D ANT EYE, turn, worker walking, scent, 2D return"
         print(report["result"])
     except Exception as error:
