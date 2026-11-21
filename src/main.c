@@ -876,12 +876,22 @@ static void newgame(uint8_t load) {
 
 static void swp(void) { uint8_t t; t = cx; cx = ocx; ocx = t; t = cy; cy = ocy; ocy = t; t = mana; mana = omana; omana = t; pl ^= 1; }
 static void raise_land(void) {
-  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) { hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); tev |= 2; return; }
+  if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) {
+    hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); tev |= 2;
+    say(hgt[cy][cx] == 1 ? "WATER FILLED" :
+        hgt[cy][cx] == 2 ? "RAMP BUILT" : "HILL RAISED");
+    return;
+  }
   sfx_deny();
   say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] >= 3 ? "ALREADY HIGHEST" : "NEED MANA");
 }
 static void lower_land(void) {
-  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) { hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); tev |= 4; return; }
+  if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) {
+    hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); tev |= 4;
+    say(hgt[cy][cx] == 2 ? "HILL CUT DOWN" :
+        hgt[cy][cx] == 1 ? "RAMP LOWERED" : "MOAT DUG");
+    return;
+  }
   sfx_deny();
   say(is_nest(cx, cy) ? "NEST CANT BE EDITED" : hgt[cy][cx] == 0 ? "ALREADY WATER" : "NEED MANA");
 }
