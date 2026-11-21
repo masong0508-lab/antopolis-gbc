@@ -44,4 +44,27 @@ cards = strings_for("TCARD2").split("\0")
 assert len(cards) == CARDS, f"Expected {CARDS} tutorial cards, got {len(cards)}"
 for i, card in enumerate(cards):
     check_page(f"TCARD2[{i}]", card)
+# The world editor's successful actions used to be silent except for a
+# generic sound, leaving players unsure what the landscape just became.
+# Check the *shipping C action handlers*, including each of the six
+# terrain results, so these labels cannot silently regress into codes.
+map_source = Path("src/main.c").read_text()
+raise_handler = map_source.split("static void raise_land(void) {", 1)[1].split(
+    "static void lower_land(void) {", 1
+)[0]
+lower_handler = map_source.split("static void lower_land(void) {", 1)[1].split(
+    "// mana workflow", 1
+)[0]
+for heading, handler, phrases in (
+    ("RAISE", raise_handler, ("WATER FILLED", "RAMP BUILT", "HILL RAISED")),
+    ("LOWER", lower_handler, ("HILL CUT DOWN", "RAMP LOWERED", "MOAT DUG")),
+):
+    assert "draw_cell(cx, cy)" in handler and "say(hgt[cy][cx]" in handler, (
+        f"{heading}: successful terrain edit lost feedback or tile refresh"
+    )
+    for phrase in phrases:
+        assert f'"{phrase}"' in handler, f"{heading}: missing feedback {phrase}"
+        assert len(phrase) <= 20 and all(ch in VALID for ch in phrase), (
+            f"{heading}: unsupported 5x7 status row {phrase}"
+        )
 print(f"GBC UI copy PASS: {len(help_text)} help bytes, {len(cards)} cards, all <=20 columns")
