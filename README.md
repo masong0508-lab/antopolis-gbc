@@ -1,3 +1,7 @@
+### More recognizable map ants
+
+The overhead strategy view's real 8×8 worker sprite now has visible antennae, head, thorax, abdomen and six legs; the two title-screen walking frames use the same silhouette with alternating legs instead of unrelated old artwork. The queen gets a larger abdomen and a bright crown/antennae distinction. The design reuses the existing five 2bpp sprite tiles and the original three CGB palettes: no new OAM allocations or per-frame sprite drawing cost. Both the source pixel patterns and the generated cartridge art have been updated.
+
 ### GBC ANT EYE creature proportions
 
 First-person ants now have a narrower centre-of-cell render footprint, a
