@@ -40,6 +40,30 @@ static uint8_t ui_legal_home_leg(uint8_t x,uint8_t y,int8_t dx,int8_t dy) {
   delta=(int8_t)hgt[(uint8_t)ny][(uint8_t)nx]-(int8_t)hgt[y][x];
   return (uint8_t)(delta>=-1&&delta<=1);
 }
+// A nearby sidestep can get around a one-cell moat or cliff without
+// lying that an entire world route is known. Look exactly TWO legal
+// cardinal moves ahead, once per pilot movement: no BFS queue, stack map,
+// extra WRAM, or ray redraw. The second move must point toward home and
+// must NOT simply undo the first (no east/west oscillation).
+// Return 1 north, 2 east, 3 south, 4 west, or 0 for no safe local detour.
+static uint8_t ui_home_detour(uint8_t x,uint8_t y,uint8_t hx,uint8_t hy) {
+  static const int8_t sx[4]={0,1,0,-1};
+  static const int8_t sy[4]={-1,0,1,0};
+  uint8_t i,tx,ty;
+  int8_t dx,dy;
+  for(i=0;i<4;i++){
+    if(!ui_legal_home_leg(x,y,sx[i],sy[i])) continue;
+    tx=(uint8_t)((int8_t)x+sx[i]);
+    ty=(uint8_t)((int8_t)y+sy[i]);
+    dx=hx>tx?1:hx<tx?-1:0;
+    dy=hy>ty?1:hy<ty?-1:0;
+    // A genuine second step makes progress toward home without returning.
+    if((dx && dx!=-sx[i] && ui_legal_home_leg(tx,ty,dx,0)) ||
+       (dy && dy!=-sy[i] && ui_legal_home_leg(tx,ty,0,dy)))
+      return (uint8_t)(i+1);
+  }
+  return 0;
+}
 // Prefer plain compass words to the old cryptic two-letter codes and X/Y
 // numbers. The goal occupies a single existing row: no sprites, VRAM tiles,
 // new buffers, or additional per-frame work. Only refresh on movement.
@@ -63,7 +87,15 @@ void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
       } else if(dy&&ui_legal_home_leg(x,y,0,dy)) {
         east=west=0;
       } else {
-        field(b,0,"HOME: CHECK MAP");return;
+        uint8_t detour=ui_home_detour(x,y,hx,hy);
+        // The word DETOUR distinguishes a verified local two-step bypass
+        // from a guaranteed route to the nest (which it is not).
+        if(detour==1) field(b,0,"DETOUR: NORTH");
+        else if(detour==2) field(b,0,"DETOUR: EAST");
+        else if(detour==3) field(b,0,"DETOUR: SOUTH");
+        else if(detour==4) field(b,0,"DETOUR: WEST");
+        else field(b,0,"HOME: CHECK MAP");
+        return;
       }
     }
   } else {
