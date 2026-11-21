@@ -1,3 +1,14 @@
+### In-world first-person movement validation
+
+The main-map cursor now tracks the actual selected ant during ANT EYE
+rather than only updating after mode exit. This reuses the existing two
+WRAM bytes (no new allocation). The emulator reads their linker-defined
+addresses from the real ROM's map file to verify movement, whereas older
+smoke tests incorrectly parsed X/Y letters that were removed in the new
+goal-oriented HUD. It also checks readable FOOD/HOME messages after
+turning and the current combat result words, avoiding regressions caused
+by evolving game text.
+
 ### Art provenance and sprite consistency
 
 The GitHub native-test job now checks that all five 8×8 source sprite sketches

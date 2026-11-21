@@ -205,3 +205,13 @@ must demonstrate that a short B press, movement, and the title-map exit
 remain responsive during live drawing, and that the ray sweep completes
 all twenty columns even after repeated turns. Never increase the per-slice
 budget to an unbounded full viewport redraw.
+
+## ROM-level movement validation (UI independent)
+
+The headless GBC run uses the freshly generated linker map to locate
+exported existing WRAM cursor bytes cx/cy, which follow the selected
+first-person worker via eye_pilot. It confirms that UP causes real world
+coordinate changes and B does not move the worker. This replaces obsolete
+assertions against X/Y text removed from the playable objective HUD.
+Readable FOOD/HOME messages return after a turn and bite messages are
+checked by their current actual wording.

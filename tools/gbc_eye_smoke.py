@@ -7,6 +7,7 @@ Single-console validation; it does NOT claim link-cable interoperability.
 """
 import argparse
 import json
+import re
 from pathlib import Path
 
 from pyboy import PyBoy
@@ -31,6 +32,22 @@ def main():
     pyboy = PyBoy(str(args.rom), window="null", cgb=True, sound_volume=0)
     pyboy.set_emulation_speed(0)
     last = None
+
+    # Check actual mutable game state, not a UI digit that may rightly be
+    # replaced by gameplay goals, food pickups, or battle notifications.
+    map_path = args.rom.with_suffix(".map")
+    symbols = map_path.read_text()
+    def world_address(symbol):
+        match = re.search(r"([0-9A-Fa-f]{8})\s+_" + symbol + r"\b", symbols)
+        if not match:
+            raise AssertionError("Expected exported game RAM symbol: " + symbol)
+        address = int(match.group(1), 16)
+        if not 0xC000 <= address < 0xE000:
+            raise AssertionError("Game cursor not in WRAM: " + symbol)
+        return address
+    cursor_x, cursor_y = world_address("cx"), world_address("cy")
+    def world_position():
+        return pyboy.memory[cursor_x], pyboy.memory[cursor_y]
 
     def snapshot(name):
         nonlocal last
@@ -271,24 +288,13 @@ def main():
         if not ImageChops.difference(eye.convert("RGB"), rotated.convert("RGB")).getbbox():
             raise AssertionError("ANT EYE camera did not visibly update on turn")
 
-        # Move the selected real worker, not merely the camera. Read the
-        # 2-digit HUD coordinates on row 17; if a blocked facing is chosen,
-        # rotate and try another reachable side. This catches regression
-        # where the 3D camera animates but the ant never moves in-world.
-        def position_glyphs():
-            # CGB window tile-map data uses VRAM bank 0; the renderer
-            # temporarily selects bank 1 for per-tile palette attributes.
-            # Read the actual digits from bank 0, never attribute bytes,
-            # otherwise a bank swap could falsely look like ant movement.
-            base = WINDOW_MAP + 14 * 32
-            previous_bank = pyboy.memory[0xFF4F]
-            pyboy.memory[0xFF4F] = 0
-            try:
-                return tuple(pyboy.memory[base + col] for col in (12, 13, 16, 17))
-            finally:
-                pyboy.memory[0xFF4F] = previous_bank & 1
-
-        before_pos = position_glyphs()
+        # Move the selected real worker, not merely the camera. Track
+        # exported, existing map-cursor WRAM bytes rather than any text
+        # drawn on the game window; readable goals must remain free to
+        # replace debug coordinates. Rotate if the first path is blocked.
+        # The exported, already-existing cursor bytes follow the actual
+        # worker, not a tutorial/HUD glyph that might be a status message.
+        before_pos = world_position()
         moved = False
         for _ in range(16):
             pyboy.button_press("select")  # scent-mark the walked cell
@@ -300,7 +306,7 @@ def main():
             pyboy.tick(48, True, False)
             if not (pyboy.memory[0xFF40] & 0x80):
                 raise AssertionError("ANT EYE LCD shut off while trying to walk")
-            if position_glyphs() != before_pos:
+            if world_position() != before_pos:
                 moved = True
                 break
             press("right", 16)
@@ -309,35 +315,38 @@ def main():
             raise AssertionError("ANT EYE failed to move a real worker in 16 facings")
         report["movement"] = {
             "initial_coordinate_tiles": list(before_pos),
-            "walked_coordinate_tiles": list(position_glyphs()),
+            "walked_coordinate_tiles": list(world_position()),
             "real_worker_moved": True,
         }
         snapshot("05_walked_and_scent_marked")
         # Biting without a nearby enemy must not teleport the worker or
         # crash the new ROM3 target classifier.
-        standing = position_glyphs()
+        standing = world_position()
         press("b", 18)
         # The action result must be immediately visible, not just a sound.
         # Nearby targets may differ with procedural world generation, so
         # accept a missed bite, defeated worker, or hit on a queen.
         feedback_letter = tile0(0, 14)
-        if feedback_letter not in {glyph("B"), glyph("E"), glyph("Q")}:
+        if feedback_letter not in {glyph("N"), glyph("E"), glyph("R")}:
             raise AssertionError(
                 "ANT EYE bite gave no legible outcome feedback: "
                 + repr(feedback_letter)
             )
         report["combat_feedback_tile"] = feedback_letter
         pyboy.tick(84, True, False)
-        if tile0(0, 14) not in {glyph("B"), glyph("E"), glyph("Q")}:
+        if tile0(0, 14) not in {glyph("N"), glyph("E"), glyph("R")}:
             raise AssertionError("ANT EYE feedback disappeared before another action")
         # Turning dismisses the message and restores normal navigation.
         press("right", 18)
         pyboy.tick(85, True, False)
-        if tile0(11, 14) != glyph("X") or tile0(15, 14) != glyph("Y"):
-            raise AssertionError("ANT EYE turn failed to restore navigation HUD")
+        if not any(
+            all(tile0(i, 14) == glyph(ch) for i, ch in enumerate(prefix))
+            for prefix in ("FOOD:", "HOME:", "NO FOOD NEARBY")
+        ):
+            raise AssertionError("ANT EYE turn failed to restore readable goal")
         if not (pyboy.memory[0xFF40] & 0x80):
             raise AssertionError("ANT EYE bite shut off the GBC display")
-        if position_glyphs() != standing:
+        if world_position() != standing:
             raise AssertionError("ANT EYE bite moved the worker unexpectedly")
         report["combat"] = {"bite_kept_worker_position": True}
         snapshot("06_bite")

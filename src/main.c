@@ -41,7 +41,10 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
+// Export the existing cursor bytes for genuine ROM-emulator world-state checks.
+// No new RAM allocation: these also follow the selected first-person worker.
+uint8_t cx, cy;
+static uint8_t mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
 static uint16_t etk;                           // ticks since the last election
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
@@ -1283,6 +1286,7 @@ static uint8_t eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
   uint8_t event = 0;
   if (vi >= MAXA || !vok(vi)) return 0;
   a = &ant[vi]; a->x = vx; a->y = vy;
+  cx = vx; cy = vy; // map cursor tracks the real piloted worker
   if (scent) ph[vy][vx] = 255;
   if (!a->carry && food[vy][vx]) {
     food[vy][vx] = 0; a->carry = 1; draw_cell(vx, vy); sfx_food();
@@ -1440,7 +1444,7 @@ static void eye(void) {                              // pilot a black ant; food,
       if (rep < 250) rep++;
     }
   }
-  cx = vx; cy = vy;                       // map cursor follows the actual pilot when leaving ANT EYE
+  // cx/cy already track the real selected worker through eye_pilot.
   memset(occ, 0, sizeof occ);
   win_clear(); hdirty = 1;
   move_win(7, 128); SHOW_SPRITES;
