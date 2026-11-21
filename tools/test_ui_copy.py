@@ -62,7 +62,7 @@ for heading, handler, phrases in (
     assert "draw_cell(cx, cy)" in handler and "say(" in handler, (
         f"{heading}: successful terrain edit lost feedback or tile refresh"
     )
-    assert "TERRAIN_FOOD_AFTER(hgt[cy][cx], food[cy][cx])" in lower_handler, (
+    assert "if (!hgt[cy][cx]) food[cy][cx] = 0;" in lower_handler, (
         "Lowering a berry tile into water must remove the food"
     )
     assert "FOOD WASHED AWAY" in lower_handler, (
