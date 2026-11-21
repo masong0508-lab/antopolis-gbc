@@ -99,7 +99,8 @@ static const palette_color_t bpal[24] = {
   RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: (spare)
   RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(21,14,6),    // 3: ant eye, land + rock
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(4,16,6),     // 4: ant eye, water
-  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8)}; // gold food in ANT EYE    // 5: ant eye, red / black ants
+  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
+  RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(31,27,8)}; // 6: gold pheromone trail over green land
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
 static const palette_color_t tpal[32] = {
   RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 0: night sky (top)
@@ -1152,7 +1153,14 @@ static void title(void) {
 const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
 // BBH depth/height lookup is stored with the banked ray marcher.
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
-const uint8_t PMAP[3][8] = {{0, 1, 2, 3, 0, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0, 0}, {0, 3, 3, 3, 0, 1, 2, 3}}; // 7 = golden food
+// 8 = golden pheromone trace. Palette 6 retains real green ground instead
+// of tinting the whole cell red (the combat/food palette would do that).
+const uint8_t PMAP[4][9] = {
+  {0, 1, 2, 3, 0, 0, 0, 0, 0},
+  {0, 2, 3, 3, 1, 0, 0, 0, 0},
+  {0, 3, 3, 3, 0, 1, 2, 3, 0},
+  {0, 1, 2, 3, 0, 0, 0, 3, 3}
+};
 int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
 
@@ -1184,8 +1192,13 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
     t = tcol;
     for (r = 0; r < VR; r++) {
       m = 0;
-      for (k = 0; k < 8; k++) { v = cls[r * 8 + k]; if (v == 4) m |= 1; else if (v > 4) m |= 2; }
-      p = (m & 2) ? 2 : (m & 1) ? 1 : 0;             // palette: ants > water > plain land
+      for (k = 0; k < 8; k++) {
+        v = cls[r * 8 + k];
+        if (v == 4) m |= 1;
+        else if (v == 8) m |= 4;
+        else if (v > 4) m |= 2;
+      }
+      p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0; // ant/food > scent > water > land
       for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; *t++ = (v & 1) ? 0xFF : 0; *t++ = (v & 2) ? 0xFF : 0; }
       set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
     }
@@ -1256,6 +1269,7 @@ static void eye(void) {                              // pilot a black ant; food,
   for (y = 14; y < 20; y++)
     for (x = 0; x < VX; x++) set_win_tile_xy(x, (uint8_t)(y < 18 ? y : y - 18), FT);
   put_str(0, 0, "ANT EYE");
+  put_str(0, 1, "SCENT TRAILS: GOLD");
   put_str(0, 14, "A:NEXT ANT B:BITE   ");
   put_str(0, 15, "L/R TURN U/D WALK   ");
   put_str(0, 16, "SEL:SCENT START:MAP ");
@@ -1530,7 +1544,7 @@ void main(void) {
   set_bkg_data(AR, 2, buf);
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
-  set_bkg_palette(0, 6, bpal);
+  set_bkg_palette(0, 7, bpal);
   view_init();
   set_sprite_palette(0, 3, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1

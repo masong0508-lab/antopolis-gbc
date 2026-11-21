@@ -11,7 +11,7 @@
 #define VR 12
 #define VY0 2
 #define VN 24
-extern uint8_t hgt[H][W], food[H][W], occ[H][W], cls[VR * 8], vang;
+extern uint8_t hgt[H][W], food[H][W], ph[H][W], occ[H][W], cls[VR * 8], vang;
 extern int8_t OFF[7][VN + 1];
 static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
 static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
@@ -42,6 +42,13 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       // cliff/step geometry visible instead of a seamless flat green slab.
       // Keep the waterline untouched and never write outside the 96px view.
       if (h && n <= 14 && a < VR * 8) cls[a] = 3;
+      // One gold surface pixel reveals actual world pheromone, never a
+      // decorative unrelated particle. Reuses the existing ph map, no RAM.
+      if (a < VR * 8 &&
+          eye_show_scent(ph[y][x], h, n,
+            (uint8_t)((uint8_t)(px - 64) < 128 &&
+                      (uint8_t)(py - 64) < 128)))
+        cls[a] = 8;
       lim = (uint8_t)a;
     }
     o = occ[y][x];

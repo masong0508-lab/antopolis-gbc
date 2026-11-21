@@ -59,6 +59,15 @@ int main(void) {
   for (int16_t s = -64; s <= 64; s += 8)
     for (int16_t c = -19; c <= 19; c += 2)
       assert(eye_mul_small((int8_t)s, (int8_t)c) == s * c);
+  // Pheromone is visible only on nearby soil in the center of the world
+  // cell. Water and high cliffs cannot generate false gold trail markers.
+  assert(eye_show_scent(255, 1, 4, 1));
+  assert(eye_show_scent(64, 2, 18, 1));
+  assert(!eye_show_scent(63, 1, 4, 1));
+  assert(!eye_show_scent(255, 0, 4, 1));
+  assert(!eye_show_scent(255, 3, 4, 1));
+  assert(!eye_show_scent(255, 1, 19, 1));
+  assert(!eye_show_scent(255, 1, 4, 0));
   // Terrain classes are stable across near/distant columns, with a distinct
   // water class, brown high land, and darkened grass beyond fourteen steps.
   assert(eye_ground_class(0, 0, 0, 1) == 4);
@@ -66,6 +75,6 @@ int main(void) {
   assert(eye_ground_class(1, 2, 3, 2) == 1);
   assert(eye_ground_class(2, 2, 3, 15) == 2);
   assert(eye_ground_class(1, 2, 2, 2) == 2);
-  puts("GBC ANT EYE movement, collisions, food guidance and terrain shading passed");
+  puts("GBC ANT EYE movement, collisions, food, scent visibility and terrain shading passed");
   return 0;
 }

@@ -8,6 +8,12 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 - **2 players:** on the title screen press DOWN, choose SAME GB (30-second turns) or LINK CABLE (two GBCs). The serial exchange has a finite timeout, and the multiplayer greeting uses a revised version token so older incompatible ROMs are rejected. **Both GBCs must run the newest matching game build.** This is serial-cable versus, not Internet multiplayer.
 - **Playable ANT EYE:** in single-player gameplay hold SELECT and press START to inhabit the nearest living black worker. If none exist, the game explains that a worker must hatch before entering. A switches worker, L/R or LEFT/RIGHT turn, UP/DOWN walk, B bites an enemy directly ahead, and hold SELECT to leave a worker-followed scent trail. Walk onto food to pick it up; the ANT EYE HUD now shows east/west arrows and N/S letters toward the home nest while carrying food (O means aligned). Return to its centre to deliver food and mana. Worker switching skips the queen camera; entering ANT EYE clears stale occupancy markers. START returns to the strategy map at the ant's actual position.
+- **World-linked 3D pheromone trails:** ANT EYE now reveals nearby strong
+  scent as small golden surface markers on actual walkable terrain. Holding
+  SELECT while walking leaves a pheromone trail that is shared with the
+  overhead colony simulation. Rendering uses a dedicated green-and-gold
+  GBC palette, existing world data, and no new framebuffer or sprite sheet.
+  Native visibility tests and emulator movement testing cover the feature.
 - **GBC bank-safe 3D math:** the ray marcher no longer calls the compiler's
   general-purpose 16-bit multiply helper, which was placed in switchable
   ROM1 and became unavailable when bank3 was active. Its small angle/column

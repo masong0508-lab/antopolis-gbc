@@ -138,15 +138,46 @@ def main():
         if not ImageChops.difference(eye.convert("RGB"), rotated.convert("RGB")).getbbox():
             raise AssertionError("ANT EYE camera did not visibly update on turn")
 
+        # Move the selected real worker, not merely the camera. Read the
+        # 2-digit HUD coordinates on row 17; if a blocked facing is chosen,
+        # rotate and try another reachable side. This catches regression
+        # where the 3D camera animates but the ant never moves in-world.
+        def position_glyphs():
+            base = WINDOW_MAP + 17 * 32
+            return tuple(pyboy.memory[base + col] for col in (1, 2, 5, 6))
+
+        before_pos = position_glyphs()
+        moved = False
+        for _ in range(16):
+            pyboy.button_press("select")  # scent-mark the walked cell
+            press("up", 4)
+            pyboy.button_release("select")
+            pyboy.tick(42, True, False)
+            if not (pyboy.memory[0xFF40] & 0x80):
+                raise AssertionError("ANT EYE LCD shut off while trying to walk")
+            if position_glyphs() != before_pos:
+                moved = True
+                break
+            press("right")
+            pyboy.tick(38, True, False)
+        if not moved:
+            raise AssertionError("ANT EYE failed to move a real worker in 16 facings")
+        report["movement"] = {
+            "initial_coordinate_tiles": list(before_pos),
+            "walked_coordinate_tiles": list(position_glyphs()),
+            "real_worker_moved": True,
+        }
+        snapshot("05_walked_and_scent_marked")
+
         # Leave first person and make sure the regular 2D tile map returns.
         press("start")
         pyboy.tick(90, True, False)
-        snapshot("05_back_to_strategy")
+        snapshot("06_back_to_strategy")
         returned = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
         report["vram"]["return_row2_tile1"] = returned
         if returned == 12:
             raise AssertionError("Exited ANT EYE without restoring the map HUD")
-        report["result"] = "PASS: GBC boot, strategy map, real 3D ANT EYE, turn, 2D return"
+        report["result"] = "PASS: GBC boot, strategy, 3D ANT EYE, turn, worker walking, scent, 2D return"
         print(report["result"])
     except Exception as error:
         report["result"] = "FAIL: " + repr(error)

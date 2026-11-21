@@ -90,3 +90,12 @@ a call to `__mulint` in ROM1. Under bank3 that address resolves to unrelated
 instructions, causing LCD shutdown. The ray now computes these tiny products
 with a bank-local shift/add routine. Keep the native signed-multiplication
 regression test and the full actual-ROM emulator smoke in CI.
+
+## ANT EYE pheromone/worker movement smoke
+
+The actual-ROM emulator test now searches reachable facings and asserts
+that walking changes the selected worker's displayed world coordinates,
+while holding SELECT to leave real pheromone. It then verifies the window
+returns to the overhead map. The 3D ray marcher displays strong local
+pheromone on height 1-2 soil as a small gold marker, using palette 6.
+Native tests check the exact soil, strength, center and distance thresholds.

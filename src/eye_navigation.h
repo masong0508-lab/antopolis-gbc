@@ -38,6 +38,14 @@ static uint8_t eye_ground_class(uint8_t h, uint8_t x, uint8_t y,
   if (h == 3) return 3;
   return (uint8_t)(depth > 14 || !((x + y) & 1u) ? 2u : 1u);
 }
+// Gold scent only appears on reachable soil near the camera and near the
+// center of a sampled cell. This avoids filling the whole horizon with dots,
+// while remaining independent of new sprites/textures/framebuffers.
+static uint8_t eye_show_scent(uint8_t pheromone, uint8_t height,
+                              uint8_t depth, uint8_t centered) {
+  return (uint8_t)(pheromone >= 64 && height >= 1 && height <= 2 &&
+                   depth <= 18 && centered);
+}
 // Banked 3D ray code cannot safely call the compiler's ordinary 16-bit
 // multiply helper: in this large GBC build __mulint resides in switchable
 // ROM1, which disappears whenever ROM3 is mapped. Multiply by a signed
