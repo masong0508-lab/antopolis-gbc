@@ -3,6 +3,7 @@
 #pragma bank 3
 #include <gb/gb.h>
 #include <stdint.h>
+#include "perk_labels.h"
 static const uint8_t GLYPHS[40][7] = {
   {0x00,0x00,0x00,0x00,0x00,0x00,0x00}, /* space */
   {0x0e,0x11,0x13,0x15,0x19,0x11,0x0e}, /* 0 */
@@ -111,4 +112,11 @@ void ui_build_marks(uint8_t* dst) BANKED {
     dst[32+r*2] = r==3 ? 0x55 : r==4 ? 0xFF : 0;
     dst[32+r*2+1] = r==3 ? 0xAA : r==4 ? 0xFF : 0;
   }
+}
+
+/* Elections only: copy the same six familiar 7-letter names into the
+   already allocated 20-char HUD label. Invoked with audio interrupts
+   disabled while ROM bank 3 is active. Zero new RAM or frame cost. */
+void ui_fill_perk_labels(char *out, uint8_t first, uint8_t second) BANKED {
+  perk_copy_names(out, first, second);
 }
