@@ -70,6 +70,10 @@ int main(void) {
   hgt[10][9] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("DETOUR: EAST"); // north is accessible after a safe east step
+  // After obeying EAST, the compass must not immediately say WEST
+  // and oscillate back into the original dead end. Choose NORTH.
+  eye_ui_guide(row, 0, 1, 11, 10, 2, 2);
+  expect("HOME: NORTH");
   hgt[9][11] = 0; // east would be a dead end; south then west is open
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("DETOUR: SOUTH");
