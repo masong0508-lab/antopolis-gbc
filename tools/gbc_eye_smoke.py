@@ -167,17 +167,24 @@ def main():
 
         # Check the *real hardware OAM*, not merely source sprite assets:
         # the same two ant walking frames used on the title must animate
-        # workers during actual overhead gameplay. Read only slots 0..35;
-        # the final four OAM entries are queens/player cursors.
+        # workers during actual overhead gameplay. Read OAM slots 4..39;
+        # the first four are reserved for queens/player cursors, which must
+        # remain visible even when 10 workers share a hardware scanline.
         def visible_worker_frames():
             workers = {}
-            for sprite in range(36):
+            for sprite in range(4, 40):
                 oam = 0xFE00 + 4 * sprite
                 sy, sx, frame = (pyboy.memory[oam + j] for j in (0, 1, 2))
                 if 16 <= sy < 144 and 8 <= sx < 168:
                     workers[sprite] = frame
             return workers
 
+        # Both royal silhouettes occupy the highest priority OAM entries,
+        # followed by the player cursor, and must retain their correct
+        # sprite tile IDs after the title parade recycled those slots.
+        if any(pyboy.memory[0xFE00 + 4 * i + 2] != expected
+               for i, expected in ((0, 2), (1, 2), (2, 1))):
+            raise AssertionError("Queen/player OAM priority or silhouettes lost")
         walker_samples = [visible_worker_frames()]
         for _ in range(3):
             pyboy.tick(8, True, False)
