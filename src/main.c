@@ -1030,6 +1030,10 @@ static void records_screen(void) {
   waitpadup();
 }
 // ---------- 2 PLAYERS ----------
+// Only matching multiplayer revisions should handshake. The distinct pair of
+// greeting bytes rejects older ROMs before either side applies a foreign seed.
+#define LINK_HELLO 0x5B
+#define LINK_ACK   0xA6
 // LINK CABLE: the GBs swap their joypad bytes every frame and run the same game in lockstep (same seed, same rules).
 // Swap one byte with the other GB. The GB that pressed START clocks (master); the other waits on its clock and
 // never sends 0xFF, so 0xFF means "not ready yet". lkl = 1 when nothing came back for ~3 s.
@@ -1074,16 +1078,16 @@ static uint8_t vs_menu(void) {                     // returns 1 to start a versu
     if (p & (J_LEFT | J_RIGHT)) { mp ^= 3; SC_REG = 0; SB_REG = 0; vs_draw(); }
     lkl = 0;
     if (mp == 2 && !(SC_REG & 0x80)) {            // stay ready on the other GB's clock
-      if (SB_REG == 0x5A) {                        // it pressed START: take its seed and level
+      if (SB_REG == LINK_HELLO) {                        // it pressed START: take its seed and level
         me = 1; seed = lk(0); seed |= (uint16_t)lk(0) << 8; diff = lk(0); go = !lkl;
         if (!go) put_line(12, "LINK LOST");
-      } else { SB_REG = 0xA5; SC_REG = 0x80; }
+      } else { SB_REG = LINK_ACK; SC_REG = 0x80; }
     }
     if (p & J_START) {
       if (mp == 1) go = 1;
       else {
-        SC_REG = 0; me = 0; r = lk(0x5A);
-        if (!lkl && r == 0xA5) { lk(seed); lk(seed >> 8); lk(diff); go = !lkl; }
+        SC_REG = 0; me = 0; r = lk(LINK_HELLO);
+        if (!lkl && r == LINK_ACK) { lk(seed); lk(seed >> 8); lk(diff); go = !lkl; }
         if (!go) put_line(12, "NO LINK! TRY AGAIN");
       }
     }
