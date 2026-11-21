@@ -7,9 +7,9 @@ LCCFLAGS ?=
 # GBDK CRT0 uses ROM 0x150..0x1FF for its actual startup code,
 # not merely the 0x100..0x14F Nintendo header. Never put _HOME there.
 # Place the banked-call trampolines at 0x200 and pack regular code at
-# 0x4B8, keeping at least a little gap after the ~0x2A6-byte _HOME.
+# 0x4C0, leaving space after the expanded _HOME trampolines.
 # CI verifies that those two areas never overlap or cross ROM bank 0.
-BANKFIX = -Wl-b_HOME=0x0200 -Wl-b_CODE=0x04B8
+BANKFIX = -Wl-b_HOME=0x0200 -Wl-b_CODE=0x04C0
 all: build/empire-ants.gbc
 build/empire-ants.gbc: $(wildcard src/*.c) $(wildcard src/*.h)
 	mkdir -p build
