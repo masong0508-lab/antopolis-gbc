@@ -1146,7 +1146,7 @@ static void title(void) {
 #define VY0 2           // window row of the first view row (HUD above, help text below)
 #define VN 24           // ray steps, half a cell each
 const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
-const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
+// BBH depth/height lookup is stored with the banked ray marcher.
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
 const uint8_t PMAP[3][8] = {{0, 1, 2, 3, 0, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0, 0}, {0, 3, 3, 3, 0, 1, 2, 3}}; // 7 = golden food
 int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
@@ -1168,7 +1168,27 @@ static void occ_set(uint8_t on) {                    // visible food, ants and q
   for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = on ? 3 + i : 0;
 }
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
-void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) BANKED; // rendered in ROM bank 1
+void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED; // isolated pure ray march in ROM bank 3
+static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
+  uint8_t c, r, k, v, p, m, eh = hgt[vy][vx], *t;
+  VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
+  for (c = c0; c < c1; c++) {
+    // Keep the bank-1 audio interrupt from entering while ROM bank 3 is active.
+    disable_interrupts();
+    view_col(c, vx, vy, eh);
+    enable_interrupts();
+    t = tcol;
+    for (r = 0; r < VR; r++) {
+      m = 0;
+      for (k = 0; k < 8; k++) { v = cls[r * 8 + k]; if (v == 4) m |= 1; else if (v > 4) m |= 2; }
+      p = (m & 2) ? 2 : (m & 1) ? 1 : 0;             // palette: ants > water > plain land
+      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; *t++ = (v & 1) ? 0xFF : 0; *t++ = (v & 2) ? 0xFF : 0; }
+      set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
+    }
+    set_bkg_data(c * VR, VR, tcol);
+  }
+  VBK_REG = VBK_TILES;
+}
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
 static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
@@ -1244,13 +1264,7 @@ static void eye(void) {                              // pilot a black ant; food,
       put_str(0, 14, vi < MAXA && ant[vi].carry ? "FOOD: TAKE HOME!    " : "A:NEXT ANT B:BITE   ");
     }
     vsync();
-    if (vcol < VX) {
-      // The music VBlank ISR lives in ROM bank 1: do not interrupt a bank-3 ray pass.
-      disable_interrupts();
-      view_cols(vx, vy, vcol, (uint8_t)(vcol + 4));
-      enable_interrupts();
-      vcol += 4;
-    }   // 4 columns per frame: the view sweeps in, input stays live
+    if (vcol < VX) { view_cols(vx, vy, vcol, (uint8_t)(vcol + 4)); vcol += 4; }   // 4 columns per frame: the view sweeps in, input stays live
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
