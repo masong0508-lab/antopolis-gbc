@@ -4,9 +4,11 @@ LCCFLAGS ?=
 # Never permit the GBDK banked-call trampoline (_HOME) to spill into
 # switchable ROM1. The old 32KB monolithic layout placed _HOME at 0x7C3D:
 # BANKED calls switched away the trampoline mid-call and shut down the LCD.
-# Reserve 0x200-0x4FF for _HOME (0x2A6 bytes currently), then _CODE at 0x500.
-# Confirm the bank and non-overlap with a map assertion in CI.
-BANKFIX = -Wl-b_HOME=0x0200 -Wl-b_CODE=0x0500
+# Reserve 0x180-0x44F for _HOME, then _CODE at 0x450.
+# The GBC cartridge header occupies 0x100..0x14F, leaving this lower
+# fixed-bank area free. Keep a guard for _HOME/_CODE non-overlap in CI.
+# Saves 176 bytes in fixed ROM, including for visual depth work.
+BANKFIX = -Wl-b_HOME=0x0180 -Wl-b_CODE=0x0450
 all: build/empire-ants.gbc
 build/empire-ants.gbc: $(wildcard src/*.c) $(wildcard src/*.h)
 	mkdir -p build
