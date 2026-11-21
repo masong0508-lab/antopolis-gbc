@@ -69,16 +69,29 @@ int main(void) {
   expect("HOME: WEST");
   hgt[10][9] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
+  expect("DETOUR: EAST"); // north is accessible after a safe east step
+  hgt[9][11] = 0; // east would be a dead end; south then west is open
+  eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
+  expect("DETOUR: SOUTH");
+  hgt[11][9] = 0; // neither bypass has a legal second step
+  eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("HOME: CHECK MAP");
   // Restore the northwest leg, then make the diagonal a steep cliff.
-  hgt[9][10] = hgt[10][9] = 1;
+  hgt[9][10] = hgt[10][9] = hgt[9][11] = hgt[11][9] = 1;
   hgt[9][9] = 3;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("HOME: WEST");
   // Directly north and blocked: no false "HOME: NORTH" bearing.
   hgt[9][10] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 10, 4);
+  expect("DETOUR: EAST");
+  // If there is NO two-step local bypass, do not fabricate one.
+  hgt[9][11] = hgt[9][9] = hgt[11][11] = hgt[11][9] = 0;
+  eye_ui_guide(row, 0, 1, 10, 10, 10, 4);
   expect("HOME: CHECK MAP");
+  // A target at the ant's own tile is never a detour.
+  eye_ui_guide(row, 0, 1, 10, 10, 10, 10);
+  expect("HOME: HERE");
   puts("GBC ANT EYE UI: all actions, objectives and terrain labels fit 20 tiles");
   return 0;
 }
