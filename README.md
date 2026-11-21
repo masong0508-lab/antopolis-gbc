@@ -81,6 +81,23 @@ are made. The pure visibility and silhouette-size rules are native-tested.
 
 Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.
 
+### Visible food-carrying workers
+
+The 2D colony now distinguishes a worker returning with food from one
+searching empty-handed. Two newly drawn eight-pixel carrying poses put a
+contrasting food packet above the ant's moving body. They occupy only
+two extra **16-byte 2bpp sprite tiles** on the cartridge. The existing
+black/red sprite palettes and hardware OAM positions are preserved.
+
+The map sprite pass packs the 36 visible ants' carry flags into a
+**five-byte temporary stack mask** and applies the correct empty or
+carrying animation together in ROM bank 3 every fourth video frame.
+No extra framebuffer, permanent WRAM array, OAM allocation or
+world-tick change is required. Native tests check every worker index,
+both walking phases, all mask-byte boundaries and 256 combinations
+of food carriers; generated artwork is compared byte-for-byte with
+the checked-in tile data.
+
 ### GBC fixed-ROM headroom and actual colony animation
 
 The hardware can draw only ten sprites per scanline. The black and
