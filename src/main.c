@@ -915,6 +915,7 @@ static void place(uint8_t s, uint8_t x, uint8_t y) {
   if (sx > -8 && sx < 160 && sy > -8 && sy < 128) move_sprite(s, (uint8_t)(sx + 8), (uint8_t)(sy + 16));
   else move_sprite(s, 0, 0);
 }
+void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED;
 static void draw_sprites(void) {
   uint8_t i, s = 0;
   int16_t sx, sy;
@@ -922,15 +923,16 @@ static void draw_sprites(void) {
     if (!ant[i].alive) continue;
     sx = (int16_t)ant[i].x * 8 - scx; sy = (int16_t)ant[i].y * 8 - scy;
     if (sx > -8 && sx < 160 && sy > -8 && sy < 128) {
-      // The cartridge already contains two recognizable 8x8 walking-ant
-      // frames for the title. Use them for actual map ants too, so the
-      // colony no longer looks like a board of static markers. OAM tile
-      // numbers only change every fourth video frame; existing movement
-      // and team palettes still update each frame. No new tiles or RAM.
-      if (!(sys_time & 3u))
-        set_sprite_tile(s, TW + (((sys_time >> 3) + i) & 1u));
       move_sprite(s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(s, ant[i].team); s++;
     }
+  }
+  // Animate once for all visible colony sprites, not once for every
+  // ant on every frame. Bank 3 writes only shadow OAM in RAM, and audio
+  // never interrupts while the switchable ROM bank is selected.
+  if (!(sys_time & 3u)) {
+    disable_interrupts();
+    eye_animate_walkers(s, (uint8_t)(sys_time >> 3));
+    enable_interrupts();
   }
   while (s < NSPR) move_sprite(s++, 0, 0);
   for (i = 0; i < 2; i++) {
