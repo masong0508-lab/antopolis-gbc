@@ -978,6 +978,10 @@ static void place(uint8_t s, uint8_t x, uint8_t y) {
 }
 void eye_animate_walkers(uint8_t visible, uint8_t phase,
                          const uint8_t *carrying) BANKED;
+/* A slow game frame can skip over every SYS_TIME divisible-by-4 edge.
+   Count completed redraws instead, so walkers cannot freeze when the
+   simulation is expensive. Uses one existing-style WRAM byte. */
+static uint8_t walker_redraw_clock;
 static void draw_sprites(void) {
   uint8_t i, s = 0;
   int16_t sx, sy;
@@ -994,12 +998,12 @@ static void draw_sprites(void) {
       set_sprite_prop(ANTSPR + s, colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)); s++;
     }
   }
-  // Animate once for all visible colony sprites, not once for every
-  // ant on every frame. Bank 3 writes only shadow OAM in RAM, and audio
-  // never interrupts while the switchable ROM bank is selected.
-  if (!(sys_time & 3u)) {
+  // Advance once every four completed redraws. Using a four-frame
+  // SYS_TIME window could freeze on slow, phase-locked game loops.
+  // Bank 3 changes only shadow OAM with banked audio IRQs masked.
+  if (!(++walker_redraw_clock & 3u)) {
     disable_interrupts();
-    eye_animate_walkers(s, (uint8_t)(sys_time >> 3), tbuf);
+    eye_animate_walkers(s, (uint8_t)(walker_redraw_clock >> 2), tbuf);
     enable_interrupts();
   }
   while (s < NSPR) move_sprite(ANTSPR + s++, 0, 0);
