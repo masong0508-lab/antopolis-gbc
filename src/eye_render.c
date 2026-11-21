@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "eye_navigation.h"
 #include "sprite_logic.h"
+#include "eye_surface_detail.h"
 #define W 32
 #define H 32
 #define VX 20
@@ -60,10 +61,24 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       a = yt < 0 ? 0 : yt;
       col = eye_ground_class(h, x, y, n);
       for (r = a; r < lb; r++) cls[r] = col;
-      // A single brown contour pixel on nearby land crests makes actual
-      // cliff/step geometry visible instead of a seamless flat green slab.
-      // Keep the waterline untouched and never write outside the 96px view.
-      if (h && n <= 14 && a < VR * 8) cls[a] = 3;
+      // Physical depth: foam only next to REAL land, laminated rock
+      // edges, and occasional near-field grass tufts or sand pebbles.
+      // These color classes reuse existing CGB palettes/96px column RAM.
+      // Never mark open ocean as a shore or fill extra sprite/OAM slots.
+      if (a + 2 < lb) {
+        uint8_t shore = 0, accent;
+        if (!h && n <= 12) {
+          shore = (uint8_t)((x && hgt[y][x-1u]) ||
+            (x < 31u && hgt[y][x+1u]) ||
+            (y && hgt[y-1u][x]) ||
+            (y < 31u && hgt[y+1u][x]));
+        }
+        accent = eye_surface_accent(h,x,y,n,shore);
+        if (accent == 1u) cls[a] = 2;            // bright foam at water edge
+        else if (accent == 2u) { cls[a] = 3; cls[a+2u] = 2; } // rock strata
+        else if (accent == 3u) cls[a+1u] = 2;    // grass tuft
+        else if (accent == 4u) cls[a+1u] = 3;    // stone/pebble
+      }
       // One gold surface pixel reveals actual world pheromone, never a
       // decorative unrelated particle. Reuses the existing ph map, no RAM.
       if (a < VR * 8 &&
