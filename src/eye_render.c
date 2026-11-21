@@ -82,11 +82,16 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       e = yt < lb ? yt : lb;
       if (a < 0) a = 0;
       col = o == 5 ? 7 : (o & 1) ? 6 : 5;
-      // One central body, with only legs on outer rays. Previously each
-      // of 4-6 ray columns repeated the entire 8px ant body, producing a
-      // checkerboard fence that looked nothing like a creature.
-      for (r = a; r < e; r++)
-        cls[r] = (rim && o != 5) ? ((col == 5) ? 9 : 10) : col;
+      // Peripheral rays are only two short leg strokes, not an entire
+      // vertically patterned copy of the creature. Keep the terrain
+      // visible behind those gaps instead of treating them as a wall.
+      if (rim) {
+        if (o != 5 && e > a + 6) {
+          uint8_t limb = (col == 5) ? 9 : 10;
+          cls[a + 2] = limb;
+          cls[e - 3] = limb;
+        }
+      } else for (r = a; r < e; r++) cls[r] = col;
       // Draw one tapered, segmented ant rather than repeating the old
       // body-and-legs checker every eight pixels for an oversized post.
       // Only a few actual outline rows become leg pixels; the thorax and
@@ -106,7 +111,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
         cls[a] = 7;
         if (a + 1 < e) cls[a + 1] = 7;
       }
-      if (a < lim) lim = (uint8_t)a;
+      if (!rim && a < lim) lim = (uint8_t)a;
     }
   }
 }

@@ -1,3 +1,13 @@
+### Narrow, non-occluding ANT EYE limbs
+
+Peripheral view rays no longer paint a repeated eight-pixel-wide ant
+pattern for the full height of the animal. Instead they draw two sparse
+leg strokes and leave the underlying landscape visible; the central
+ray columns form the connected creature. This removes the checkerboard
+fence visible in previous enlarged emulator captures, without new
+VRAM tiles, RAM, assets or additional ray casts. Queen size, ant
+ownership, collision and combat remain unchanged.
+
 ### One organism per ray hit rather than a repeated sprite fence
 
 ANT EYE now distinguishes the creature's **central body** from its
