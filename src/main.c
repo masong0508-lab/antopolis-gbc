@@ -13,8 +13,9 @@
 #define VW 20           // visible world tiles (bottom 2 rows are the HUD window)
 #define VH 16
 #define MAXA 50         // ant slots: 25 per colony (the 37 hardware sprites only show the ants in view)
-#define NSPR 36         // hardware sprites 0..35 show the ants on screen; 36, 37 = queens, 38 = cursor, 39 = the other player's cursor
-#define QSPR 36
+#define NSPR 36         // up to 36 visible ants in hardware OAM slots 4..39
+#define QSPR 0          // OAM 0..3 win the 10-sprites-per-scanline priority: queens and player cursors
+#define ANTSPR 4        // workers must NEVER starve queen/cursor visibility in a crowded nest
 #define MANA_MAX 20     // mana cap
 #define MANA_PER_FOOD 1 // tribute: mana per food a black ant carries home
 #define OFFER_FOOD 2    // embezzle (SELECT+A): food spent ...
@@ -814,6 +815,15 @@ static void follow(void);
 static void newgame(uint8_t load) {
   uint8_t i, k, x, y, ok = 0;
   DISPLAY_OFF;
+  // Title sprites use OAM 0..4 for the marching parade. Restore the four
+  // high-priority gameplay silhouettes after EACH title visit, including
+  // when replaying after a win/quit. Under the GB 10-sprite scanline cap,
+  // queens and player cursors must beat crowds of ordinary workers.
+  set_sprite_tile(QSPR, 2); set_sprite_prop(QSPR, 0);
+  set_sprite_tile(QSPR + 1, 2); set_sprite_prop(QSPR + 1, 1);
+  set_sprite_tile(QSPR + 2, 1); set_sprite_prop(QSPR + 2, 2);
+  set_sprite_tile(QSPR + 3, 1);
+
   VBK_REG = VBK_ATTRIBUTES;                                     // world = palette 0 on every cell (nothing may leave HUD grey behind)
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
   VBK_REG = VBK_TILES;
@@ -915,7 +925,7 @@ static void draw_sprites(void) {
     if (!ant[i].alive) continue;
     sx = (int16_t)ant[i].x * 8 - scx; sy = (int16_t)ant[i].y * 8 - scy;
     if (sx > -8 && sx < 160 && sy > -8 && sy < 128) {
-      move_sprite(s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(s, ant[i].team); s++;
+      move_sprite(ANTSPR + s, (uint8_t)(sx + 8), (uint8_t)(sy + 16)); set_sprite_prop(ANTSPR + s, ant[i].team); s++;
     }
   }
   // Animate once for all visible colony sprites, not once for every
@@ -926,7 +936,7 @@ static void draw_sprites(void) {
     eye_animate_walkers(s, (uint8_t)(sys_time >> 3));
     enable_interrupts();
   }
-  while (s < NSPR) move_sprite(s++, 0, 0);
+  while (s < NSPR) move_sprite(ANTSPR + s++, 0, 0);
   for (i = 0; i < 2; i++) {
     if (qhp[i]) place(QSPR + i, nestx[i], nesty[i]); else move_sprite(QSPR + i, 0, 0);
   }
@@ -1664,7 +1674,7 @@ void main(void) {
   VBK_REG = VBK_TILES;
   LCDC_REG = (uint8_t)((LCDC_REG | LCDCF_WIN9C00) & (uint8_t)~LCDCF_BG9C00); // window map 9C00, world map 9800
   SPRITES_8x8;
-  for (i = 0; i < NSPR; i++) set_sprite_tile(i, 0);
+  for (i = 0; i < NSPR; i++) set_sprite_tile(ANTSPR + i, 0);
   set_sprite_tile(QSPR, 2);     set_sprite_prop(QSPR, 0);       // black queen
   set_sprite_tile(QSPR + 1, 2); set_sprite_prop(QSPR + 1, 1);   // red queen
   set_sprite_tile(QSPR + 2, 1); set_sprite_prop(QSPR + 2, 2);   // cursor
