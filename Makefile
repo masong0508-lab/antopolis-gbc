@@ -22,3 +22,4 @@ test:
 	./build/test_eye_navigation
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_ui.c -o build/test_eye_ui
 	./build/test_eye_ui
+	python3 tools/test_help_text.py
