@@ -1269,7 +1269,9 @@ static void eye(void) {                              // pilot a black ant; food,
       // Recalculate nearby berries after a worker change or cell movement,
       // never for each camera turn, frame or ray column.
       if (need_nav && !ant[vi].carry) {
+#ifndef EYE_DIAG_NO_FOOD
         disable_interrupts(); nav = eye_food_hint(vx, vy); enable_interrupts();
+#endif
         need_nav = 0;
       }
       // Complete the in-progress ray sweep before restarting. Holding a

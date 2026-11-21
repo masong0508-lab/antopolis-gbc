@@ -40,7 +40,7 @@ jobs:
 
 
   ray-diagnostic:
-    name: Diagnose GBC ANT EYE ray renderer without uploading debug ROM
+    name: Diagnose GBC ANT EYE without rendering or food scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -54,8 +54,8 @@ jobs:
           python-version: '3.12'
       - name: Install PyBoy and Pillow
         run: python3 -m pip install pyboy==2.9.0 Pillow==12.0.0
-      - name: Build temporary no-ray diagnostic ROM
-        run: make GBDK_HOME="$PWD/gbdk" LCCFLAGS=-DEYE_DIAG_NO_RAY
+      - name: Build temporary no-ray, no-food-scan diagnostic ROM
+        run: make GBDK_HOME="$PWD/gbdk" LCCFLAGS="-DEYE_DIAG_NO_RAY -DEYE_DIAG_NO_FOOD"
       - name: Test ANT EYE without ray marcher
         run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --diagnostic-only --out build/eye-diag
       - uses: actions/upload-artifact@v4
