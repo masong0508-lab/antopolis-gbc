@@ -1247,7 +1247,7 @@ static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
 }
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
-  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirs, last = 0;
+  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   HIDE_SPRITES;
@@ -1263,11 +1263,18 @@ static void eye(void) {                              // pilot a black ant; food,
   while (1) {
     if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
       if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
-      go = 0; vcol = 0; eye_status(vx, vy);
+      // Complete the in-progress ray sweep before restarting. Holding a
+      // direction previously reset column 0 every four frames, so the
+      // right half of the picture could remain stale indefinitely.
+      go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
+      eye_status(vx, vy);
       put_str(0, 14, vi < MAXA && ant[vi].carry ? "FOOD: TAKE HOME!    " : "A:NEXT ANT B:BITE   ");
     }
     vsync();
-    if (vcol < VX) { view_cols(vx, vy, vcol, (uint8_t)(vcol + 4)); vcol += 4; }   // 4 columns per frame: the view sweeps in, input stays live
+    if (vcol < VX) {
+      view_cols(vx, vy, vcol, (uint8_t)(vcol + 4)); vcol += 4;
+      if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }
+    }   // complete every sweep; redo after camera changes during a sweep
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
