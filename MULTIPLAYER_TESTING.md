@@ -59,7 +59,10 @@ real-device play must still be tested on emulators/hardware.
 
 ## Automated actual-ROM GBC emulator smoke
 
-The headless PyBoy test (`tools/gbc_eye_smoke.py`) runs against the
+The headless PyBoy test (`tools/gbc_eye_smoke.py`) explicitly skips the
+DippInn boot-logo gate before issuing the separate START needed to launch a
+game. It checks the strategy HUD's M glyph so startup screens cannot be
+mistaken for ANT EYE gameplay. It runs against the
 **built .gbc ROM** in CI. It verifies the title, the live strategy map,
 SELECT+START entering ANT EYE, the dedicated 3D VRAM/window layout,
 a visible camera turn, and return to the 2D map. It uploads actual emulator

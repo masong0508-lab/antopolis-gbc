@@ -52,14 +52,25 @@ def main():
         pyboy.tick(6, True, False)
 
     try:
-        # The eight-second studio logo comes before the title/menu.
+        # The intro studio splash has its own input gate. Earlier we used
+        # 680 frames and mistook the splash for the title; the next START
+        # only skipped the splash, leaving every screenshot one mode behind.
+        # Explicitly advance through BOTH startup menus before ANT EYE.
         pyboy.tick(680, True, False)
+        press("start")                   # skip DippInn studio splash
+        pyboy.tick(300, True, False)
         snapshot("01_title")
 
-        # START begins normal single-player, which spawns three black workers.
+        # A separate START begins normal single-player and spawns workers.
         press("start")
         pyboy.tick(350, True, False)
         snapshot("02_strategy")
+        strategy_head = pyboy.memory[ANT_EYE_HEADER]
+        if strategy_head != 136 + 23:  # 'M' from the MP HUD in row zero
+            raise AssertionError(
+                "Expected strategy HUD after title START, got window tile "
+                + repr(strategy_head)
+            )
         before = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
 
         # ANT EYE entry is an actual SELECT+START combination in the
