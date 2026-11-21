@@ -99,6 +99,14 @@ int main(void) {
   assert(!eye_entity_centered(128, 87));
   assert(!eye_entity_centered(128, 168));
   assert(eye_entity_centered(384, 640)); // world subcell, not absolute tile
+  // A whole body must not be duplicated in neighbouring ray columns.
+  assert(!eye_entity_outer(128, 128));
+  assert(!eye_entity_outer(112, 112));
+  assert(!eye_entity_outer(143, 143));
+  assert(eye_entity_outer(111, 128));
+  assert(eye_entity_outer(144, 128));
+  assert(eye_entity_outer(128, 111));
+  assert(eye_entity_outer(128, 144));
   assert(eye_entity_height(40, 1) == 21);
   assert(eye_entity_height(15, 1) == 15);
   assert(eye_entity_height(40, 3) == 30);

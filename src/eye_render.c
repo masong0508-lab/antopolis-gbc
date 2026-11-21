@@ -39,7 +39,7 @@ void eye_init_offsets(void) BANKED {
 
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
   int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
-  uint8_t n, x, y, h, o, col, lim = VR * 8, lb;
+  uint8_t n, x, y, h, o, col, rim, lim = VR * 8, lb;
   // Never use 16-bit variable '*' inside a banked routine. GBDK would
   // call __mulint from switchable ROM1, switching out this ROM3 routine.
   rx = (int16_t)SIN16[(vang + 4) & 15] * 32 -
@@ -74,17 +74,24 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
     }
     o = occ[y][x];
     if (o && !(x == vx && y == vy) && eye_entity_centered((uint16_t)px, (uint16_t)py)) {
+      rim = eye_entity_outer((uint16_t)px, (uint16_t)py);
+      // Food is a small nugget, not a two-cell-wide yellow block.
+      if (o == 5 && rim) continue;
       a = eye_entity_height(BBH[n], o);
       a = yt - a;                                    // top row of the figure
       e = yt < lb ? yt : lb;
       if (a < 0) a = 0;
       col = o == 5 ? 7 : (o & 1) ? 6 : 5;
-      for (r = a; r < e; r++) cls[r] = col;
+      // One central body, with only legs on outer rays. Previously each
+      // of 4-6 ray columns repeated the entire 8px ant body, producing a
+      // checkerboard fence that looked nothing like a creature.
+      for (r = a; r < e; r++)
+        cls[r] = (rim && o != 5) ? ((col == 5) ? 9 : 10) : col;
       // Draw one tapered, segmented ant rather than repeating the old
       // body-and-legs checker every eight pixels for an oversized post.
       // Only a few actual outline rows become leg pixels; the thorax and
       // abdomen stay solid team-coloured so they read on GBC hardware.
-      if (o != 5 && e > a + 4) {
+      if (!rim && o != 5 && e > a + 4) {
         uint8_t limb = (col == 5) ? 9 : 10;
         cls[a] = limb; cls[a + 1] = limb;
         cls[e - 1] = limb;
@@ -95,7 +102,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       }
       // Queens need a distinct silhouette: a two-pixel royal gold cap on
       // the otherwise team-colored tower. No extra columns or textures.
-      if ((o == 3 || o == 4) && a < e) {
+      if (!rim && (o == 3 || o == 4) && a < e) {
         cls[a] = 7;
         if (a + 1 < e) cls[a + 1] = 7;
       }

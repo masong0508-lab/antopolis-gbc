@@ -52,6 +52,13 @@ static uint8_t eye_entity_centered(uint16_t px, uint16_t py) {
   return (uint8_t)((uint8_t)(px - 88u) < 80u &&
                    (uint8_t)(py - 88u) < 80u);
 }
+// Body shape is represented by a solid centre and sparse legs at the edge.
+ // A narrow 32px subcell forms the core; the remaining visible subcell rim
+ // draws only limbs rather than cloning the whole ant into every ray column.
+static uint8_t eye_entity_outer(uint16_t px, uint16_t py) {
+  return (uint8_t)((uint8_t)(px - 112u) >= 32u ||
+                   (uint8_t)(py - 112u) >= 32u);
+}
 // Ants should be distinct silhouettes, not giant vertical tiled pillars.
 // A queen stays larger than a worker; berries remain small in perspective.
 static uint8_t eye_entity_height(uint8_t base, uint8_t kind) {

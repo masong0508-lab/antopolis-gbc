@@ -1,3 +1,15 @@
+### One organism per ray hit rather than a repeated sprite fence
+
+ANT EYE now distinguishes the creature's **central body** from its
+projected outline: only rays intersecting the narrow centre paint the
+connected head/thorax/abdomen, while outer rays contribute sparse legs.
+Previously each of several adjacent columns rendered the entire animal,
+creating the repeated checkerboard seen in the GBC screenshot. Food also
+uses the narrower centre silhouette instead of a wide yellow block.
+These are pure bank-3 ray rules plus a same-size 8-byte leg mask. No extra
+RAM, VRAM tiles, sprites, or frame passes are required. Host regression
+tests verify the central-versus-outer bounds.
+
 ### In-world first-person movement validation
 
 The main-map cursor now tracks the actual selected ant during ANT EYE
