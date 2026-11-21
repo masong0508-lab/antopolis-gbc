@@ -123,7 +123,14 @@ assert "colony_walker_frame(i, phase, carrying)" in banked
 assert "set_sprite_data(0, 7, SPT)" in gameplay
 assert "terrain_edge_pick(hgt, x, y)" in gameplay
 assert "refresh_terrain_neighbors(cx, cy)" in gameplay
-assert "refresh_terrain_neighbors((uint8_t)x, (uint8_t)y)" in gameplay
+assert "for (y = (int8_t)py - 2;" in gameplay
+assert "draw_cell((uint8_t)x, (uint8_t)y)" in gameplay
+assert "refresh_terrain_neighbors(cx, cy)" in gameplay
+# Flood and earthquake code must redraw edges once after all edits,
+# not 45 repetitive writes (nine changed cells times four neighbors).
+hit = gameplay.split("static void hit(uint8_t px, uint8_t py, uint8_t q) {", 1)[1]
+hit = hit.split("static void disaster(void)", 1)[0]
+assert hit.count("draw_cell(") == 1 and "refresh_terrain_neighbors(" not in hit
 assert "if (is_nest(x, y)) tile = BT + 4" in gameplay
 assert "else if (food[y][x] && t) tile = BT + 5" in gameplay
 assert "set_sprite_palette(0, 7, spal)" in gameplay
