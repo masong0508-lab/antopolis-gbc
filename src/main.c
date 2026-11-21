@@ -38,7 +38,7 @@ static void text2(const char *t, uint8_t nth) {   // copy the nth '\0'-separated
 }
 typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 
-static uint8_t hgt[H][W], food[H][W], ph[H][W];
+uint8_t hgt[H][W], food[H][W], ph[H][W];
 static Ant ant[MAXA];
 static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
 static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
@@ -1145,12 +1145,12 @@ static void title(void) {
 #define VR 12
 #define VY0 2           // window row of the first view row (HUD above, help text below)
 #define VN 24           // ray steps, half a cell each
-static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
-static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
+const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
+const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
-static const uint8_t PMAP[3][8] = {{0, 1, 2, 3, 0, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0, 0}, {0, 3, 3, 3, 0, 1, 2, 3}}; // 7 = golden food
-static int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
-static uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
+const uint8_t PMAP[3][8] = {{0, 1, 2, 3, 0, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0, 0}, {0, 3, 3, 3, 0, 1, 2, 3}}; // 7 = golden food
+int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
+uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
 
 static void view_init(void) {
   uint8_t d, n; int16_t v;
@@ -1160,40 +1160,7 @@ static void view_init(void) {
   }
 }
 
-static void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) {
-  int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
-  uint8_t n, x, y, h, o, col, lim = VR * 8, lb;
-  rx = (int16_t)SIN16[(vang + 4) & 15] * 32 - (int16_t)SIN16[vang] * t;
-  ry = (int16_t)SIN16[vang] * 32 + (int16_t)SIN16[(vang + 4) & 15] * t;
-  rx >>= 4; ry >>= 4;                                // one step = half a cell forward
-  for (n = 0; n < VR * 8; n++) cls[n] = 0;
-  for (n = 1; n <= VN && lim; n++) {
-    px += rx; py += ry;
-    if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
-    x = (uint8_t)(px >> 8); y = (uint8_t)(py >> 8);
-    h = hgt[y][x];
-    yt = 48 - OFF[h + 3 - eh][n];
-    lb = lim;
-    if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
-      a = yt < 0 ? 0 : yt;
-      col = h == 0 ? 4 : h == 3 ? 3 : ((x + y) & 1) ? 1 : 2;
-      for (r = a; r < lb; r++) cls[r] = col;
-      lim = (uint8_t)a;
-    }
-    o = occ[y][x];
-    if (o && !(x == vx && y == vy) && (uint8_t)(px - 64) < 128 && (uint8_t)(py - 64) < 128) {   // centre of the cell only
-      a = BBH[n]; if (o == 5) a >>= 1; else if (o > 2) a <<= 1;
-      a = yt - a;                                    // top row of the post
-      e = yt < lb ? yt : lb;
-      if (a < 0) a = 0;
-      col = o == 5 ? 7 : (o & 1) ? 6 : 5;
-      for (r = a; r < e; r++) cls[r] = col;
-      if (a < lim) lim = (uint8_t)a;
-    }
-  }
-}
-
-static uint8_t tcol[VR * 16];
+uint8_t tcol[VR * 16];
 static void occ_set(uint8_t on) {                    // visible food, ants and queens in the SAME world as the colony map
   uint8_t i, x, y;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = on ? 5 : 0;
@@ -1201,23 +1168,7 @@ static void occ_set(uint8_t on) {                    // visible food, ants and q
   for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = on ? 3 + i : 0;
 }
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
-static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
-  uint8_t c, r, k, v, p, m, eh = hgt[vy][vx], *t;
-  VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
-  for (c = c0; c < c1; c++) {
-    view_col(c, vx, vy, eh);
-    t = tcol;
-    for (r = 0; r < VR; r++) {
-      m = 0;
-      for (k = 0; k < 8; k++) { v = cls[r * 8 + k]; if (v == 4) m |= 1; else if (v > 4) m |= 2; }
-      p = (m & 2) ? 2 : (m & 1) ? 1 : 0;             // palette: ants > water > plain land
-      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; *t++ = (v & 1) ? 0xFF : 0; *t++ = (v & 2) ? 0xFF : 0; }
-      set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
-    }
-    set_bkg_data(c * VR, VR, tcol);
-  }
-  VBK_REG = VBK_TILES;
-}
+void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) BANKED; // rendered in ROM bank 1
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
 static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
