@@ -133,3 +133,12 @@ the PAUSED overlay, scrollable START HERE guide, and correct return to the
 strategy HUD before entering ANT EYE. Copy-text CI also checks every help
 line and every tutorial card is at most 20 tiles wide, fits the shared
 640-byte scratch buffer, and only uses drawable GBC glyphs.
+
+## 2D/3D terrain correspondence
+
+Compare a height-1 sand tile, height-2 grass tile, height-3 rock hill, and
+height-0 water from the overhead strategy map with nearby ANT EYE views.
+The scene should show tan soil, green grass, brown rock and blue water
+using existing palettes. Near grass can show small tan mottling; distant
+grass should remain a solid green. Confirm walking and diagonal blocking
+still agree with the 2D map and the AHEAD indicator.

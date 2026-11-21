@@ -99,10 +99,10 @@ static const palette_color_t bpal[28] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
   RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31), // 1: HUD text
   RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: (spare)
-  RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(21,14,6),    // 3: ant eye, land + rock
-  RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(4,16,6),     // 4: ant eye, water
+  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(21,14,6),    // 3: green grass, tan sand, brown rock
+  RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
-  RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(31,27,8)}; // 6: gold pheromone trail over green land
+  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8)}; // 6: gold scent over grass and sand
 // Compile-time check: 7 palette slots * 4 RGB555 colours, no frame cost.
 typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 28 ? 1 : -1];
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills

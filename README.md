@@ -6,6 +6,11 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **True terrain colours in ANT EYE:** first-person sand now renders warm
+  tan, living grass green, cliffs dark brown, and water blue, matching the
+  actual height classes visible on the overhead colony map. Far grass loses
+  noisy checkerboarding. This reuses existing 2bpp palettes; it adds no
+  texture data or framebuffer, and is covered by native terrain tests.
 - **UI readability pass:** the title screen now distinguishes START PLAY,
   A TUTORIAL, DOWN VERSUS, and continuing a save. The pause guide opens
   with immediate goals and controls, then shows ANT EYE, HUD, and rules
