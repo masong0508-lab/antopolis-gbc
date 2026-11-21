@@ -23,9 +23,9 @@ void eye_ui_notice(char *b,uint8_t result) BANKED {
 // technical collision code. All messages fit the GBC's 20-tile status row.
 void eye_ui_ahead(char *b,uint8_t target) BANKED {
   static const char *const names[9]={
-    "AHEAD: MAP EDGE", "AHEAD: WATER - STOP", "AHEAD: STEEP CLIFF",
-    "AHEAD: CLEAR PATH", "AHEAD: FOOD - WALK", "AHEAD: FRIENDLY ANT",
-    "AHEAD: ENEMY - BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
+    "AHEAD: MAP EDGE", "AHEAD: WATER BLOCKS", "AHEAD: STEEP CLIFF",
+    "AHEAD: CLEAR PATH", "AHEAD: FOOD WALK", "AHEAD: FRIENDLY ANT",
+    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
   };
   blank(b); field(b,0,names[target<9?target:0]);
 }
