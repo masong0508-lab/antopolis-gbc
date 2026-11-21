@@ -50,6 +50,44 @@ int main(void) {
     assert(waters_after==waters_before);
     assert_walkable_neighbors();
   }
-  puts("GBC banked terrain generation: borders, 50 deterministic maps, dry-path cliffs PASS");
+  // Both fresh colonies should be active immediately without relying
+  // on lucky random food scatter. The supplies are rotationally balanced.
+  {
+    uint8_t berries[TERRAIN_SIZE][TERRAIN_SIZE] = {{0}};
+    const uint8_t nests_x[2] = {4, 27};
+    const uint8_t nests_y[2] = {26, 5};
+    unsigned supply = 0;
+    memset(h, 1, sizeof h);
+    terrain_seed_nest_food(h, berries, nests_x, nests_y);
+    assert(berries[26][5] && berries[25][4]);
+    assert(berries[5][26] && berries[6][27]);
+    assert(!berries[26][4] && !berries[5][27]);
+    for(y=0;y<TERRAIN_SIZE;y++) for(x=0;x<TERRAIN_SIZE;x++)
+      supply += berries[y][x] ? 1u : 0u;
+    assert(supply == 4);
+    terrain_seed_nest_food(h, berries, nests_x, nests_y);
+    for(y=0;y<TERRAIN_SIZE;y++) for(x=0;x<TERRAIN_SIZE;x++)
+      assert(berries[y][x] <= 1u);  // does not duplicate food or use RNG
+    memset(berries, 0, sizeof berries);
+    h[26][5] = 0; h[6][27] = 0;
+    terrain_seed_nest_food(h, berries, nests_x, nests_y);
+    assert(!berries[26][5] && !berries[6][27]);
+    assert(berries[25][4] && berries[5][26]);
+    assert(!berries[26][4] && !berries[5][27]);
+    // Out-of-bounds adjacent directions are skipped safely.
+    {
+      const uint8_t edge_x[2] = {0,31}, edge_y[2] = {0,31};
+      memset(berries, 0, sizeof berries); memset(h,1,sizeof h);
+      terrain_seed_nest_food(h,berries,edge_x,edge_y);
+      assert(berries[0][1] && berries[31][30]);
+      assert(!berries[0][0] && !berries[31][31]);
+      const uint8_t bad_x[2] = {255, 32}, bad_y[2] = {0, 0};
+      memset(berries,0,sizeof berries);
+      terrain_seed_nest_food(h,berries,bad_x,bad_y);
+      for(y=0;y<TERRAIN_SIZE;y++) for(x=0;x<TERRAIN_SIZE;x++)
+        assert(!berries[y][x]);
+    }
+  }
+  puts("GBC banked terrain generation: borders, 50 maps, fair reachable starter food PASS");
   return 0;
 }
