@@ -810,6 +810,9 @@ static void tick_slice(void) {
 void terrain_bump(uint8_t heights[32][32],uint8_t x,uint8_t y,
                   uint8_t level,uint8_t radius) BANKED;
 void terrain_smooth(uint8_t heights[32][32]) BANKED;
+void terrain_seed_nest_food(uint8_t heights[32][32],
+                            uint8_t berries[32][32],
+                            const uint8_t nx[2],const uint8_t ny[2]) BANKED;
 
 static void follow(void);
 static void newgame(uint8_t load) {
@@ -850,6 +853,12 @@ static void newgame(uint8_t load) {
     terrain_smooth(hgt);
     enable_interrupts();
     for (k = 0; k < 36; k++) { x = rand() & (W - 1); y = rand() & (H - 1); if (hgt[y][x] && !is_nest(x, y)) food[y][x] = 1; }
+    // Guaranteed food on one-step walkable terrain near both queens; world
+    // symmetry and RNG order stay identical for local and linked play.
+    // Saves bypass this entire branch, preserving old-world food placement.
+    disable_interrupts();
+    terrain_seed_nest_food(hgt,food,nestx,nesty);
+    enable_interrupts();
     for (i = 0; i < MAXA; i++) ant[i].alive = 0;
     stock[0] = stock[1] = 0; qhp[0] = qmax[0]; qhp[1] = qmax[1]; hatched[0] = hatched[1] = 0;
     for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
