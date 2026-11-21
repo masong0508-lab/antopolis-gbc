@@ -97,8 +97,8 @@ static void set_rules(uint8_t d) {
 // count identical: a 24-entry declaration silently dropped the trail palette.
 static const palette_color_t bpal[28] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
-  RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31), // 1: HUD text
-  RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: (spare)
+  RGB(2,5,13), RGB(6,11,21),  RGB(14,23,28), RGB(31,31,28), // 1: midnight blue and ivory UI
+  RGB(2,5,13), RGB(14,9,5),   RGB(26,19,8),  RGB(31,29,16), // 2: warm brass headings
   RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(21,14,6),    // 3: green grass, tan sand, brown rock
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
@@ -112,7 +112,7 @@ static const palette_color_t tpal[32] = {
   RGB(10,4,11), RGB(17,8,15),  RGB(24,13,15), RGB(31,29,22),   // 2: horizon glow
   RGB(1,1,5),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),    // 3: gold logo
   RGB(10,4,11), RGB(13,26,8),  RGB(5,15,7),   RGB(9,5,4),      // 4: hills, grass, soil
-  RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 5: spare
+  RGB(2,4,12), RGB(6,13,21),  RGB(15,23,27), RGB(31,31,27), // 5: raised title menu panel
   RGB(1,1,5),   RGB(14,8,2),   RGB(28,18,6),  RGB(31,31,16),   // 6: logo shine, soft
   RGB(1,1,5),   RGB(20,14,6),  RGB(31,26,14), RGB(31,31,28)};  // 7: logo shine, bright
 static const palette_color_t spal[12] = {
@@ -128,23 +128,11 @@ static const char SCKEY[] = ".*,abcd=/\\H#";            // SCN character -> tile
 extern const char SCN2[];                              // the 18 x 20 scene map lives in bank 2 (text2.c), copied to tbuf on the title
 #define SCN(y, x) tbuf[(y) * 20 + (x)]
 
-// 3x5 font, one octal digit per row (4=left px, 2=middle, 1=right)
-// order: space, 0-9, A-Z, ':', '!', '/'
-static const uint16_t FONT[40] = {
-  0,
-  075557,026227,071747,071717,055711,074717,074757,071122,075757,075717,
-  025755,065656,034443,065556,074647,074644,034553,055755,072227,011152,
-  055655,044447,057755,065555,025552,065644,025563,065655,034216,072222,
-  055557,055552,055775,055255,055222,071247,
-  002020,022202,011244};
-
-static void mk_glyph(uint8_t *d, uint16_t g) {
-  uint8_t y, lo;
-  for (y = 0; y < 8; y++) {
-    lo = (y >= 1 && y <= 5) ? (uint8_t)(((g >> (3 * (5 - y))) & 7) << 3) : 0;
-    d[y * 2] = lo; d[y * 2 + 1] = lo;          // both planes = colour 3
-  }
-}
+// Boot-time GBC UI artwork lives in ROM3: no extra per-frame allocations.
+void ui_build_font(uint8_t *dst) BANKED;
+void ui_build_logo(uint8_t *dst) BANKED;
+void ui_build_marks(uint8_t *dst) BANKED;
+#define UI_SEPARATOR 203
 
 // ---------- text on the window layer ----------
 static uint8_t gi(char c) {
@@ -183,30 +171,6 @@ static const char *put_line(uint8_t y, const char *s) {          // one '\n'-ter
   while (x < 20) put_char(x++, y, ' ');
   return *s ? s + 1 : s;
 }
-// ---------- 3D "perspective" title lettering: EmpIre-antS ----------
-// 3x5 font glyphs stretched 2x wide, extruded 2 px down-right in two darker shades (gold -> brown -> dark);
-// the first E and last S are double height so the word reads Empire-antS with towering end caps.
-static uint8_t cv[16][8];
-static void mk_3d(uint8_t *d, uint16_t g, uint8_t tall, uint8_t part) {
-  uint8_t gx, gy, k, x, y, r, c, v, lo, hi, sy = tall ? 2 : 1, y0 = tall ? 3 : 8;
-  for (r = 0; r < 16; r++) for (c = 0; c < 8; c++) cv[r][c] = 0;
-  for (k = 3; k--; )                                    // extrusion layers 2, 1 then front face 0 (back to front)
-    for (gy = 0; gy < 5; gy++) for (gx = 0; gx < 3; gx++)
-      if ((g >> (3 * (4 - gy))) & (4 >> gx))
-        for (y = 0; y < sy; y++) for (x = 0; x < 2; x++) cv[y0 + gy * sy + y + k][gx * 2 + x + k] = 3 - k;
-  for (r = 0; r < 8; r++) {
-    lo = hi = 0;
-    for (c = 0; c < 8; c++) { v = cv[part * 8 + r][c]; lo = (lo << 1) | (v & 1); hi = (hi << 1) | (v >> 1); }
-    d[r * 2] = lo; d[r * 2 + 1] = hi;
-  }
-}
-static void title_tiles(uint8_t *b) {                   // 13 tiles: E top/bottom, S top/bottom, then M P I R E - A N T
-  static const char SM[10] = "MPIRE-ANT";
-  uint8_t i;
-  mk_3d(b,      FONT[gi('E')], 1, 0); mk_3d(b + 16, FONT[gi('E')], 1, 1);
-  mk_3d(b + 32, FONT[gi('S')], 1, 0); mk_3d(b + 48, FONT[gi('S')], 1, 1);
-  for (i = 0; i < 9; i++) mk_3d(b + (4 + i) * 16, SM[i] == '-' ? 0700 : FONT[gi(SM[i])], 0, 1);
-}
 static void logo_cells(uint8_t x0, uint8_t y0, uint8_t pal) {
   uint8_t i;
   VBK_REG = VBK_ATTRIBUTES;
@@ -243,9 +207,9 @@ static void help_draw(void) {
 }
 static void help_open(void) {
   htop = 0; text2(HELP2, 0);
-  put_str(0, 2, "PAUSED"); attr(0, 2, 6, 2); put_str(7, 2, DNAME[gdiff]);
+  put_str(0, 2, "PAUSED"); put_str(7, 2, DNAME[gdiff]); attr(0, 2, 20, 2);
   put_line(16, "A:SAVE  B TWICE:QUIT");
-  put_str(0, 17, "U/D SCROLL  START:GO");
+  put_str(0, 17, "U/D SCROLL  START:GO"); attr(0, 16, 20, 2);
   help_draw();
 }
 static void help_scroll(int8_t d) {
@@ -996,7 +960,14 @@ static void title_paint(void) {
   title_scene();
   title_logo(4, 3);
   put_str(2, 6, "THE RULER OF YOU");
-  put_char(5, 7, '<'); put_char(14, 7, '>'); attr(5, 7, 10, 3);          // gold level picker (LEFT / RIGHT)
+  // A recessed control strip separates the menu from the animated scenery.
+  attr(0, 6, 20, 5);
+  attr(0, 7, 20, 5); attr(5, 7, 10, 7);
+  for (uint8_t n=0;n<20;++n) set_win_tile_xy(n, 8, UI_SEPARATOR);
+  attr(0, 8, 20, 5);
+  attr(0, 9, 20, 5); attr(0, 10, 20, 5);
+  attr(0, 11, 20, 5); attr(0, 12, 20, 5);
+  put_char(5, 7, '<'); put_char(14, 7, '>');
   diff_draw();
   if (hassave) put_str(1, 10, "UP:CONTINUE B:STATS"); else put_str(5, 10, "B:RECORDS");
   put_str(0, 11, "A:TUTORIAL DOWN:VS");
@@ -1006,7 +977,7 @@ static void title_paint(void) {
 static void records_draw(void) {
   uint8_t d, y;
   win_clear();
-  put_str(0, 0, "RECORDS"); attr(0, 0, 7, 3);
+  put_str(0, 0, "RECORDS"); attr(0, 0, 20, 2);
   for (d = 0; d < 3; d++) {
     y = 2 + d * 4;
     put_str(0, y, DNAME[d]); attr(0, y, 6, 3);
@@ -1072,7 +1043,7 @@ static void vs_draw(void) {
 static uint8_t vs_menu(void) {                     // returns 1 to start a versus game (mp = 1 or 2)
   uint8_t k, p, prev = 0xFF, r, go = 0;
   DISPLAY_OFF; HIDE_SPRITES; win_clear();
-  put_str(0, 0, "2 PLAYERS"); attr(0, 0, 9, 3);
+  put_str(0, 0, "2 PLAYERS"); attr(0, 0, 20, 2);
   put_str(0, 2, "P1 BLACK VS P2 RED");
   put_str(0, 3, "KILL THE OTHER QUEEN");
   put_char(2, 5, '<'); put_char(15, 5, '>'); attr(2, 5, 14, 3);
@@ -1379,7 +1350,7 @@ static void tut_card(uint8_t i) {
   win_clear();
   text2(TCARD2, i); t = put_line(1, (const char *)tbuf);   // title row 1, body from row 3
   for (r = 3; *t && r < 15; r++) t = put_line(r, t);
-  put_str(0, 16, "START: NEXT  B: SKIP");
+  put_str(0, 16, "START: NEXT  B: SKIP"); attr(0, 1, 20, 2); attr(0, 16, 20, 2);
   HIDE_SPRITES; move_win(7, 0);
   prev = joypad();
   while (1) {
@@ -1418,7 +1389,7 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
   put_str(0, 11, "WON"); put_num(4, 11, rec.w[d]); put_str(8, 11, "LOST"); put_num(13, 11, rec.l[d]);
   put_str(0, 12, "FASTEST"); put_time(8, 12, rec.t[d]);
   put_str(0, 13, "SCORE"); put_dec(8, 13, rec.s[d], 5);
-  put_str(0, 16, "START: CONTINUE");
+  put_str(0, 16, "START: CONTINUE"); attr(0, 16, 20, 2);
   HIDE_SPRITES; move_win(7, 0);
   while (1) { vsync(); if (joypad() & J_START) break; }
   waitpadup();
@@ -1547,13 +1518,14 @@ void main(void) {
   NR52_REG = 0x80; NR51_REG = 0xFF; NR50_REG = 0x77;     // sound on, all channels, full volume
   DISPLAY_OFF;
   set_bkg_data(BT, 8, BGT);                              // 6 terrain tiles + 2 mana-bar tiles
-  for (i = 0; i < 40; i++) mk_glyph(buf + i * 16, FONT[i]);
+  disable_interrupts(); ui_build_font(buf); enable_interrupts();
   set_bkg_data(FT, 40, buf);
-  title_tiles(buf);
+  disable_interrupts(); ui_build_logo(buf); enable_interrupts();
   set_bkg_data(TT, 13, buf);
   set_bkg_data(TS, 12, TAT);
-  mk_glyph(buf, 012421); mk_glyph(buf + 16, 042124);     // '<' and '>' for the level picker
+  disable_interrupts(); ui_build_marks(buf); enable_interrupts();
   set_bkg_data(AR, 2, buf);
+  set_bkg_data(UI_SEPARATOR, 1, buf + 32);
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
   set_bkg_palette(0, 7, bpal);
