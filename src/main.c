@@ -207,6 +207,7 @@ static void help_draw(void) {
   hdp = hd;
   put_num(15, 2, htop + HR); put_char(17, 2, '/'); put_num(18, 2, n);      // last visible line / total
 }
+static void win_clear(void); // the pause command screen clears its own window
 static void help_open(void) {
   htop = 0; text2(HELP2, 0);
   // The old screen left the in-game HUD above the help text, like a broken
