@@ -1161,11 +1161,11 @@ static void view_init(void) {
 }
 
 uint8_t tcol[VR * 16];
-static void occ_set(uint8_t on) {                    // visible food, ants and queens in the SAME world as the colony map
+static void occ_set(void) {                    // mark real food, ants and queens; callers clear stale cells
   uint8_t i, x, y;
-  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = on ? 5 : 0;
-  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = on ? ant[i].team + 1 : 0;
-  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = on ? 3 + i : 0;
+  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = 5;
+  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = ant[i].team + 1;
+  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = 3 + i;
 }
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED; // isolated pure ray march in ROM bank 3
@@ -1220,7 +1220,7 @@ static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
     mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
     apr(1); sfx_mana();
   }
-  memset(occ, 0, sizeof occ); occ_set(1);
+  memset(occ, 0, sizeof occ); occ_set();
 }
 
 // A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
@@ -1234,13 +1234,12 @@ static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
   tx = (int16_t)vx + dx; ty = (int16_t)vy + dy;
   if (tx < 0 || ty < 0 || tx >= W || ty >= H) { sfx_deny(); return; }
   for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == 1 && ant[i].x == tx && ant[i].y == ty) {
-    die(&ant[i]); sfx_fight(); memset(occ, 0, sizeof occ); occ_set(1); return;
+    die(&ant[i]); sfx_fight(); break;
   }
-  if (tx == nestx[1] && ty == nesty[1] && qhp[1]) {
+  if (i == MAXA && tx == nestx[1] && ty == nesty[1] && qhp[1]) {
     qhp[1]--; sfx_hit(); if (!qhp[1]) over = 1;
-    memset(occ, 0, sizeof occ); occ_set(1); return;
-  }
-  sfx_deny();
+  } else if (i == MAXA) { sfx_deny(); return; }
+  memset(occ, 0, sizeof occ); occ_set();
 }
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
@@ -1254,7 +1253,7 @@ static void eye(void) {                              // pilot a black ant; food,
   put_str(0, 14, "A:NEXT ANT B:BITE   ");
   put_str(0, 15, "L/R TURN U/D WALK   ");
   put_str(0, 16, "SEL:SCENT START:MAP ");
-  occ_set(1);                                        // ants cannot move in here: mark them once
+  occ_set();                                        // ants cannot move in here: mark them once
   move_win(7, 0);
   prev = joypad();
   while (1) {
