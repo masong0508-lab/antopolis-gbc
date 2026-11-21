@@ -86,7 +86,7 @@ const char TCARD2[] =
   "ANT\n"
   "L R TURN  U D WALK\n"
   "A NEXT ANT\n"
-  "B JUMP CURSOR HERE\n"
+  "B BITE  SEL SCENT\n"
   "START  BACK\n"
   "\0"
   "7/8 THE COLONY\n"
