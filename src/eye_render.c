@@ -77,7 +77,23 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
         if (accent == 1u) cls[a] = 2;            // bright foam at water edge
         else if (accent == 2u) { cls[a] = 3; cls[a+2u] = 2; } // rock strata
         else if (accent == 3u) cls[a+1u] = 2;    // grass tuft
-        else if (accent == 4u) cls[a+1u] = 3;    // stone/pebble
+        else if (accent == 4u) {
+          cls[a+1u] = 3;                        // pebbles on sand
+          if (n <= 5 && a + 3 < lb) cls[a+2u] = 3;
+        }
+        // Project tiny SILHOUETTES above the actual physical ground,
+        // instead of a flat color stripe at every distant horizon.
+        // Only near terrain may create raised grass/rock/shore pixels.
+        // Bounds are clamped before touching the shared 96px ray column.
+        if (a >= 3 && n <= 8) {
+          if (accent == 3u) {                   // near grass blades
+            cls[a-1u] = 1;
+            if (n <= 4) cls[a-2u] = 1;
+          } else if (accent == 2u && n <= 6)    // chipped cliff crest
+            cls[a-1u] = 3;
+          else if (accent == 1u && n <= 6)      // narrow shoreline foam
+            cls[a-1u] = 2;
+        }
       }
       // One gold surface pixel reveals actual world pheromone, never a
       // decorative unrelated particle. Reuses the existing ph map, no RAM.

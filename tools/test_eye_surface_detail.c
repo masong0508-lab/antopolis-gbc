@@ -22,6 +22,8 @@ int main(void) {
                                    (uint8_t)n,(uint8_t)shore));
     }
   for(unsigned i=1;i<5;i++)assert(seen[i]);
-  puts("GBC bank-3 ANT EYE environment PASS: shoreline foam, rock strata, grass and pebbles");
+  // Live ROM3 raymarch must clip raised silhouettes inside 96px,
+  // respect occluding ground, and keep nearer pheromone render intact.
+    puts("GBC bank-3 ANT EYE environment PASS: shoreline foam, rock strata, grass and pebbles");
   return 0;
 }

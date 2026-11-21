@@ -309,6 +309,23 @@ def main():
         pyboy.tick(150, True, False)
         ppu_state("180_frames")
         eye = snapshot("03_ant_eye")
+        # Audit ACTUAL 160x144 native LCD pixels, not a renderer mockup.
+        # Grass, rock and foam must remain visible over the ray floor,
+        # the three-band sky must not collapse, and ANT EYE HUD survives.
+        sky_colors = len(eye.convert("RGB").crop((0, 20, 160, 60)).getcolors(
+            maxcolors=160*40) or [])
+        floor_colors = len(eye.convert("RGB").crop((0, 74, 160, 108)).getcolors(
+            maxcolors=160*34) or [])
+        report["native_eye_visual"] = {
+            "resolution": [160, 144], "sky_colors": sky_colors,
+            "ground_colors": floor_colors,
+            "landmark": "ANT EYE native scene",
+        }
+        if sky_colors < 3 or floor_colors < 2:
+            raise AssertionError(
+                "Native ANT EYE sky/ground lost material depth: "
+                + repr(report["native_eye_visual"])
+            )
         if args.diagnostic_only:
             lcdc = report["ppu_checkpoints"]["180_frames"]["lcdc"]
             if not (lcdc & 0x80):
