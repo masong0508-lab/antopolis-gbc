@@ -1244,7 +1244,7 @@ static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
 }
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
-  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, navx = 255, navy = 255, nvi = MAXA;
+  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, need_nav = 1;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   // There is no controllable ant until the colony hatches a living worker.
@@ -1263,15 +1263,12 @@ static void eye(void) {                              // pilot a black ant; food,
   prev = joypad();
   while (1) {
     if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
-      if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
-      // Search food only after moving to another cell or selecting a worker,
-      // never per frame while rotating; limit ROM bank switches and audio IRQ
-      // masking to the actual search, not the whole render loop.
-      if (navx != vx || navy != vy || nvi != vi) {
-        navx = vx; navy = vy; nvi = vi;
-        if (!ant[vi].carry) {
-          disable_interrupts(); nav = eye_food_hint(vx, vy); enable_interrupts();
-        }
+      if (go == 1) { vx = ant[vi].x; vy = ant[vi].y; need_nav = 1; }
+      // Recalculate nearby berries after a worker change or cell movement,
+      // never for each camera turn, frame or ray column.
+      if (need_nav && !ant[vi].carry) {
+        disable_interrupts(); nav = eye_food_hint(vx, vy); enable_interrupts();
+        need_nav = 0;
       }
       // Complete the in-progress ray sweep before restarting. Holding a
       // direction previously reset column 0 every four frames, so the
@@ -1289,11 +1286,9 @@ static void eye(void) {                              // pilot a black ant; food,
       } else {
         put_str(0, 14, "A:NEXT B:BITE ");
         if (nav & 0x80) {
-          put_str(14, 14, "F:");
+          put_str(14, 14, "F:    ");
           put_char(16, 14, (nav & 1) ? '>' : (nav & 2) ? '<' : 'O');
-          put_char(17, 14, ' ');
           put_char(18, 14, (nav & 4) ? 'S' : (nav & 8) ? 'N' : 'O');
-          put_char(19, 14, ' ');
         } else put_str(14, 14, "NOFOOD");
       }
     }
@@ -1323,7 +1318,7 @@ static void eye(void) {                              // pilot a black ant; food,
         else if (dirs & J_LEFT) { vang = (vang + 15) & 15; go = 2; }
         else {
           x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
-          if (vx != x || vy != y) { eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT)); go = 2; }
+          if (vx != x || vy != y) { eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT)); go = 2; need_nav = 1; }
           else sfx_deny();
         }
       }

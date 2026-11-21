@@ -8,7 +8,7 @@
 // still turns in 22.5 degree increments; walking now follows diagonals.
 static const int8_t EYE_DX[16] = { 1,1,1,1,0,-1,-1,-1,-1,-1,-1,-1,0,1,1,1 };
 static const int8_t EYE_DY[16] = { 0,0,1,1,1,1,1,0,0,0,-1,-1,-1,-1,-1,0 };
-static uint8_t eye_legal_leg(const uint8_t heights[EYE_WORLD][EYE_WORLD],
+static uint8_t eye_legal_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
                              uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
   int8_t nx = (int8_t)x + dx, ny = (int8_t)y + dy, change;
   if (nx < 0 || ny < 0 || nx >= EYE_WORLD || ny >= EYE_WORLD) return 0;
@@ -16,7 +16,7 @@ static uint8_t eye_legal_leg(const uint8_t heights[EYE_WORLD][EYE_WORLD],
   change = (int8_t)heights[(uint8_t)ny][(uint8_t)nx] - (int8_t)heights[y][x];
   return (uint8_t)(change >= -1 && change <= 1);
 }
-static uint8_t eye_try_step(const uint8_t heights[EYE_WORLD][EYE_WORLD],
+static uint8_t eye_try_step(uint8_t heights[EYE_WORLD][EYE_WORLD],
                             uint8_t *x, uint8_t *y,
                             uint8_t facing, int8_t dir) {
   int8_t dx = EYE_DX[facing & 15], dy = EYE_DY[facing & 15];
@@ -31,8 +31,8 @@ static uint8_t eye_try_step(const uint8_t heights[EYE_WORLD][EYE_WORLD],
 }
 // Food scan is bounded to an 8-tile radius and only runs when the selected
 // ant CHANGES TILE, not on every ray/turn/frame. Return x/y bearing bits.
-static uint8_t eye_food_bearing(const uint8_t heights[EYE_WORLD][EYE_WORLD],
-                                const uint8_t berries[EYE_WORLD][EYE_WORLD],
+static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
+                                uint8_t berries[EYE_WORLD][EYE_WORLD],
                                 uint8_t vx, uint8_t vy) {
   uint8_t x, y, best = 255, tx = vx, ty = vy, d;
   uint8_t x0 = vx > 8 ? vx - 8 : 0;
