@@ -54,7 +54,7 @@ def packed_bytes(pixel_rows):
 def assert_art_table(name, pixels):
     expected = packed_bytes(pixels)
     match = re.search(
-        rf"static const uint8_t {name}\\[{len(expected)}\\]\\s*=\\s*\\{{(.*?)\\}};",
+        rf"static const uint8_t {name}\[{len(expected)}\]\s*=\s*\{{(.*?)\}};",
         content, re.S
     )
     assert match, f"{name} missing or incorrect tile count"
