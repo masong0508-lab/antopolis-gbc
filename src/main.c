@@ -1142,7 +1142,7 @@ static void title(void) {
 #define VR 12
 #define VY0 2           // window row of the first view row (HUD above, help text below)
 #define VN 24           // ray steps, half a cell each
-const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
+// Trigonometry is owned entirely by the ROM3 ray marcher.
 // BBH depth/height lookup is stored with the banked ray marcher.
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
 // 8 = golden pheromone trace. Palette 6 retains real green ground instead
@@ -1164,13 +1164,9 @@ const uint8_t PMAP[5][11] = {
 int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
 
-static void view_init(void) {
-  uint8_t d, n; int16_t v;
-  for (d = 0; d < 7; d++) for (n = 1; n <= VN; n++) {
-    v = ((int16_t)(((int8_t)d - 3) * 4 - 3) * 16) / n;
-    OFF[d][n] = v > 64 ? 64 : v < -64 ? -64 : (int8_t)v;
-  }
-}
+// Static perspective table now lives in bank 3: no 16-bit division at boot
+// and no fixed-ROM capacity consumed by its former runtime generator.
+void eye_init_offsets(void) BANKED;
 
 uint8_t tcol[VR * 16];
 static void occ_set(void) {                    // mark real food, ants and queens; callers clear stale cells
@@ -1599,7 +1595,7 @@ void main(void) {
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
   set_bkg_palette(0, 8, bpal);
-  view_init();
+  disable_interrupts(); eye_init_offsets(); enable_interrupts();
   set_sprite_palette(0, 3, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
