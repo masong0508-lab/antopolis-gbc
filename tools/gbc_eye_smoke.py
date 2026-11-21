@@ -159,16 +159,19 @@ def main():
         moved = False
         for _ in range(16):
             pyboy.button_press("select")  # scent-mark the walked cell
-            press("up", 4)
+            # Four emulated frames can be shorter than a four-column
+            # software ray sweep, so hold UP through at least one real
+            # GBC input-sampling opportunity.
+            press("up", 18)
             pyboy.button_release("select")
-            pyboy.tick(42, True, False)
+            pyboy.tick(48, True, False)
             if not (pyboy.memory[0xFF40] & 0x80):
                 raise AssertionError("ANT EYE LCD shut off while trying to walk")
             if position_glyphs() != before_pos:
                 moved = True
                 break
-            press("right")
-            pyboy.tick(38, True, False)
+            press("right", 16)
+            pyboy.tick(48, True, False)
         if not moved:
             raise AssertionError("ANT EYE failed to move a real worker in 16 facings")
         report["movement"] = {
