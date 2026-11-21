@@ -722,16 +722,14 @@ static void pick(uint8_t i) {
   sfx_mana(); say("PERK TAKEN!");
 }
 // 3x3 patch around (px,py): every tile sinks one level (FLASH FLOOD, and the player's flood). q = EARTHQUAKE: each tile goes up or down.
-static uint8_t hit(uint8_t px, uint8_t py, uint8_t q) {
+static void hit(uint8_t px, uint8_t py, uint8_t q) {
   int8_t x, y;
-  uint8_t drowned = 0;
   // Resolve the full 3x3 event BEFORE painting any transition tiles.
   // Keep the exact original RNG order for deterministic two-player games.
   for (y = (int8_t)py - 1; y <= (int8_t)py + 1; y++) for (x = (int8_t)px - 1; x <= (int8_t)px + 1; x++)
     if (x >= 0 && y >= 0 && x < W && y < H && !is_nest(x, y)) {
       if (q && (rand() & 1)) { if (hgt[y][x] < 3) hgt[y][x]++; } else if (hgt[y][x]) hgt[y][x]--;
-      if (TERRAIN_FOOD_DROWNED(hgt[y][x], food[y][x])) drowned = 1;
-      food[y][x] = (uint8_t)TERRAIN_FOOD_AFTER(hgt[y][x], food[y][x]);
+      if (!hgt[y][x]) food[y][x] = 0;  // submerged berries never survive
     }
   // 5x5 maximum one-write-per-cell pass instead of 9 x (1+4)=45
   // redundant map writes/banked seam lookups. All surrounding edges
@@ -739,7 +737,6 @@ static uint8_t hit(uint8_t px, uint8_t py, uint8_t q) {
   for (y = (int8_t)py - 2; y <= (int8_t)py + 2; y++) for (x = (int8_t)px - 2; x <= (int8_t)px + 2; x++)
     if (x >= 0 && y >= 0 && x < W && y < H)
       draw_cell((uint8_t)x, (uint8_t)y);
-  return drowned;
 }
 static void disaster(void) {                       // hits both colonies alike, anywhere on the map
   uint8_t q = rand() & 1;
@@ -951,8 +948,7 @@ static void offering(void) {
 static void flood(void) {
   if (mana < fcost) { sfx_deny(); say("NOT ENOUGH MANA"); return; }
   mana -= fcost; sfx_flood(); tev |= 8;
-  if (hit(cx, cy, 0)) say("FLOOD TOOK THE FOOD");
-  else say("GROUND FLOODED");
+  hit(cx, cy, 0); say("GROUND FLOODED");
 }
 
 // ---------- camera ----------
