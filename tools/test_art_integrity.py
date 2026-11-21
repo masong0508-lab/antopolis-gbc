@@ -36,11 +36,19 @@ assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
 gameplay = Path("src/main.c").read_text()
 sprite_pass = gameplay[gameplay.index("static void draw_sprites(void) {"):]
 sprite_pass = sprite_pass[:sprite_pass.index("// ---------- screens ----------")]
-assert "set_sprite_tile(s, TW +" in sprite_pass, (
-    "Overhead colony ants regressed to static worker markers"
+assert "eye_animate_walkers(s," in sprite_pass, (
+    "Overhead colony ants no longer animate their walking silhouettes"
 )
 assert "sys_time & 3u" in sprite_pass, (
     "Sprite tile writes lost their low-overhead four-frame cadence"
+)
+banked = Path("src/eye_render.c").read_text()
+assert "void eye_animate_walkers(uint8_t visible, uint8_t phase) BANKED" in banked
+assert "shadow_OAM[i].tile =" in banked, (
+    "Walker update must use shadow OAM, not bank-1 VRAM helpers from bank 3"
+)
+assert "disable_interrupts();" in sprite_pass and "enable_interrupts();" in sprite_pass, (
+    "Switchable-ROM walker animation must guard the bank-1 audio ISR"
 )
 for i in (0, 2, 3, 4):
     opaque = sum(ch != "0" for row in rows[i*8:(i+1)*8] for ch in row)
