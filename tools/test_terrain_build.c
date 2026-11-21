@@ -118,7 +118,8 @@ int main(void) {
     assert(!terrain_edge_pick(h,0,32));  // invalid y
     h[0][0]=1;
     assert(terrain_edge_pick(h,0,1)==1); // coast touches top boundary
-    h[1][0]=3;
+    memset(h,3,sizeof h);
+    h[1][0]=2;
     assert(terrain_edge_pick(h,1,1)==7); // rock cliffs face lower west
     memset(h,0,sizeof h);
     h[15][16]=1; h[17][16]=1; h[16][15]=1; h[16][17]=1;
