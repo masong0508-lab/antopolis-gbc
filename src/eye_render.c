@@ -124,8 +124,9 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
    queen/player visibility; only slots 4..39 are touched. Never call
    bank-1 drawing/VRAM helpers while bank 3 is mapped. The caller disables
    banked audio interrupts and runs this at one-quarter of the frame rate.
-   Five stack bytes describe which visible ants carry a berry. A carrier
-   receives tile 5/6 rather than tile 3/4, retaining its team palette.
+   The idle strategy-screen text scratch holds one flag per visible ant.
+   This avoids variable bit shifts and extra fixed-bank code or WRAM.
+   A carrier receives tile 5/6 instead of 3/4, with its team palette.
    This saves expensive per-ant tile updates in the full fixed ROM bank. */
 void eye_animate_walkers(uint8_t visible, uint8_t phase,
                          const uint8_t *carrying) BANKED {
