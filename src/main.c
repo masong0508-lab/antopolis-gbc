@@ -39,9 +39,9 @@ static void text2(const char *t, uint8_t nth) {   // copy the nth '\0'-separated
 typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
 
 uint8_t hgt[H][W], food[H][W], ph[H][W];
-static Ant ant[MAXA];
-static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
-static uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
+Ant ant[MAXA];
+uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
+uint8_t cx, cy, mana, tk, over, camx, camy, sandbox, cheat, ff, appr;       // appr = popularity 0-99
 static uint16_t etk;                           // ticks since the last election
 static const char *msg; static uint8_t msgt;      // short HUD hint (replaces the QUEEN row for ~1.5 s)
 static int16_t scx, scy;                       // pixel scroll
@@ -57,7 +57,7 @@ static uint16_t tt;                                // SAME GB: sys_time when thi
 typedef struct { uint8_t prv, lst, rp, su, sl; } Pad;   // one player's key state: previous keys, held dirs, repeat, SELECT used, SELECT before
 static Pad pad[2];
 static void swp(void);
-static uint8_t tut, tev, tutor, lcx, lcy;      // tutorial: lesson (0 = off), events the player did, from-title flag, last cursor
+uint8_t tut, tev, tutor, lcx, lcy;      // tutorial: lesson (0 = off), events the player did, from-title flag, last cursor
 // Cheat code (in play): infinite mana + food. Ends on A, so it never collides with START (pause).
 static const uint8_t CHEAT[10] = {J_LEFT, J_LEFT, J_RIGHT, J_RIGHT, J_UP, J_DOWN, J_UP, J_DOWN, J_B, J_A};
 static const int8_t DX[4] = {1, -1, 0, 0};
@@ -151,7 +151,7 @@ static uint8_t gi(char c) {
   return 0;
 }
 static void put_char(uint8_t x, uint8_t y, char c) { set_win_tile_xy(x, y, c == '<' ? AR : c == '>' ? AR + 1 : FT + gi(c)); }
-static void put_str(uint8_t x, uint8_t y, const char *s) { while (*s) put_char(x++, y, *s++); }
+void put_str(uint8_t x, uint8_t y, const char *s) { while (*s) put_char(x++, y, *s++); }
 static void put_num(uint8_t x, uint8_t y, uint8_t n) {      // right-aligned, no leading zero
   if (n > 99) n = 99;
   put_char(x, y, n > 9 ? '0' + n / 10 : ' '); put_char(x + 1, y, '0' + n % 10);
@@ -248,14 +248,14 @@ static void help_scroll(int8_t d) {
   if (d < 0) { if (t) t--; } else if (t + HR < hlines) t++;
   if (t != htop) { htop = t; help_draw(); }
 }
-static void win_clear(void) {                      // blank text, white palette everywhere
+void win_clear(void) {                      // blank text, white palette everywhere
   uint8_t x, y;
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
   for (y = 0; y < 18; y++) attr(0, y, 20, 1);
   hdp = 0;
 }
 static void say(const char *m) { msg = m; msgt = 12; }
-static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255;
+uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255;
 // HUD (window rows 0-1, labels gold, numbers white):
 //   row 0   MP nn [10-cell mana bar] F nn           row 1   Q a/b   A nn   R nn   P nn   FF
 // A hint (say()) temporarily replaces row 1. Window writes are slow, so only what changed is redrawn.
@@ -328,13 +328,13 @@ static void noise(uint8_t env, uint8_t poly) {
 }
 static void sfx_raise(void) { ch1(0x15, N_C5, 0xA1); }
 static void sfx_lower(void) { ch1(0x1D, N_G4, 0xA1); }
-static void sfx_deny(void)  { ch1(0x00, N_C4, 0x81); }
-static void sfx_mana(void)  { ch1(0x16, N_G5, 0x91); }
+void sfx_deny(void)  { ch1(0x00, N_C4, 0x81); }
+void sfx_mana(void)  { ch1(0x16, N_G5, 0x91); }
 static void sfx_flood(void) { noise(0xA3, 0x55); }
-static void sfx_food(void)  { ch2(N_E5, 0x71); }
+void sfx_food(void)  { ch2(N_E5, 0x71); }
 static void sfx_spawn(void) { ch2(N_C6, 0x81); }
-static void sfx_fight(void) { noise(0x81, 0x33); }
-static void sfx_hit(void)   { noise(0xC2, 0x44); }
+void sfx_fight(void) { noise(0x81, 0x33); }
+void sfx_hit(void)   { noise(0xC2, 0x44); }
 static void sfx_qdead(void) { noise(0xF7, 0x77); }
 static void jingle(const uint16_t *n, uint8_t len) { disable_interrupts(); tune_p = n; ji = 0; jt = 0; jl = len; enable_interrupts(); }
 static void jingle_update(void) {
@@ -526,7 +526,7 @@ static uint8_t is_nest(uint8_t x, uint8_t y) {
   return (x == nestx[0] && y == nesty[0]) || (x == nestx[1] && y == nesty[1]);
 }
 
-static void draw_cell(uint8_t x, uint8_t y) {
+void draw_cell(uint8_t x, uint8_t y) {
   uint8_t t = hgt[y][x];
   if (is_nest(x, y)) t = 4; else if (food[y][x] && t) t = 5;
   set_bkg_tile_xy(x, y, BT + t);
@@ -553,7 +553,7 @@ static uint8_t spawn(uint8_t team) {
   return 0;
 }
 
-static uint8_t dist(uint8_t a, uint8_t b) { return a > b ? a - b : b - a; }
+uint8_t dist(uint8_t a, uint8_t b) { return a > b ? a - b : b - a; }
 
 static void count(uint8_t *c) {
   uint8_t i; c[0] = c[1] = 0;
@@ -672,8 +672,8 @@ static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = ne
 }
 
 // ---------- popularity + elections ----------
-static void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
-static void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
+void apr(int8_t d) { int16_t v = (int16_t)appr + d; appr = v < 0 ? 0 : v > 99 ? 99 : (uint8_t)v; }
+void die(Ant *a) { a->alive = 0; if (a->team == 0) apr(-2); }     // every dead black ant costs you votes
 // 6 perk names, 7 letters each (the font has no + or -). Offered as "A:xxxxxxx B:xxxxxxx" on the HUD hint row.
 static const char PN[] = "FLOOD 4FASTEGGMANA UPCALM   QUEENUPSLOWRED";
 static char pbuf[20];
@@ -1161,7 +1161,7 @@ static void view_init(void) {
 }
 
 uint8_t tcol[VR * 16];
-static void occ_set(uint8_t on) {                    // visible food, ants and queens in the SAME world as the colony map
+void occ_set(uint8_t on) {                    // visible food, ants and queens in the SAME world as the colony map
   uint8_t i, x, y;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = on ? 5 : 0;
   for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = on ? ant[i].team + 1 : 0;
@@ -1170,107 +1170,21 @@ static void occ_set(uint8_t on) {                    // visible food, ants and q
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
 void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) BANKED; // rendered in ROM bank 1
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
-static void eye_status(uint8_t vx, uint8_t vy) {
+void eye_status(uint8_t vx, uint8_t vy) {
   put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
   put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
   put_str(12, 17, "FACING"); put_str(18, 17, COMPASS[vang >> 1]);
 }
-static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward/back; same cliff and water rules as ants
+void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward/back; same cliff and water rules as ants
   int8_t fx = SIN16[(vang + 4) & 15], fy = SIN16[vang], dx = 0, dy = 0;
   if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1; else dy = fy < 0 ? -1 : 1;
   dx *= dir; dy *= dir;
   if (can_go(*vx, *vy, dx, dy)) { *vx += dx; *vy += dy; }
 }
 
-static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
+uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
-// Pilot the selected worker in the real map; first-person movement is no longer a camera-only trick.
-// Keep the colony simulation paused to leave enough GBC time for ray rendering, but preserve all changes.
-static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
-  Ant *a;
-  if (vi >= MAXA || !vok(vi)) return;
-  a = &ant[vi]; a->x = vx; a->y = vy;
-  if (scent) ph[vy][vx] = 255;
-  if (!a->carry && food[vy][vx]) {
-    food[vy][vx] = 0; a->carry = 1; draw_cell(vx, vy); sfx_food();
-  }
-  if (a->carry && vx == nestx[0] && vy == nesty[0]) {
-    a->carry = 0;
-    if (stock[0] < 99) stock[0]++;
-    mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
-    apr(1); sfx_mana();
-  }
-  memset(occ, 0, sizeof occ); occ_set(1);
-}
-
-// A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
-static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
-  int8_t fx, fy, dx = 0, dy = 0;
-  int16_t tx, ty; uint8_t i;
-  if (vi >= MAXA || !vok(vi)) return;
-  fx = SIN16[(vang + 4) & 15]; fy = SIN16[vang];
-  if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1;
-  else dy = fy < 0 ? -1 : 1;
-  tx = (int16_t)vx + dx; ty = (int16_t)vy + dy;
-  if (tx < 0 || ty < 0 || tx >= W || ty >= H) { sfx_deny(); return; }
-  for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == 1 && ant[i].x == tx && ant[i].y == ty) {
-    die(&ant[i]); sfx_fight(); memset(occ, 0, sizeof occ); occ_set(1); return;
-  }
-  if (tx == nestx[1] && ty == nesty[1] && qhp[1]) {
-    qhp[1]--; sfx_hit(); if (!qhp[1]) over = 1;
-    memset(occ, 0, sizeof occ); occ_set(1); return;
-  }
-  sfx_deny();
-}
-
-static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
-  uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirs, last = 0;
-  tev |= 16;
-  for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
-  HIDE_SPRITES;
-  VBK_REG = VBK_TILES;
-  for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
-  for (y = 14; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
-  put_str(0, 14, "A:NEXT ANT B:BITE   ");
-  put_str(0, 15, "L/R TURN U/D WALK   ");
-  put_str(0, 16, "SEL:SCENT START:MAP ");
-  occ_set(1);                                        // ants cannot move in here: mark them once
-  move_win(7, 0);
-  prev = joypad();
-  while (1) {
-    if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
-      if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
-      go = 0; vcol = 0; eye_status(vx, vy);
-      put_str(0, 14, vi < MAXA && ant[vi].carry ? "FOOD: TAKE HOME!    " : "A:NEXT ANT B:BITE   ");
-    }
-    vsync();
-    if (vcol < VX) { view_cols(vx, vy, vcol, vcol + 4); vcol += 4; }   // 4 columns per frame: the view sweeps in, input stays live
-    k = joypad(); p = k & ~prev; prev = k;
-    if (p & J_START) break;
-    if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
-    if (p & J_A) { i = 0; do { vi = (vi == MAXA) ? 0 : vi + 1; } while (!vok(vi) && ++i <= MAXA); sfx_food(); go = 1; }
-    if ((k & J_SELECT) && vi < MAXA) ph[vy][vx] = 255;
-    dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
-    if (dirs != last) { rep = 0; last = dirs; }
-    if (dirs) {
-      if (rep == 0 || (rep >= 8 && !(rep & 3))) {
-        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; go = 2; }
-        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; go = 2; }
-        else {
-          x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
-          if (vx != x || vy != y) { eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT)); go = 2; }
-          else sfx_deny();
-        }
-      }
-      if (rep < 250) rep++;
-    }
-  }
-  cx = vx; cy = vy;                       // map cursor follows the actual pilot when leaving ANT EYE
-  memset(occ, 0, sizeof occ);
-  win_clear(); hdirty = 1;
-  move_win(7, 128); SHOW_SPRITES;
-  waitpadup();
-}
+void eye(void) BANKED; // banked ant gameplay in src/eye_game.c
 
 // ---------- TUTORIAL: interactive lessons (title screen: press A) ----------
 // Each lesson is a full-screen card (START next, B skip), then - if it has a task - a live hint on the HUD until you do it.
