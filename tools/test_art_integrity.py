@@ -110,8 +110,14 @@ sprite_pass = sprite_pass[:sprite_pass.index("// ---------- screens ----------")
 assert "eye_animate_walkers(s," in sprite_pass, (
     "Overhead colony ants no longer animate their walking silhouettes"
 )
-assert "sys_time & 3u" in sprite_pass, (
-    "Sprite tile writes lost their low-overhead four-frame cadence"
+assert "++walker_redraw_clock & 3u" in sprite_pass and (
+    "walker_redraw_clock >> 2" in sprite_pass
+), (
+    "Walking poses must advance once every four completed game redraws, "
+    "not on hardware-clock edges that slow frames can skip"
+)
+assert "sys_time & 3u" not in sprite_pass, (
+    "Do not reintroduce phase-locked hardware-clock animation freezes"
 )
 banked = Path("src/eye_render.c").read_text()
 assert "void eye_animate_walkers(uint8_t visible, uint8_t phase," in banked
