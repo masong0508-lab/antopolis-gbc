@@ -85,6 +85,18 @@ assert "0" in "".join(biomes[4*8:5*8])
 assert "1" in "".join(biomes[5*8:6*8])
 assert len(set(tuple(biomes[i*8:(i+1)*8]) for i in range(6))) == 6
 assert all(tuple(details[i*2]) != tuple(details[i*2+1]) for i in range(4))
+# The eight replacement tiles must face the correct real-world neighbor:
+# coast N/S/W/E, then cliff N/S/W/E. Transpose/mirror exactly.
+def transposed(tile):
+    return ["".join(tile[y][x] for y in range(8)) for x in range(8)]
+for offset in (0, 4):
+    north, south, west, east = details[offset:offset+4]
+    assert south == list(reversed(north)), "North/south edge tiles disagree"
+    assert west == transposed(north), "West edge faces the wrong side"
+    assert east == transposed(south), "East edge faces the wrong side"
+assert "1" in "".join(details[0]) and "0" in "".join(details[0])
+assert "1" in "".join(details[4]) and "3" in "".join(details[4])
+
 assert rows[0:8] != rows[16:24], "Worker and queen must look distinct"
 assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
 assert rows[40:48] != rows[48:56], "Carrying animation frames must differ"
@@ -109,6 +121,11 @@ assert "carrying[index]" in frames
 assert "5u + frame : 3u + frame" in frames
 assert "colony_walker_frame(i, phase, carrying)" in banked
 assert "set_sprite_data(0, 7, SPT)" in gameplay
+assert "terrain_edge_pick(hgt, x, y)" in gameplay
+assert "refresh_terrain_neighbors(cx, cy)" in gameplay
+assert "refresh_terrain_neighbors((uint8_t)x, (uint8_t)y)" in gameplay
+assert "if (is_nest(x, y)) tile = BT + 4" in gameplay
+assert "else if (food[y][x] && t) tile = BT + 5" in gameplay
 assert "set_sprite_palette(0, 7, spal)" in gameplay
 assert "set_sprite_palette(0, 7, fs)" in gameplay
 assert "colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)" in sprite_pass
