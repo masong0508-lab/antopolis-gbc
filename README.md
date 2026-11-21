@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **Full-screen command center:** the pause/help guide now clears the gameplay HUD and presents its own brass header and divider. Resume immediately repaints the correct strategy HUD, with explicit emulator assertions for both transitions; no stale map labels bleed through.
+
+
 - **More detailed colony map:** water, soil, grass, and hill terrain now use two extra hand-crafted 8x8 detail variants each, creating visible currents, sand cracks, grass tufts, and rock seams. Terrain variation is coordinate-stable across camera/mode switches and uses eight spare VRAM tiles with no RAM map, no per-frame redraw, and no changes to gameplay terrain heights.
 
 

@@ -99,6 +99,10 @@ def main():
         pyboy.tick(35, True, False)
         if pyboy.memory[0xFF4A] != 0 or tile0(0, 2) != glyph("P"):
             raise AssertionError("Pause guide failed to open")
+        if tile0(3, 0) != glyph("C") or tile0(0, 0) != 136:
+            raise AssertionError("Pause guide did not clear old HUD and draw command header")
+        if tile0(0, 1) != 203:
+            raise AssertionError("Command screen divider is missing")
         top_help_tile = tile0(0, 3)
         if top_help_tile != glyph("S"):  # START HERE
             raise AssertionError("Pause guide did not start at QUICK START")
@@ -113,6 +117,8 @@ def main():
         pyboy.tick(50, True, False)
         if pyboy.memory[0xFF4A] != 128:
             raise AssertionError("Pause guide did not restore the strategy HUD")
+        if tile0(0, 0) != glyph("M") or tile0(0, 1) != glyph("Q"):
+            raise AssertionError("Pause resume did not repaint gameplay HUD")
         report["ui"]["help_resumed"] = True
 
         # ANT EYE entry is a SELECT+START combo. Record PPU hardware state

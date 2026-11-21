@@ -208,6 +208,12 @@ static void help_draw(void) {
 }
 static void help_open(void) {
   htop = 0; text2(HELP2, 0);
+  // The old screen left the in-game HUD above the help text, like a broken
+  // overlay. Make this a dedicated window panel and restore HUD on resume.
+  win_clear();
+  put_str(3, 0, "COLONY COMMAND"); attr(0, 0, 20, 2);
+  for (uint8_t n=0;n<20;++n) set_win_tile_xy(n, 1, UI_SEPARATOR);
+  attr(0, 1, 20, 2);
   put_str(0, 2, "PAUSED"); put_str(7, 2, DNAME[gdiff]); attr(0, 2, 20, 2);
   put_line(16, "A:SAVE  B TWICE:QUIT");
   put_str(0, 17, "U/D SCROLL  START:GO"); attr(0, 16, 20, 2);
@@ -1453,7 +1459,11 @@ static void play(void) {
     if ((p & J_START) && (k & J_SELECT) && !paused && !mp) { pad[0].su = 1; eye(); continue; }   // SELECT+START: ant eye
     if (p & J_START) {                 // START: pause + help screen
       paused ^= 1;
-      if (paused) { help_open(); qask = sconf = 0; move_win(7, 0); HIDE_SPRITES; } else { move_win(7, 128); SHOW_SPRITES; }
+      if (paused) { help_open(); qask = sconf = 0; move_win(7, 0); HIDE_SPRITES; }
+      else {
+        win_clear(); hdirty = 1; hud();
+        move_win(7, 128); SHOW_SPRITES;
+      }
     }
     if (paused) {                      // UP/DOWN scrolls the help text (hold to repeat); A saves, B (twice) quits to the title
       if (p & J_A) {
