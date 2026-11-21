@@ -25,3 +25,5 @@ test:
 	python3 tools/test_help_text.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_terrain_build.c -o build/test_terrain_build
 	./build/test_terrain_build
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_sprite_logic.c -o build/test_sprite_logic
+	./build/test_sprite_logic
