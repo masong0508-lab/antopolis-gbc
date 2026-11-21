@@ -49,3 +49,28 @@ void terrain_smooth(uint8_t heights[TERRAIN_SIZE][TERRAIN_SIZE]) BANKED {
         }
       }
 }
+
+/* Fair, immediate food for both colonies. The world generator already
+   flattens a 3x3 area around each nest to dry, walkable terrain. Add
+   exactly two starter berries next to each nest AFTER random scatter:
+   black east+north, red west+south (rotationally symmetric). These
+   positions are one legal ant move from the nest, and this function
+   is never called when loading an existing save. No RNG draws, extra
+   simulation ticks, new RAM, or cross-link divergence. */
+void terrain_seed_nest_food(uint8_t heights[TERRAIN_SIZE][TERRAIN_SIZE],
+                            uint8_t berries[TERRAIN_SIZE][TERRAIN_SIZE],
+                            const uint8_t nx[2], const uint8_t ny[2]) BANKED {
+  uint8_t t,x,y;
+  for (t=0;t<2;t++) {
+    x=nx[t]; y=ny[t];
+    if (x<TERRAIN_SIZE && y<TERRAIN_SIZE) {
+      if (t==0) {
+        if (x+1u<TERRAIN_SIZE && heights[y][x+1u]) berries[y][x+1u]=1;
+        if (y>0 && heights[y-1u][x]) berries[y-1u][x]=1;
+      } else {
+        if (x>0 && heights[y][x-1u]) berries[y][x-1u]=1;
+        if (y+1u<TERRAIN_SIZE && heights[y+1u][x]) berries[y+1u][x]=1;
+      }
+    }
+  }
+}
