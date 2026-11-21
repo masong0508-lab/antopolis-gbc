@@ -95,16 +95,17 @@ static void set_rules(uint8_t d) {
 // ---------- palettes & graphics (generated from strings) ----------
 // Seven 4-colour CGB background palettes (0-6). Keep storage and upload
 // count identical: a 24-entry declaration silently dropped the trail palette.
-static const palette_color_t bpal[28] = {
+static const palette_color_t bpal[32] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
   RGB(2,5,13), RGB(6,11,21),  RGB(14,23,28), RGB(31,31,28), // 1: midnight blue and ivory UI
   RGB(2,5,13), RGB(14,9,5),   RGB(26,19,8),  RGB(31,29,16), // 2: warm brass headings
-  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(21,14,6),    // 3: green grass, tan sand, brown rock
+  RGB(7,15,27),  RGB(11,26,9),  RGB(27,22,12),  RGB(21,14,6),    // 3: sky near horizon, land + rock
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
-  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8)}; // 6: gold scent over grass and sand
-// Compile-time check: 7 palette slots * 4 RGB555 colours, no frame cost.
-typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 28 ? 1 : -1];
+  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8), // 6: gold scent over grass and sand
+  RGB(1,3,11),   RGB(8,16,25), RGB(17,25,30),  RGB(31,31,28)}; // 7: indigo upper atmosphere
+// Eight palette slots, with a dedicated sky gradient; no extra frame RAM.
+typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 32 ? 1 : -1];
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
 static const palette_color_t tpal[32] = {
   RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 0: night sky (top)
@@ -1145,11 +1146,12 @@ const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, 
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
 // 8 = golden pheromone trace. Palette 6 retains real green ground instead
 // of tinting the whole cell red (the combat/food palette would do that).
-const uint8_t PMAP[4][9] = {
-  {0, 1, 2, 3, 0, 0, 0, 0, 0},
-  {0, 2, 3, 3, 1, 0, 0, 0, 0},
-  {0, 3, 3, 3, 0, 1, 2, 3, 0},
-  {0, 1, 2, 3, 0, 0, 0, 3, 3}
+const uint8_t PMAP[5][9] = {
+  {0, 1, 2, 3, 0, 0, 0, 0, 0}, // land
+  {0, 2, 3, 3, 1, 0, 0, 0, 0}, // water
+  {0, 3, 3, 3, 0, 1, 2, 3, 0}, // ants and food
+  {0, 1, 2, 3, 0, 0, 0, 3, 3}, // gold pheromone
+  {0, 1, 2, 3, 0, 0, 0, 0, 0}  // dark upper sky
 };
 int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
@@ -1188,8 +1190,26 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
         else if (v == 8) m |= 4;
         else if (v > 4) m |= 2;
       }
-      p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0; // ant/food > scent > water > land
-      for (k = 0; k < 8; k++) { v = PMAP[p][cls[r * 8 + k]]; *t++ = (v & 1) ? 0xFF : 0; *t++ = (v & 2) ? 0xFF : 0; }
+      // A separate upper atmosphere palette breaks up the old giant slab
+      // of unchanging blue. Pure sky is dark above the distant horizon.
+      p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0;
+      if (p == 0 && r < 3 && cls[r * 8 + 7] == 0) p = 4;
+      for (k = 0; k < 8; k++) {
+        uint8_t bit = (uint8_t)(0x80u >> ((c + r + k) & 7u));
+        uint8_t lo, hi;
+        v = cls[r * 8 + k];
+        lo = (PMAP[p][v] & 1u) ? 0xFFu : 0;
+        hi = (PMAP[p][v] & 2u) ? 0xFFu : 0;
+        // Sparse 1-pixel rock grains, grass tufts and water ripples.
+        // Only natural terrain gets them: ants and gold trails stay crisp.
+        if ((p == 0 || p == 1) && (k & 3u) == 0) {
+          if (v == 2) lo |= bit; // sand -> occasional brown shadow
+          else if (v == 1) { lo &= (uint8_t)~bit; hi |= bit; } // grass tuft
+          else if (v == 3) lo &= (uint8_t)~bit; // stone edge
+          else if (v == 4) lo &= (uint8_t)~bit; // water ripple
+        }
+        *t++ = lo; *t++ = hi;
+      }
       set_win_tile_xy(c, VY0 + r, 8 | (3 + p));      // bit 3 = tile from VRAM bank 1
     }
     set_bkg_data(c * VR, VR, tcol);
@@ -1545,7 +1565,7 @@ void main(void) {
   set_bkg_data(WORLD_DETAIL, 8, BGT_ALT);
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
-  set_bkg_palette(0, 7, bpal);
+  set_bkg_palette(0, 8, bpal);
   view_init();
   set_sprite_palette(0, 3, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1

@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **ANT EYE atmosphere and material texture:** the 3D viewport now has a separate indigo upper-sky palette and fine, deterministic one-pixel stippling for sand, grass, rock, and water. Terrain rays and depth geometry remain unchanged; existing tile-column uploads still handle the drawing, with no extra rays, framebuffers, or OAM sprites. Gold scent and combat sprites remain untextured for clarity.
+
+
 - **Full-screen command center:** the pause/help guide now clears the gameplay HUD and presents its own brass header and divider. Resume immediately repaints the correct strategy HUD, with explicit emulator assertions for both transitions; no stale map labels bleed through.
 
 
