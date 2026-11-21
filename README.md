@@ -83,6 +83,14 @@ Food navigation now checks the ant's actual first step before showing a directio
 
 ### GBC fixed-ROM headroom and actual colony animation
 
+The hardware can draw only ten sprites per scanline. The black and
+red queens plus the two player cursors now take the **first four OAM
+slots**; the 36 animated colony workers take slots 4–39. This prevents
+a crowd of workers from hiding the essential queen or selection marker.
+Every return from the animated title restores those reserved sprites'
+proper queen/cursor silhouettes. The emulator test checks actual OAM
+indices and that workers' two-frame animation alternates in gameplay.
+
 The GBC linker caught the fixed game-code bank spilling past `0x7FFF`
 after the new overhead colony animation. To protect real hardware rather
 than shipping a cartridge with bank overlap, the **one-time** hill-bump
