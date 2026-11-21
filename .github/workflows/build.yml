@@ -13,6 +13,28 @@ jobs:
       - uses: actions/checkout@v4
       - run: make test
 
+  ant-eye-emulator-smoke:
+    name: Headless GBC ANT EYE emulator smoke
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: empire-ants
+          path: build
+      - name: Install pinned headless Game Boy Color emulator
+        run: python3 -m pip install pyboy==2.9.0
+      - name: Boot ROM and validate 2D / 3D screen transitions
+        run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --out build/eye-smoke
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: antopolis-gbc-eye-emulator-screens
+          path: build/eye-smoke
+          if-no-files-found: warn
+
   build:
     name: Build empire-ants.gbc
     runs-on: ubuntu-latest

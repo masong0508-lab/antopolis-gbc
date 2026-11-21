@@ -53,3 +53,13 @@ emulator that supports two linked Game Boy Color consoles.
 
 **Current validation:** GitHub build and ROM size checks; cable timing and
 real-device play must still be tested on emulators/hardware.
+
+## Automated actual-ROM GBC emulator smoke
+
+The headless PyBoy test (`tools/gbc_eye_smoke.py`) runs against the
+**built .gbc ROM** in CI. It verifies the title, the live strategy map,
+SELECT+START entering ANT EYE, the dedicated 3D VRAM/window layout,
+a visible camera turn, and return to the 2D map. It uploads actual emulator
+screenshots and a JSON report. An emulator boot smoke is not a substitute
+for human testing of terrain collisions, long sessions, audio or physical
+GBC link-cable timing.

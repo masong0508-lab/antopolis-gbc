@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Smoke-test the actual GBC cartridge in a headless Game Boy Color emulator.
+
+Checks real boot, strategy play, entering 3D ANT EYE, camera turning and
+returning to the same 2D world. Saves screenshot evidence to the build output.
+Single-console validation; it does NOT claim link-cable interoperability.
+"""
+import argparse
+import json
+from pathlib import Path
+
+from pyboy import PyBoy
+from PIL import ImageChops
+
+
+WINDOW_MAP = 0x9C00
+ANT_EYE_VIEW_ROW = WINDOW_MAP + 2 * 32
+ANT_EYE_HEADER = WINDOW_MAP
+ANT_EYE_TITLE_A = 136 + 11   # FT + gi('A') from src/main.c
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("rom", type=Path)
+    parser.add_argument("--out", type=Path, default=Path("build/eye-smoke"))
+    args = parser.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+    report = {"rom": str(args.rom), "snapshots": {}, "result": "RUNNING"}
+    pyboy = PyBoy(str(args.rom), window="null", cgb=True, sound_volume=0)
+    pyboy.set_emulation_speed(0)
+    last = None
+
+    def snapshot(name):
+        nonlocal last
+        image = pyboy.screen.image.copy()
+        path = args.out / (name + ".png")
+        image.save(path)
+        frame_diff = None if last is None else bool(ImageChops.difference(last, image).getbbox())
+        report["snapshots"][name] = {
+            "path": path.name,
+            "size": list(image.size),
+            "changed_from_previous": frame_diff,
+            "colors": len(image.getcolors(maxcolors=160 * 144) or []),
+        }
+        last = image
+        return image
+
+    def press(name, frames=3):
+        pyboy.button_press(name)
+        pyboy.tick(frames, True, False)
+        pyboy.button_release(name)
+        pyboy.tick(6, True, False)
+
+    try:
+        # The eight-second studio logo comes before the title/menu.
+        pyboy.tick(680, True, False)
+        snapshot("01_title")
+
+        # START begins normal single-player, which spawns three black workers.
+        press("start")
+        pyboy.tick(350, True, False)
+        snapshot("02_strategy")
+        before = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+
+        # ANT EYE entry is an actual SELECT+START combination in the
+        # single-player loop, and must load the first-person window tile map.
+        pyboy.button_press("select")
+        pyboy.button_press("start")
+        pyboy.tick(5, True, False)
+        pyboy.button_release("select")
+        pyboy.button_release("start")
+        pyboy.tick(180, True, False)
+        eye = snapshot("03_ant_eye")
+        top = pyboy.memory[ANT_EYE_HEADER]
+        first = pyboy.memory[ANT_EYE_VIEW_ROW]
+        second = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+        report["vram"] = {
+            "strategy_row2_tile1": before,
+            "eye_header_tile": top,
+            "eye_row2_tile0": first,
+            "eye_row2_tile1": second,
+        }
+        if (top, first, second) != (ANT_EYE_TITLE_A, 0, 12):
+            raise AssertionError(
+                "SELECT+START never loaded the ANT EYE header and 3D tiles: "
+                + repr(report["vram"])
+            )
+        if len(eye.getcolors(maxcolors=160 * 144) or []) < 4:
+            raise AssertionError("ANT EYE picture looks blank or uses too few colors")
+
+        # Real camera turning should redraw the view, not freeze one half.
+        press("right", 18)
+        pyboy.tick(120, True, False)
+        rotated = snapshot("04_turned_camera")
+        if not ImageChops.difference(eye, rotated).getbbox():
+            raise AssertionError("ANT EYE camera did not visibly update on turn")
+
+        # Leave first person and make sure the regular 2D tile map returns.
+        press("start")
+        pyboy.tick(90, True, False)
+        snapshot("05_back_to_strategy")
+        returned = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
+        report["vram"]["return_row2_tile1"] = returned
+        if returned == 12:
+            raise AssertionError("Exited ANT EYE without restoring the map HUD")
+        report["result"] = "PASS: GBC boot, strategy map, real 3D ANT EYE, turn, 2D return"
+        print(report["result"])
+    except Exception as error:
+        report["result"] = "FAIL: " + repr(error)
+        raise
+    finally:
+        pyboy.stop()
+        (args.out / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+        print(json.dumps(report, indent=2))
+
+
+if __name__ == "__main__":
+    main()
