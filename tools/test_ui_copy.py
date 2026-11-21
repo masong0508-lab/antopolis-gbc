@@ -5,7 +5,8 @@ import re
 from pathlib import Path
 
 SOURCE = Path("src/text2.c").read_text()
-VALID = set(" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:/!<>")
+# The real 5x7 GBC font does not provide '<' or '>' glyphs.
+VALID = set(" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:/!")
 MAX_SCRATCH = 640
 CARDS = 10
 
@@ -32,9 +33,12 @@ def check_page(name, page):
 
 help_text = strings_for("HELP2")
 check_page("HELP2", help_text)
-assert help_text.startswith("#START HERE\n")
-assert "SEL START: ANT EYE" in help_text
-assert "CURSOR TILE IN HUD" in help_text
+assert help_text.startswith("#YOUR MISSION\n")
+for instruction in ("SAVE YOUR QUEEN", "DEFEAT THE RED QUEEN",
+                    "BUILD ROUTES TO FOOD", "SEL START ANT EYE",
+                    "#ANT EYE 3D", "#HUD LABELS", "G GRASS H HILL",
+                    "#ELECTIONS"):
+    assert instruction in help_text, f"Missing up-to-date help instruction: {instruction}"
 
 cards = strings_for("TCARD2").split("\0")
 assert len(cards) == CARDS, f"Expected {CARDS} tutorial cards, got {len(cards)}"
