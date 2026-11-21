@@ -538,19 +538,31 @@ static uint8_t is_nest(uint8_t x, uint8_t y) {
   return (x == nestx[0] && y == nesty[0]) || (x == nestx[1] && y == nesty[1]);
 }
 
+// Directional shoreline/cliff choices execute in bank 3, leaving scarce
+// fixed ROM space for the real gameplay. No map allocation or randomness.
+uint8_t terrain_edge_pick(const uint8_t heights[32][32],
+                          uint8_t x, uint8_t y) BANKED;
 static void draw_cell(uint8_t x, uint8_t y) {
-  uint8_t t = hgt[y][x];
-  if (is_nest(x, y)) t = 4; else if (food[y][x] && t) t = 5;
-  // World detail is keyed to fixed coordinates rather than a global RNG:
-  // the same water, soil, grass and rock patches remain identifiable after
-  // returning from ANT EYE; never allocate another 32x32 terrain array.
-  // Alt tiles are accents on one quarter of the terrain, not on three
-  // quarters of every screen. Keep the large colored landforms legible
-  // while retaining two coordinate-stable water/soil/grass/rock details.
-  // No new tiles, RAM, redraw passes or additional per-frame work.
-  if (t < 4 && !((x + y + (x >> 2)) & 3u))
-    set_bkg_tile_xy(x, y, (uint8_t)(WORLD_DETAIL + (t << 1) + ((x ^ y) & 1u)));
-  else set_bkg_tile_xy(x, y, BT + t);
+  uint8_t t = hgt[y][x], tile = BT + t, edge;
+  // Preserve the queen entrances and food markers above terrain detail.
+  if (is_nest(x, y)) tile = BT + 4;
+  else if (food[y][x] && t) tile = BT + 5;
+  else if (t == 0 || t == 3) {
+    disable_interrupts();
+    edge = terrain_edge_pick(hgt, x, y);
+    enable_interrupts();
+    if (edge) tile = (uint8_t)(WORLD_DETAIL + edge - 1u);
+  }
+  set_bkg_tile_xy(x, y, tile);
+}
+// A terrain edit changes the coast/crest on ADJACENT squares as well.
+// Only four existing map tiles refresh; world state, collision, saves and
+// camera are unchanged. Also called when 3x3 disasters edit ground.
+static void refresh_terrain_neighbors(uint8_t x, uint8_t y) {
+  if (x) draw_cell(x - 1u, y);
+  if (x < 31u) draw_cell(x + 1u, y);
+  if (y) draw_cell(x, y - 1u);
+  if (y < 31u) draw_cell(x, y + 1u);
 }
 
 static uint8_t can_go(uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
@@ -721,7 +733,8 @@ static void hit(uint8_t px, uint8_t py, uint8_t q) {
   for (y = (int8_t)py - 1; y <= (int8_t)py + 1; y++) for (x = (int8_t)px - 1; x <= (int8_t)px + 1; x++)
     if (x >= 0 && y >= 0 && x < W && y < H && !is_nest(x, y)) {
       if (q && (rand() & 1)) { if (hgt[y][x] < 3) hgt[y][x]++; } else if (hgt[y][x]) hgt[y][x]--;
-      draw_cell(x, y);
+      draw_cell((uint8_t)x, (uint8_t)y);
+      refresh_terrain_neighbors((uint8_t)x, (uint8_t)y);
     }
 }
 static void disaster(void) {                       // hits both colonies alike, anywhere on the map
@@ -901,7 +914,7 @@ static void newgame(uint8_t load) {
 static void swp(void) { uint8_t t; t = cx; cx = ocx; ocx = t; t = cy; cy = ocy; ocy = t; t = mana; mana = omana; omana = t; pl ^= 1; }
 static void raise_land(void) {
   if (mana && hgt[cy][cx] < 3 && !is_nest(cx, cy)) {
-    hgt[cy][cx]++; mana--; draw_cell(cx, cy); sfx_raise(); tev |= 2;
+    hgt[cy][cx]++; mana--; draw_cell(cx, cy); refresh_terrain_neighbors(cx, cy); sfx_raise(); tev |= 2;
     say(hgt[cy][cx] == 1 ? "WATER FILLED" :
         hgt[cy][cx] == 2 ? "RAMP BUILT" : "HILL RAISED");
     return;
@@ -911,7 +924,7 @@ static void raise_land(void) {
 }
 static void lower_land(void) {
   if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) {
-    hgt[cy][cx]--; mana--; draw_cell(cx, cy); sfx_lower(); tev |= 4;
+    hgt[cy][cx]--; mana--; draw_cell(cx, cy); refresh_terrain_neighbors(cx, cy); sfx_lower(); tev |= 4;
     say(hgt[cy][cx] == 2 ? "HILL CUT DOWN" :
         hgt[cy][cx] == 1 ? "RAMP LOWERED" : "MOAT DUG");
     return;
