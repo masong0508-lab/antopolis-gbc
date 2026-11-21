@@ -1194,15 +1194,6 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
   VBK_REG = VBK_TILES;
 }
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
-// A cheap eight-way home bearing. The GBC has no room for a second map or
-// compass texture, so re-use the existing compass strings and one HUD row.
-static const char *eye_home_dir(uint8_t vx, uint8_t vy) {
-  int8_t dx = vx < nestx[0] ? 1 : vx > nestx[0] ? -1 : 0;
-  int8_t dy = vy < nesty[0] ? 1 : vy > nesty[0] ? -1 : 0;
-  if (dx > 0) return dy > 0 ? COMPASS[1] : dy < 0 ? COMPASS[7] : COMPASS[0];
-  if (dx < 0) return dy > 0 ? COMPASS[3] : dy < 0 ? COMPASS[5] : COMPASS[4];
-  return dy > 0 ? COMPASS[2] : dy < 0 ? COMPASS[6] : "AT";
-}
 static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
   put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
@@ -1282,9 +1273,13 @@ static void eye(void) {                              // pilot a black ant; food,
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
       eye_status(vx, vy);
       if (ant[vi].carry) {
-        put_str(0, 14, "FOOD: HOME ");
-        put_str(11, 14, eye_home_dir(vx, vy));
-        put_str(13, 14, "       ");
+        // Two axis arrows instead of a large compass helper in scarce
+        // fixed ROM bank: '>' east, '<' west, '^' north, 'v' south.
+        put_str(0, 14, "FOOD HOME X");
+        put_char(11, 14, vx < nestx[0] ? '>' : vx > nestx[0] ? '<' : '=');
+        put_str(12, 14, " Y");
+        put_char(14, 14, vy < nesty[0] ? 'v' : vy > nesty[0] ? '^' : '=');
+        put_str(15, 14, "     ");
       } else put_str(0, 14, "A:NEXT ANT B:BITE   ");
     }
     vsync();
