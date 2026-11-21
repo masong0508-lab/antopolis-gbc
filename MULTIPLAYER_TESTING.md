@@ -188,3 +188,12 @@ approach, it should choose a farther reachable source when one exists.
 If all food sources are blocked at the first step, show FOOD NONE rather
 than directing the worker into an impassable obstacle. The algorithm is
 greedy for its first step, not a full multi-tile shortest-path solver.
+
+## Near-ant render proportions
+
+When piloting an ant toward another worker, the target should be a compact
+dark or red creature and no longer grow into a full-height checkerboard
+rectangle across the viewport. Queens are visibly larger but bounded.
+Turning and moving should preserve the actual underlying hit and food
+locations. Host tests enforce the render-footprint and height limits;
+emulator screenshots are retained for visual review.

@@ -1,3 +1,14 @@
+### GBC ANT EYE creature proportions
+
+First-person ants now have a narrower centre-of-cell render footprint, a
+21-pixel near-worker height cap and a larger 30-pixel queen cap. Rather
+than stretching the same 8px leg texture into a broad checkerboard wall,
+the renderer paints just a few anatomically distinct rows for antennae
+and legs around a solid team-colored body. Food objects remain compact.
+The underlying ant locations, collision, attacks and scent system are
+unchanged; no additional RAM, sprite objects or framebuffer allocations
+are made. The pure visibility and silhouette-size rules are native-tested.
+
 ### Path-aware first-person food directions
 
 Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.

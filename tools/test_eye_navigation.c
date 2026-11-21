@@ -89,6 +89,22 @@ int main(void) {
   for (int16_t s = -64; s <= 64; s += 8)
     for (int16_t c = -19; c <= 19; c += 2)
       assert(eye_mul_small((int8_t)s, (int8_t)c) == s * c);
+  // Creature visuals should remain compact and centred on actual world
+  // cells; unlike the old 128px-wide hitbox, grazing rays cannot paint
+  // a multi-column checker wall. These checks do not change combat rules.
+  assert(eye_entity_centered(128, 128));
+  assert(eye_entity_centered(88, 88));
+  assert(!eye_entity_centered(87, 128));
+  assert(!eye_entity_centered(168, 128));
+  assert(!eye_entity_centered(128, 87));
+  assert(!eye_entity_centered(128, 168));
+  assert(eye_entity_centered(384, 640)); // world subcell, not absolute tile
+  assert(eye_entity_height(40, 1) == 21);
+  assert(eye_entity_height(15, 1) == 15);
+  assert(eye_entity_height(40, 3) == 30);
+  assert(eye_entity_height(10, 3) == 20);
+  assert(eye_entity_height(40, 5) == 12);
+  assert(eye_entity_height(10, 5) == 5);
   // Pheromone is visible only on nearby soil in the center of the world
   // cell. Water and high cliffs cannot generate false gold trail markers.
   assert(eye_show_scent(255, 1, 4, 1));

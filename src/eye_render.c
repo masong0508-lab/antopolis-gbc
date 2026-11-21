@@ -73,20 +73,25 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       lim = (uint8_t)a;
     }
     o = occ[y][x];
-    if (o && !(x == vx && y == vy) && (uint8_t)(px - 64) < 128 && (uint8_t)(py - 64) < 128) {   // centre of the cell only
-      a = BBH[n]; if (o == 5) a >>= 1; else if (o > 2) a <<= 1;
-      a = yt - a;                                    // top row of the post
+    if (o && !(x == vx && y == vy) && eye_entity_centered((uint16_t)px, (uint16_t)py)) {
+      a = eye_entity_height(BBH[n], o);
+      a = yt - a;                                    // top row of the figure
       e = yt < lb ? yt : lb;
       if (a < 0) a = 0;
       col = o == 5 ? 7 : (o & 1) ? 6 : 5;
       for (r = a; r < e; r++) cls[r] = col;
-      // At readable distances split the actual ant into antenna/leg
-      // outlines around a solid thorax and abdomen. The tile composer
-      // uses a different pixel mask for limb class 9/10 (red/black).
+      // Draw one tapered, segmented ant rather than repeating the old
+      // body-and-legs checker every eight pixels for an oversized post.
+      // Only a few actual outline rows become leg pixels; the thorax and
+      // abdomen stay solid team-coloured so they read on GBC hardware.
       if (o != 5 && e > a + 4) {
-        cls[a] = (col == 5) ? 9 : 10;
-        cls[e - 1] = (col == 5) ? 9 : 10;
-        if (e > a + 10) cls[e - 2] = (col == 5) ? 9 : 10;
+        uint8_t limb = (col == 5) ? 9 : 10;
+        cls[a] = limb; cls[a + 1] = limb;
+        cls[e - 1] = limb;
+        if (e > a + 8) {
+          cls[a + 3] = limb; // feelers/forelegs
+          cls[e - 3] = limb; // hind legs
+        }
       }
       // Queens need a distinct silhouette: a two-pixel royal gold cap on
       // the otherwise team-colored tower. No extra columns or textures.
