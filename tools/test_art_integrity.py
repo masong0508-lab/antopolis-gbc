@@ -68,6 +68,17 @@ assert len(biomes) == 48 and len(bar) == 16
 assert len(details) == 8 and all(len(tile) == 8 for tile in details)
 assert_art_table("BGT", biomes + bar)
 assert_art_table("BGT_ALT", [line for tile in details for line in tile])
+title = art_array("TART")
+assert len(title) == 96, "Twelve title tiles must retain the original VRAM footprint"
+assert_art_table("TAT", title)
+# Composite a/b/c/d lunar quadrants; previously tile b was blank, so the
+# GBC title displayed a missing 8x8 corner rather than a full moon.
+assert all("3" in "".join(title[i*8:(i+1)*8]) for i in range(3, 7)), (
+    "Title moon lost a bright quadrant"
+)
+assert all(any(ch == "0" for row in title[i*8:(i+1)*8] for ch in row)
+           for i in range(3, 7)), "Moon lost its transparent curved silhouette"
+
 # The stylized nests have a genuine dark tunnel entrance, not a blob
 # of the same color as sand; grass berries use contrasting crop clusters.
 assert "0" in "".join(biomes[4*8:5*8])
