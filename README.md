@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **More detailed colony map:** water, soil, grass, and hill terrain now use two extra hand-crafted 8x8 detail variants each, creating visible currents, sand cracks, grass tufts, and rock seams. Terrain variation is coordinate-stable across camera/mode switches and uses eight spare VRAM tiles with no RAM map, no per-frame redraw, and no changes to gameplay terrain heights.
+
+
 - **GBC visual UI revitalization:** a banked 5×7 shadowed typeface replaces the old thin pixel lettering throughout the title, HUD, lessons and menus. The title uses a distinct midnight-blue control panel, bronze rule and selected difficulty lighting; pause, records, tutorial and versus receive deep navy backgrounds and warm gold heading bars. Artwork is composed only at boot in ROM3; no new per-frame arrays or framebuffers.
 
 

@@ -133,6 +133,7 @@ void ui_build_font(uint8_t *dst) BANKED;
 void ui_build_logo(uint8_t *dst) BANKED;
 void ui_build_marks(uint8_t *dst) BANKED;
 #define UI_SEPARATOR 203
+#define WORLD_DETAIL 204   // eight alternate 8x8 terrain tiles (204-211)
 
 // ---------- text on the window layer ----------
 static uint8_t gi(char c) {
@@ -501,7 +502,12 @@ static uint8_t is_nest(uint8_t x, uint8_t y) {
 static void draw_cell(uint8_t x, uint8_t y) {
   uint8_t t = hgt[y][x];
   if (is_nest(x, y)) t = 4; else if (food[y][x] && t) t = 5;
-  set_bkg_tile_xy(x, y, BT + t);
+  // World detail is keyed to fixed coordinates rather than a global RNG:
+  // the same water, soil, grass and rock patches remain identifiable after
+  // returning from ANT EYE; never allocate another 32x32 terrain array.
+  if (t < 4 && ((x + y + (x >> 2)) & 3u))
+    set_bkg_tile_xy(x, y, (uint8_t)(WORLD_DETAIL + (t << 1) + ((x ^ y) & 1u)));
+  else set_bkg_tile_xy(x, y, BT + t);
 }
 
 static uint8_t can_go(uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
@@ -1526,6 +1532,7 @@ void main(void) {
   disable_interrupts(); ui_build_marks(buf); enable_interrupts();
   set_bkg_data(AR, 2, buf);
   set_bkg_data(UI_SEPARATOR, 1, buf + 32);
+  set_bkg_data(WORLD_DETAIL, 8, BGT_ALT);
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 5, SPT);
   set_bkg_palette(0, 7, bpal);
