@@ -14,4 +14,15 @@ static uint8_t colony_walker_frame(uint8_t index, uint8_t phase,
   uint8_t frame = (uint8_t)((index + phase) & 1u);
   return (uint8_t)(carrying[index] ? 5u + frame : 3u + frame);
 }
+
+/* The eight CGB OBJ palettes let the same seven animation tiles give
+   workers, soldiers, and food carriers distinct team-aware coloring.
+   Base worker palettes 0/1, cursor 2, carriers 3/4, soldiers 5/6.
+   The call happens within the existing OAM property update, so no
+   additional sprites or per-frame palette uploads are needed. */
+static uint8_t colony_worker_palette(uint8_t team, uint8_t carrying,
+                                     uint8_t soldier) {
+  return (uint8_t)((team & 1u) +
+                   (carrying ? 3u : soldier ? 5u : 0u));
+}
 #endif
