@@ -113,7 +113,14 @@ while LCDC remains enabled, including SELECT pheromone marking.
 
 In ANT EYE, face water, cliffs, an empty tile, food, a worker, and each
 queen (when reachable). The `AHEAD:` indicator must show `W`, `C`,
-`.`, `F`, `A`/`R`, and `H`/`Q` respectively; an off-grid direction
+`O`, `F`, `A`/`R`, and `H`/`Q` respectively; an off-grid direction
 shows `X`. It must never claim a bite through a blocked diagonal corner.
 Queen posts have a tiny gold cap in the 3D view. The headless emulator now
 presses B after a real walk to catch regressions from the banked attack path.
+
+## Re-entering ANT EYE and printable target cues
+
+Emulator CI now checks that the `AHEAD` character is an actual printable
+font glyph and that entering ANT EYE again after walking, biting and
+returning to the overhead map keeps LCDC active and restores the 2D window
+on a second exit. `O` means open terrain, because this font has no period.

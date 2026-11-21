@@ -14,7 +14,7 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
   and a CI check for accidentally truncated graphics tables.
 - **Look-ahead target HUD:** ANT EYE now shows a compact real-world
   cell category when you face a nearby object: `X` map boundary, `W` water,
-  `C` cliff/corner, `.` clear ground, `F` food, `A` allied worker,
+  `C` cliff/corner, `O` open ground, `F` food, `A` allied worker,
   `R` enemy worker, `H` home queen, `Q` rival queen. This shares the
   eight-direction collision test with walking and biting; it refreshes on
   movement and turns rather than every frame. Queens in 3D also have a

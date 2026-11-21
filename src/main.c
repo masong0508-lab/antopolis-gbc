@@ -1301,7 +1301,7 @@ static void eye(void) {                              // pilot a black ant; food,
       // Directly facing a target is useful on a 160x144 screen. Classify
       // once per movement/turn, not every animation frame or ray column.
       disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
-      put_char(6, 1, "XWC.FARHQ"[d]);
+      put_char(6, 1, "XWCOFARHQ"[d]);
       if (ant[vi].carry) {
         // Use glyphs present in the tiny font. '<' and '>' have dedicated
         // tiles; N/S/O are printable while '^', 'v' and '=' are blank.

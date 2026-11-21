@@ -130,6 +130,20 @@ def main():
             )
         if len(eye.getcolors(maxcolors=160 * 144) or []) < 4:
             raise AssertionError("ANT EYE picture looks blank or uses too few colors")
+        # Read VRAM bank 0: the foreground palette attribute plane is bank 1.
+        bank_saved = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            look_tile = pyboy.memory[WINDOW_MAP + 1 * 32 + 6]
+        finally:
+            pyboy.memory[0xFF4F] = bank_saved & 1
+        # Every AHEAD status must be an actual font glyph; the original '.'
+        # category was silently displayed as a space in the 40-glyph font.
+        allowed = {136 + 11 + (ord(c) - ord("A"))
+                   for c in "XWCOFARHQ"}
+        report["hud_look_tile"] = look_tile
+        if look_tile not in allowed:
+            raise AssertionError("AHEAD status is blank or invalid: " + repr(look_tile))
 
         # Real camera turning should redraw the view, not freeze one half.
         press("right", 18)
@@ -212,7 +226,33 @@ def main():
                 "ANT EYE did not restore the 2D HUD and window position: "
                 + repr(report["vram"])
             )
-        report["result"] = "PASS: GBC boot, 3D ANT EYE, turning, walking, scent, bite, 2D return"
+        # Repeated switches catch stale window maps, VRAM palette, or bank
+        # state after a completed walking/combat session.
+        pyboy.button_press("select")
+        pyboy.tick(3, True, False)
+        pyboy.button_press("start")
+        pyboy.tick(18, True, False)
+        pyboy.button_release("start")
+        pyboy.button_release("select")
+        pyboy.tick(210, True, False)
+        if not (pyboy.memory[0xFF40] & 0x80):
+            raise AssertionError("Second ANT EYE entry disabled LCD")
+        bank_saved = pyboy.memory[0xFF4F]
+        pyboy.memory[0xFF4F] = 0
+        try:
+            second_header = pyboy.memory[ANT_EYE_HEADER]
+        finally:
+            pyboy.memory[0xFF4F] = bank_saved & 1
+        if second_header != ANT_EYE_TITLE_A:
+            raise AssertionError("Second ANT EYE entry has an invalid header")
+        snapshot("08_reentered_ant_eye")
+        press("start", 18)
+        pyboy.tick(110, True, False)
+        if not (pyboy.memory[0xFF40] & 0x80) or pyboy.memory[0xFF4A] != 128:
+            raise AssertionError("Second ANT EYE exit did not restore the 2D map")
+        report["repeat_transitions"] = "PASS: second 2D/3D entry and exit"
+        snapshot("09_second_return_to_strategy")
+        report["result"] = "PASS: GBC 3D ANT EYE, turn, walk, scent, bite, repeat 2D/3D transitions"
         print(report["result"])
     except Exception as error:
         report["result"] = "FAIL: " + repr(error)
