@@ -32,16 +32,19 @@ static uint8_t eye_try_step(uint8_t heights[EYE_WORLD][EYE_WORLD],
   *x += dx; *y += dy;
   return 1;
 }
-// The overhead map and ANT EYE agree on real terrain materials:
-// water blue, height-1 sand tan, height-2 grass green, height-3 rock brown.
-// Near grass retains sparse sandy patches, but distant grass is a solid
-// green so far ridges remain coherent. The existing 2bpp palette is enough.
+// Match the overhead map's four distinct materials in the 3D view.
+// Previously the *entire* near grass cell flipped green/sand by (x+y)
+// parity. That created conspicuous checkerboard squares and made grass
+// look like alternating sandy platforms. Grass is now consistently green;
+// the existing tiny per-pixel EYE_GRAIN tufts supply texture instead.
+// This is one branch cheaper per visible world sample and needs no assets.
 static uint8_t eye_ground_class(uint8_t h, uint8_t x, uint8_t y,
                                 uint8_t depth) {
+  (void)x; (void)y; (void)depth;
   if (!h) return 4;
   if (h == 1) return 2;
   if (h == 3) return 3;
-  return (uint8_t)(depth > 14 || !((x + y) & 1u) ? 1u : 2u);
+  return 1;
 }
 // In the original renderer an ant occupied a broad 128x128 subcell
 // and could fill four to six whole screen columns with repeated leg
