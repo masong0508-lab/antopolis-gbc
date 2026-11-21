@@ -5,6 +5,7 @@
 #include <gb/cgb.h>
 #include <stdint.h>
 #include "eye_navigation.h"
+#include "sprite_logic.h"
 #define W 32
 #define H 32
 #define VX 20
@@ -128,13 +129,9 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
    This saves expensive per-ant tile updates in the full fixed ROM bank. */
 void eye_animate_walkers(uint8_t visible, uint8_t phase,
                          const uint8_t *carrying) BANKED {
-  uint8_t i, frame;
-  for (i = 0; i < visible; ++i) {
-    frame = (uint8_t)((i + phase) & 1u);
-    shadow_OAM[4u + i].tile =
-      (uint8_t)(((carrying[i >> 3] >> (i & 7u)) & 1u)
-                ? 5u + frame : 3u + frame);
-  }
+  uint8_t i;
+  for (i = 0; i < visible; ++i)
+    shadow_OAM[4u + i].tile = colony_walker_frame(i, phase, carrying);
 }
 
 /* Real eight-direction ant movement lives with the renderer in bank 3,
