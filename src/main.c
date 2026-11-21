@@ -557,7 +557,7 @@ static void draw_cell(uint8_t x, uint8_t y) {
 }
 // A terrain edit changes the coast/crest on ADJACENT squares as well.
 // Only four existing map tiles refresh; world state, collision, saves and
-// camera are unchanged. Also called when 3x3 disasters edit ground.
+// camera are unchanged. Larger 3x3 disasters use one 5x5 redraw.
 static void refresh_terrain_neighbors(uint8_t x, uint8_t y) {
   if (x) draw_cell(x - 1u, y);
   if (x < 31u) draw_cell(x + 1u, y);
