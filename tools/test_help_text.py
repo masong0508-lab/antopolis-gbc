@@ -13,11 +13,11 @@ source = (Path(__file__).resolve().parents[1] / "src" / "text2.c").read_text()
 start = source.index("const char HELP2[] =")
 end = source.index("const char TCARD2[] =", start)
 section = source[start:end]
-literals = re.findall(r'^\\s*("(?:\\\\.|[^"\\\\])*")', section, re.MULTILINE)
+literals = re.findall(r'^\s*("(?:\\.|[^"\\])*")', section, re.MULTILINE)
 assert literals, "No C string literals in HELP2"
 help_text = "".join(ast.literal_eval(literal) for literal in literals)
-assert help_text.endswith("\\n"), "Help rows must be newline terminated"
-assert "\\0" not in help_text, "HELP2 must have one continuous page"
+assert help_text.endswith("\n"), "Help rows must be newline terminated"
+assert "\0" not in help_text, "HELP2 must have one continuous page"
 size = len(help_text.encode("ascii")) + 1
 assert size <= 640, f"HELP2 uses {size} bytes, exceeds tbuf[640]"
 rows = help_text.splitlines()
