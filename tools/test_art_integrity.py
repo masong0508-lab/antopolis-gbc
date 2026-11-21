@@ -49,11 +49,12 @@ banked = Path("src/eye_render.c").read_text()
 assert "void eye_animate_walkers(uint8_t visible, uint8_t phase," in banked
 assert "const uint8_t *carrying) BANKED" in banked
 frames = Path("src/sprite_logic.h").read_text()
-assert "carrying[index >> 3]" in frames
+assert "carrying[index]" in frames
 assert "5u + frame : 3u + frame" in frames
 assert "colony_walker_frame(i, phase, carrying)" in banked
 assert "set_sprite_data(0, 7, SPT)" in gameplay
-assert "carrying[s >> 3]" in sprite_pass
+assert "tbuf[s] = ant[i].carry" in sprite_pass
+assert "eye_animate_walkers(s, (uint8_t)(sys_time >> 3), tbuf)" in sprite_pass
 assert "shadow_OAM[4u + i].tile =" in banked, (
     "Walker update must use only OAM 4..39, reserving queen/player slots"
 )
