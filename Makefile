@@ -4,11 +4,12 @@ LCCFLAGS ?=
 # Never permit the GBDK banked-call trampoline (_HOME) to spill into
 # switchable ROM1. The old 32KB monolithic layout placed _HOME at 0x7C3D:
 # BANKED calls switched away the trampoline mid-call and shut down the LCD.
-# Reserve 0x180-0x44F for _HOME, then _CODE at 0x450.
-# The GBC cartridge header occupies 0x100..0x14F, leaving this lower
-# fixed-bank area free. Keep a guard for _HOME/_CODE non-overlap in CI.
-# Saves 176 bytes in fixed ROM, including for visual depth work.
-BANKFIX = -Wl-b_HOME=0x0180 -Wl-b_CODE=0x0450
+# GBDK CRT0 uses ROM 0x150..0x1FF for its actual startup code,
+# not merely the 0x100..0x14F Nintendo header. Never put _HOME there.
+# Place the banked-call trampolines at 0x200 and pack regular code at
+# 0x4B8, keeping at least a little gap after the ~0x2A6-byte _HOME.
+# CI verifies that those two areas never overlap or cross ROM bank 0.
+BANKFIX = -Wl-b_HOME=0x0200 -Wl-b_CODE=0x04B8
 all: build/empire-ants.gbc
 build/empire-ants.gbc: $(wildcard src/*.c) $(wildcard src/*.h)
 	mkdir -p build
