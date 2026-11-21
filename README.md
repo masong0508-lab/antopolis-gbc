@@ -1,3 +1,15 @@
+### Cohesive 3D terrain instead of checkerboard grass
+
+ANT EYE previously colored entire nearby grass *cells* alternately green
+and sandy tan using an `(x+y)` checkerboard. This made the first-person
+world resemble a patchwork grid rather than continuous vegetation. Grass
+now has one consistent ground color at all depths; existing per-pixel
+tufts still create surface detail inside its tiles. Water, sand and rock
+retain distinct material classes. The bank-3 color test now checks
+grass consistency across every world cell and near/far depths. This
+removes a branch from the ray material picker, requires no new images
+or buffers and leaves the scarce fixed ROM bank untouched.
+
 ### Narrow, non-occluding ANT EYE limbs
 
 Peripheral view rays no longer paint a repeated eight-pixel-wide ant
