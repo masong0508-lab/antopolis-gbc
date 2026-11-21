@@ -307,7 +307,7 @@ def main():
         # The playable HUD now prioritizes a clear goal over raw X/Y debug
         # coordinates. Verify the actual VRAM row, not just formatting code.
         objective_prefixes = (
-            "FOOD:", "HOME:", "NO FOOD NEARBY",
+            "FOOD:", "HOME:", "DETOUR:", "NO FOOD NEARBY",
             "FOOD PICKED UP", "FOOD DELIVERED"
         )
         if not any(all(tile0(i, 14) == text_tile(ch)
