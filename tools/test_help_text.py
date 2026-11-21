@@ -32,4 +32,26 @@ for required in ("#YOUR MISSION", "#MAP CONTROLS", "#ANT EYE 3D",
                  "#HUD LABELS", "#ELECTIONS", "SAVE YOUR QUEEN",
                  "DEFEAT THE RED QUEEN", "A RAISE LAND 1 MANA"):
     assert required in rows, f"Missing playable instruction: {required}"
-print(f"GBC help text passed: {size}/640 bytes, {len(rows)} readable rows")
+# Every tutorial card is copied through the same unbounded GBDK text2()
+# routine. Validate each NUL-separated card independently; checking only
+# HELP2 would miss overflowing cards and unsupported glyphs in the mission.
+tutorial_start = source.index("const char TCARD2[] =")
+tutorial_end = source.index("// title scenery", tutorial_start)
+tutorial_literals = re.findall(
+    r'^\s*("(?:\\.|[^"\\])*")',
+    source[tutorial_start:tutorial_end],
+    re.MULTILINE,
+)
+tutorial = "".join(ast.literal_eval(literal) for literal in tutorial_literals)
+cards = tutorial.split("\0")
+for index, card in enumerate(cards, 1):
+    if not card:
+        continue
+    card_size = len(card.encode("ascii")) + 1
+    assert card_size <= 640, f"Tutorial {index} exceeds text scratch: {card_size}"
+    for line in card.splitlines():
+        assert len(line) <= 20, f"Tutorial {index} too wide: {line!r}"
+        assert all(c == " " or c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:!/" for c in line), (
+            f"Tutorial {index} has an unsupported 5x7 glyph: {line!r}"
+        )
+print(f"GBC help text passed: {size}/640 bytes, {len(rows)} readable rows and tutorial cards")
