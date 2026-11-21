@@ -143,7 +143,9 @@ assert "set_sprite_palette(0, 7, spal)" in gameplay
 assert "set_sprite_palette(0, 7, fs)" in gameplay
 assert "colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)" in sprite_pass
 assert "tbuf[s] = ant[i].carry" in sprite_pass
-assert "eye_animate_walkers(s, (uint8_t)(sys_time >> 3), tbuf)" in sprite_pass
+assert "eye_animate_walkers(s, (uint8_t)(walker_redraw_clock >> 2), tbuf)" in sprite_pass, (
+    "Overhead ant animation must take its phase from completed redraws"
+)
 assert "shadow_OAM[4u + i].tile =" in banked, (
     "Walker update must use only OAM 4..39, reserving queen/player slots"
 )
