@@ -1194,6 +1194,15 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
   VBK_REG = VBK_TILES;
 }
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
+// A cheap eight-way home bearing. The GBC has no room for a second map or
+// compass texture, so re-use the existing compass strings and one HUD row.
+static const char *eye_home_dir(uint8_t vx, uint8_t vy) {
+  int8_t dx = vx < nestx[0] ? 1 : vx > nestx[0] ? -1 : 0;
+  int8_t dy = vy < nesty[0] ? 1 : vy > nesty[0] ? -1 : 0;
+  if (dx > 0) return dy > 0 ? COMPASS[1] : dy < 0 ? COMPASS[7] : COMPASS[0];
+  if (dx < 0) return dy > 0 ? COMPASS[3] : dy < 0 ? COMPASS[5] : COMPASS[4];
+  return dy > 0 ? COMPASS[2] : dy < 0 ? COMPASS[6] : "AT";
+}
 static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
   put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
@@ -1250,6 +1259,9 @@ static void eye(void) {                              // pilot a black ant; food,
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
+  // There is no controllable ant until the colony hatches a living worker.
+  // Do not permit a camera-only 'ghost walk' that changes no real world tile.
+  if (vi >= MAXA) { say("NO WORKER: GROW COLONY"); sfx_deny(); return; }
   HIDE_SPRITES;
   VBK_REG = VBK_TILES;
   for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
@@ -1257,7 +1269,8 @@ static void eye(void) {                              // pilot a black ant; food,
   put_str(0, 14, "A:NEXT ANT B:BITE   ");
   put_str(0, 15, "L/R TURN U/D WALK   ");
   put_str(0, 16, "SEL:SCENT START:MAP ");
-  occ_set();                                        // ants cannot move in here: mark them once
+  memset(occ, 0, sizeof occ);
+  occ_set();                                        // fresh snapshot, no ghosts from old cells
   move_win(7, 0);
   prev = joypad();
   while (1) {
@@ -1268,7 +1281,11 @@ static void eye(void) {                              // pilot a black ant; food,
       // right half of the picture could remain stale indefinitely.
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
       eye_status(vx, vy);
-      put_str(0, 14, vi < MAXA && ant[vi].carry ? "FOOD: TAKE HOME!    " : "A:NEXT ANT B:BITE   ");
+      if (ant[vi].carry) {
+        put_str(0, 14, "FOOD: HOME ");
+        put_str(11, 14, eye_home_dir(vx, vy));
+        put_str(13, 14, "       ");
+      } else put_str(0, 14, "A:NEXT ANT B:BITE   ");
     }
     vsync();
     if (vcol < VX) {
@@ -1278,7 +1295,15 @@ static void eye(void) {                              // pilot a black ant; food,
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
-    if (p & J_A) { i = 0; do { vi = (vi == MAXA) ? 0 : vi + 1; } while (!vok(vi) && ++i <= MAXA); sfx_food(); go = 1; }
+    if (p & J_A) {
+      // Switch only among living workers. The old loop could select the
+      // queen as an unmovable camera, despite advertising NEXT ANT.
+      for (i = 0; i < MAXA; i++) {
+        vi = (vi + 1u >= MAXA) ? 0 : vi + 1u;
+        if (vok(vi)) break;
+      }
+      if (i < MAXA) { sfx_food(); go = 1; }
+    }
     if ((k & J_SELECT) && vi < MAXA) ph[vy][vx] = 255;
     dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
     if (dirs != last) { rep = 0; last = dirs; }
