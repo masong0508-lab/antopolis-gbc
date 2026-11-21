@@ -93,7 +93,9 @@ static void set_rules(uint8_t d) {
 }
 
 // ---------- palettes & graphics (generated from strings) ----------
-static const palette_color_t bpal[24] = {
+// Seven 4-colour CGB background palettes (0-6). Keep storage and upload
+// count identical: a 24-entry declaration silently dropped the trail palette.
+static const palette_color_t bpal[28] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
   RGB(0,0,0),   RGB(8,8,8),    RGB(20,20,20), RGB(31,31,31), // 1: HUD text
   RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: (spare)
@@ -101,6 +103,8 @@ static const palette_color_t bpal[24] = {
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(4,16,6),     // 4: ant eye, water
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
   RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(31,27,8)}; // 6: gold pheromone trail over green land
+// Compile-time check: 7 palette slots * 4 RGB555 colours, no frame cost.
+typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 28 ? 1 : -1];
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
 static const palette_color_t tpal[32] = {
   RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 0: night sky (top)

@@ -90,6 +90,9 @@ jobs:
         run: |
           make GBDK_HOME="$PWD/gbdk" 2>&1 | tee build.log
           if grep -q "overflow from Bank" build.log; then echo "code overflows the 32 KB that is always mapped"; exit 1; fi
+          if grep -q "excess elements in array initializer" build.log; then
+            echo "error: GBC graphics table is silently dropping data"; exit 1
+          fi
       - name: Verify fixed-bank trampoline layout
         run: |
           python3 - <<'PY'
