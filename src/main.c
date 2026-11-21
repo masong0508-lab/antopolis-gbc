@@ -1216,7 +1216,7 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
         // A stationary first-person antenna silhouette gives the 3D view
         // scale and depth without drawing more rays or sprite objects.
         if (r >= 9) {
-          uint8_t ant_mask = tbuf[(uint16_t)c * 24u + (uint8_t)((r - 9u) * 8u + k)];
+          uint8_t ant_mask = tbuf[((uint16_t)c << 4) + ((uint16_t)c << 3) + (uint8_t)(((r - 9u) << 3) + k)];
           lo |= ant_mask;
           hi |= ant_mask;
         }
