@@ -221,20 +221,44 @@ def main():
         if any(pyboy.memory[0xFE00 + 4 * i + 2] != expected
                for i, expected in ((0, 2), (1, 2), (2, 1))):
             raise AssertionError("Queen/player OAM priority or silhouettes lost")
+        # Observe several completed game redraws even on a slow 160x144
+        # cartridge. Four 8-frame snapshots are too short when the host
+        # emulator advances VBlank faster than the banked simulation.
         walker_samples = [visible_worker_frames()]
-        for _ in range(3):
+        clock_base = world_address("sys_time")
+        def vblank_clock():
+            return (pyboy.memory[clock_base]
+                    | (pyboy.memory[clock_base + 1] << 8))
+        clocks = [vblank_clock()]
+        for _ in range(16):
             pyboy.tick(8, True, False)
             walker_samples.append(visible_worker_frames())
-        stable_workers = set.intersection(*(set(frames) for frames in walker_samples))
-        if not stable_workers:
-            raise AssertionError("No stable on-screen colony worker OAM sprites")
-        if not any(
-            all(sample[i] in (3, 4) for sample in walker_samples)
-            and len({sample[i] for sample in walker_samples}) == 2
-            for i in stable_workers
-        ):
+            clocks.append(vblank_clock())
+
+        # Only count a change *within* the authentic 3/4 walking or 5/6
+        # carrying pair; a worker dropping food (5 -> 3) is not animation.
+        animated = []
+        for slot in range(4, 40):
+            frames = [sample.get(slot) for sample in walker_samples]
+            if any(
+                a is not None and b is not None and a != b
+                and ({a, b} == {3, 4} or {a, b} == {5, 6})
+                for a, b in zip(frames, frames[1:])
+            ):
+                animated.append(slot)
+        report["ui"]["walker_frames_sampled"] = [
+            {str(i): frame for i, frame in sorted(sample.items())}
+            for sample in walker_samples
+        ]
+        report["ui"]["vblank_clocks"] = clocks
+        if not any(walker_samples):
+            raise AssertionError("No on-screen colony worker OAM sprites")
+        if not animated:
             raise AssertionError(
-                "Overhead GBC workers are still static or missing walking silhouettes"
+                "Overhead GBC workers failed to alternate walking (3/4) "
+                "or carrying (5/6) OAM tiles across 128 emulated frames; "
+                "clocks=" + repr(clocks)
+                + ", frames=" + repr(report["ui"]["walker_frames_sampled"])
             )
         report["ui"]["walking_ants_animated"] = True
 

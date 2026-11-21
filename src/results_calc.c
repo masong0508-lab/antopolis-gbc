@@ -12,6 +12,7 @@
 #define BANKED
 #endif
 #include <stdint.h>
+#include "results_calc.h"
 
 void results_compute(uint16_t ticks, uint8_t difficulty,
                      uint8_t ants, uint8_t approval, uint8_t queen_hp,
@@ -47,4 +48,26 @@ void results_compute(uint16_t ticks, uint8_t difficulty,
                      (((uint16_t)queen_hp)<<3)+
                      (((uint16_t)queen_hp)<<1));
   *score=points;
+}
+
+/* Runs once per finished match. Moving the record table arithmetic to
+   bank 3 prevents gameplay/UI edits from spilling into ROM bank 2. All
+   18 record bytes, thresholds, victory flags and checksum writes remain
+   exactly as before; saving stays in main.c in its original SRAM path. */
+uint8_t results_record_update(ResultsRecord *r, uint8_t difficulty,
+                              uint8_t victory, uint16_t seconds,
+                              uint16_t score) BANKED {
+  uint8_t flags = 0;
+  if (victory) {
+    if (r->w[difficulty] < 99u) ++r->w[difficulty];
+    if (!r->t[difficulty] || seconds < r->t[difficulty]) {
+      r->t[difficulty] = seconds;
+      flags |= 1u;
+    }
+    if (score > r->s[difficulty]) {
+      r->s[difficulty] = score;
+      flags |= 2u;
+    }
+  } else if (r->l[difficulty] < 99u) ++r->l[difficulty];
+  return flags;
 }

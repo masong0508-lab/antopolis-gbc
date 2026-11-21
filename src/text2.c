@@ -74,6 +74,8 @@ const char TCARD2[] =
   "\0"
   "3/8 LOWER LAND\n"
   "B LOWERS TILE: 1 MP\n"
+  "BERRY SAND TO WATER\n"
+  "LOSES THE BERRIES\n"
   "ANTS CANT WALK ON\n"
   "WATER: DIG MOATS\n"
   "AGAINST RED\n"

@@ -59,8 +59,14 @@ for heading, handler, phrases in (
     ("RAISE", raise_handler, ("WATER FILLED", "RAMP BUILT", "HILL RAISED")),
     ("LOWER", lower_handler, ("HILL CUT DOWN", "RAMP LOWERED", "MOAT DUG")),
 ):
-    assert "draw_cell(cx, cy)" in handler and "say(hgt[cy][cx]" in handler, (
+    assert "draw_cell(cx, cy)" in handler and "say(" in handler, (
         f"{heading}: successful terrain edit lost feedback or tile refresh"
+    )
+    assert "if (!hgt[cy][cx]) {" in lower_handler and "food[cy][cx] = 0;" in lower_handler, (
+        "Lowering a berry tile into water must remove the food"
+    )
+    assert "FOOD WASHED AWAY" in lower_handler, (
+        "Food-loss warning must remain visible in the GBC HUD"
     )
     for phrase in phrases:
         assert f'"{phrase}"' in handler, f"{heading}: missing feedback {phrase}"
