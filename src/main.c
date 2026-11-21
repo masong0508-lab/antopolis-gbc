@@ -10,6 +10,7 @@
 #include "sprite_logic.h"   // team/role palettes, same OAM slots and animation tiles
 #include "colony_route.h"   // pheromone-aware home steering; no added world buffers
 #include "terrain_food.h"  // submerged berry removal shared with the GBA port
+#include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 
 #define W 32            // world size = size of the hardware BG map
 #define H 32
@@ -598,7 +599,7 @@ static void count(uint8_t *c) {
 #define SAV_AT 64
 #define CFG_MAGIC 0xC5
 #define SAVE_MAGIC 0xA7   // bumped: the ant list shrank (50 slots), old saves are ignored
-typedef struct { uint8_t w[3], l[3]; uint16_t t[3], s[3]; } Rec;     // per level: wins, losses, fastest win (seconds), best score
+typedef ResultsRecord Rec;  // unchanged SRAM bytes: wins/losses, fastest time, highest score
 static Rec rec;
 static volatile uint8_t *sp; static uint8_t ssum;
 static void sram_open(uint16_t at) {
@@ -685,14 +686,14 @@ static void save_erase(void) { sram_open(SAV_AT); *sp = 0; sram_close(); }
 void results_compute(uint16_t ticks, uint8_t difficulty,
                      uint8_t ants, uint8_t approval, uint8_t queen_hp,
                      uint16_t *seconds, uint16_t *score) BANKED;
-static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = new fastest win, bit 1 = new high score
-  uint8_t d = gdiff, fl = 0;
-  if (over == 1) {
-    if (rec.w[d] < 99) rec.w[d]++;
-    if (!rec.t[d] || secs < rec.t[d]) { rec.t[d] = secs; fl |= 1; }
-    if (score > rec.s[d]) { rec.s[d] = score; fl |= 2; }
-  } else if (rec.l[d] < 99) rec.l[d]++;
-  cfg_save();
+static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = fastest, bit 1 = highest
+  uint8_t fl;
+  // Result updates are not part of any simulation tick. Keep them in
+  // ROM3, with the bank-1 music interrupt guarded during the call.
+  disable_interrupts();
+  fl = results_record_update(&rec, gdiff, (uint8_t)(over == 1), secs, score);
+  enable_interrupts();
+  cfg_save();  // original on-cartridge bytes/checksum unchanged
   return fl;
 }
 
