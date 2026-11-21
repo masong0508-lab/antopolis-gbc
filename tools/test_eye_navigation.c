@@ -30,6 +30,20 @@ int main(void) {
   terrain[11][11] = 1;
   assert(eye_try_step(terrain, &x, &y, 2, 1));
   assert(x == 11 && y == 11);
+  // Attack uses exactly the same direction as a forward step but never
+  // changes the attacking ant's position. Blocked diagonal corners, water,
+  // cliff jumps and edges must never allow a bite through geometry.
+  x = 10; y = 10;
+  assert(eye_attack_target(terrain, x, y, 2, &x, &y));
+  assert(x == 11 && y == 11);
+  x = 10; y = 10; terrain[10][11] = 0;
+  assert(!eye_attack_target(terrain, x, y, 2, &x, &y));
+  assert(x == 10 && y == 10);
+  terrain[10][11] = 1;
+  assert(eye_attack_target(terrain, x, y, 0, &x, &y));
+  assert(x == 11 && y == 10);
+  x = 0; y = 0;
+  assert(!eye_attack_target(terrain, x, y, 8, &x, &y));
   // Nearby food can be found; directions are canonical compass axes.
   assert(!eye_food_bearing(terrain, berries, 10, 10));
   berries[10][13] = 1;

@@ -1202,6 +1202,7 @@ static void eye_status(uint8_t vx, uint8_t vy) {
 // Moved to switchable bank 3, preserving scarce fixed bank space.
 void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
+uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
@@ -1226,14 +1227,11 @@ static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
 
 // A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
 static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
-  int8_t fx, fy, dx = 0, dy = 0;
-  int16_t tx, ty; uint8_t i;
+  uint8_t tx, ty, i;
   if (vi >= MAXA || !vok(vi)) return;
-  fx = SIN16[(vang + 4) & 15]; fy = SIN16[vang];
-  if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1;
-  else dy = fy < 0 ? -1 : 1;
-  tx = (int16_t)vx + dx; ty = (int16_t)vy + dy;
-  if (tx < 0 || ty < 0 || tx >= W || ty >= H) { sfx_deny(); return; }
+  // Bank 3 owns attack geometry so the tight fixed bank does not need
+  // separate 4-way trig code that disagrees with ANT EYE movement.
+  if (!eye_bite_target(vx, vy, &tx, &ty)) { sfx_deny(); return; }
   for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == 1 && ant[i].x == tx && ant[i].y == ty) {
     die(&ant[i]); sfx_fight(); break;
   }

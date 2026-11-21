@@ -25,6 +25,11 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
   after changing workers or tiles, not during every camera frame. The
   movement and navigation helpers are kept in the spacious switchable
   ROM bank 3 and have independent native regression tests.
+- **ANT EYE bite alignment:** attacks now target the actual forward-facing
+  neighboring tile (including diagonals), using the exact same water,
+  cliff-height, map-edge and corner-clearance rules as walking. The calculation
+  runs in switchable ROM bank 3 rather than adding more code to the nearly full
+  fixed bank. It keeps old food, queen, and enemy interactions intact.
 - **World continuity:** first-person food, enemies, queen damage, movement and scent trails now use the same tile-state and colony data as the strategy view. The wider colony simulation remains paused while the low-power GBC draws ANT EYE. The ray-marching calculations live in switchable ROM bank 3; actual VRAM drawing remains in the main bank, and interrupts are masked briefly during each ray calculation to protect audio code. Holding a movement/turn direction now allows every column of a ray pass to finish before another full pass starts, preventing stale portions of the 3D picture.
 - **Current multiplayer scope:** GBC LINK CABLE multiplayer is versus on the strategy map. First-person and Internet-synchronized multiplayer are not yet supported for two connected GBCs. Build success is not proof of real-hardware link reliability; validate with two linked emulators or physical consoles.
 

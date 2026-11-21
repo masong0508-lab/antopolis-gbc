@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned headless Game Boy Color emulator
-        run: python3 -m pip install pyboy==2.9.0
+        run: python3 -m pip install pyboy==2.9.0 Pillow==12.0.0
       - name: Boot ROM and validate 2D / 3D screen transitions
         run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --out build/eye-smoke
       - uses: actions/upload-artifact@v4

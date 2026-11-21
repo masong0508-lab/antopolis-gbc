@@ -42,6 +42,9 @@ emulator that supports two linked Game Boy Color consoles.
   within eight tiles, or NOFOOD if none exists nearby. Pickup should
   switch to the HOME arrows; after delivery the nearest berry cue should
   reappear. Rotating in place must not force a food scan every frame.
+- Bite in all eight facing directions: it must target the cell actually
+  ahead in the 3D view, hit enemy ants or the enemy queen when reachable,
+  and refuse water/cliff/diagonal-corner attacks. Biting must not move the ant.
 - Enter ANT EYE after viewing a menu or pause screen: the upper two window
   rows must not retain stale old-map/help text. "ANT EYE" labels the view.
   Hill crests should show a 1-pixel dark ridge; distant grass should be

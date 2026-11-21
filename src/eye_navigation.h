@@ -38,6 +38,16 @@ static uint8_t eye_ground_class(uint8_t h, uint8_t x, uint8_t y,
   if (h == 3) return 3;
   return (uint8_t)(depth > 14 || !((x + y) & 1u) ? 2u : 1u);
 }
+// ATTACK and WALK share a single facing/corner rule. A bite checks the tile
+// ahead WITHOUT moving the scout. Avoid phasing through walls or water and
+// avoid 4-way attacks aimed away from the visual 3D facing.
+static uint8_t eye_attack_target(uint8_t heights[EYE_WORLD][EYE_WORLD],
+                                 uint8_t x, uint8_t y, uint8_t facing,
+                                 uint8_t *tx, uint8_t *ty) {
+  if (!eye_try_step(heights, &x, &y, facing, 1)) return 0;
+  *tx = x; *ty = y;
+  return 1;
+}
 // Food scan is bounded to an 8-tile radius and only runs when the selected
 // ant CHANGES TILE, not on every ray/turn/frame. Return x/y bearing bits.
 static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],

@@ -65,3 +65,9 @@ void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED {
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED {
   return eye_food_bearing(hgt, food, vx, vy);
 }
+
+/* A bite hits the adjacent reachable tile along the same eight-direction
+   movement vector used by ANT EYE: never through cliffs or diagonal corners. */
+uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED {
+  return eye_attack_target(hgt, vx, vy, vang, tx, ty);
+}
