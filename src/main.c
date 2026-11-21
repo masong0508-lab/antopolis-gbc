@@ -1310,7 +1310,7 @@ static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, need_nav = 1;
-  uint8_t notice = 0, notice_frames = 0;
+  uint8_t notice = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   // There is no controllable ant until the colony hatches a living worker.
@@ -1374,14 +1374,6 @@ static void eye(void) {                              // pilot a black ant; food,
       put_str(0, 14, (const char *)tbuf + 480);
     }
     vsync();
-    if (notice_frames && !--notice_frames) {
-      notice = 0;
-      disable_interrupts();
-      eye_ui_guide((char *)tbuf + 480, nav, ant[vi].carry,
-                   vx, vy, nestx[0], nesty[0]);
-      enable_interrupts();
-      put_str(0, 14, (const char *)tbuf + 480);
-    }
     if (vcol < VX) {
 #ifndef EYE_DIAG_NO_RAY
       view_cols(vx, vy, vcol, (uint8_t)(vcol + 4));
@@ -1392,7 +1384,7 @@ static void eye(void) {                              // pilot a black ant; food,
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
     if (p & J_B) {
-      notice = eye_bite(vi, vx, vy); notice_frames = 48;
+      notice = eye_bite(vi, vx, vy);
       if (notice != 4) go = 2;  // Only rerender rays if an enemy really changed.
       else {
         disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
@@ -1414,20 +1406,19 @@ static void eye(void) {                              // pilot a black ant; food,
     if (dirs != last) { rep = 0; last = dirs; }
     if (dirs) {
       if (rep == 0 || (rep >= 8 && !(rep & 3))) {
-        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; notice = notice_frames = 0; go = 2; }
-        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; notice = notice_frames = 0; go = 2; }
+        if (dirs & J_RIGHT) { vang = (vang + 1) & 15; notice = 0; go = 2; }
+        else if (dirs & J_LEFT) { vang = (vang + 15) & 15; notice = 0; go = 2; }
         else {
           x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
           if (vx != x || vy != y) {
             p = ant[vi].carry;
             eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT));
             notice = (p != ant[vi].carry) ? (ant[vi].carry ? 2 : 3) : 0;
-            notice_frames = notice ? 50 : 0;
             go = 2; need_nav = 1;
           } else {
             sfx_deny();
             if (notice != 1) {
-              notice = 1; notice_frames = 44;
+              notice = 1;
               disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
               put_str(0, 14, (const char *)tbuf + 480);
             }

@@ -1,6 +1,6 @@
 ### ANT EYE action feedback
 
-The first-person command panel now briefly reports **PATH BLOCKED**, **FOOD PICKED UP**, **FOOD DELIVERED**, **BITE MISSED**, **ENEMY DEFEATED**, or **QUEEN HIT!** after real gameplay actions. Messages come from actual movement, inventory and hit results, not decorative guesses; the standard food/home bearings and X/Y coordinates automatically return afterward. Invalid bites and blocked steps no longer waste ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers. The pause guide has been updated to describe the new visible feedback.
+The first-person command panel now clearly reports **PATH BLOCKED**, **FOOD PICKED UP**, **FOOD DELIVERED**, **BITE MISSED**, **ENEMY DEFEATED**, or **QUEEN HIT!** after real gameplay actions. Messages come from actual movement, inventory and hit results, not decorative guesses; the standard food/home bearings and X/Y coordinates return when the player moves or turns. Invalid bites and blocked steps no longer waste ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers. The pause guide has been updated to describe the new visible feedback.
 
 ### Explicit direction
 
