@@ -99,3 +99,28 @@ uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED {
   return eye_ahead_kind(hgt, occ, vx, vy, vang);
 }
+
+/* Reuse the existing 640-byte text scratch for the player's ant-eye rim.
+   Each of 20 columns owns 24 one-byte masks (bottom three 8px tiles).
+   This is initialized once on ANT EYE entry, not every frame or ray step.
+   Cross-bank-safe: only local shifts, direct RAM writes, no libc calls. */
+void eye_build_antennae(uint8_t *scratch) BANKED {
+  uint8_t x, y, c, width, left, right;
+  for (c = 0; c < 20; ++c)
+    for (y = 0; y < 24; ++y)
+      scratch[(uint16_t)c * 24u + y] = 0;
+  for (y = 0; y < 24; ++y) {
+    left  = (uint8_t)(70u - (y >> 1));
+    right = (uint8_t)(89u + (y >> 1));
+    width = y < 12 ? 2u : y < 20 ? 3u : 4u;
+    for (c = 0; c < width; ++c) {
+      x = (uint8_t)(left - c);
+      scratch[(uint16_t)(x >> 3) * 24u + y] |= (uint8_t)(0x80u >> (x & 7u));
+      x = (uint8_t)(right + c);
+      scratch[(uint16_t)(x >> 3) * 24u + y] |= (uint8_t)(0x80u >> (x & 7u));
+    }
+    // Curved mandibles converge into the viewer's own head at the bottom.
+    if (y >= 22) for (x = 57; x <= 102; ++x)
+      scratch[(uint16_t)(x >> 3) * 24u + y] |= (uint8_t)(0x80u >> (x & 7u));
+  }
+}

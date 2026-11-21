@@ -1177,6 +1177,7 @@ static void occ_set(void) {                    // mark real food, ants and queen
 }
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED; // isolated pure ray march in ROM bank 3
+void eye_build_antennae(uint8_t *scratch) BANKED; // 480-byte procedural mask, once per entry
 static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
   uint8_t c, r, k, v, p, m, eh = hgt[vy][vx], *t;
   VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
@@ -1211,6 +1212,13 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
           else if (v == 1) { lo &= (uint8_t)~bit; hi |= bit; } // grass tuft
           else if (v == 3) lo &= (uint8_t)~bit; // stone edge
           else if (v == 4) lo &= (uint8_t)~bit; // water ripple
+        }
+        // A stationary first-person antenna silhouette gives the 3D view
+        // scale and depth without drawing more rays or sprite objects.
+        if (r >= 9) {
+          uint8_t ant_mask = tbuf[(uint16_t)c * 24u + (uint8_t)((r - 9u) * 8u + k)];
+          lo |= ant_mask;
+          hi |= ant_mask;
         }
         *t++ = lo; *t++ = hi;
       }
@@ -1277,8 +1285,11 @@ static void eye(void) {                              // pilot a black ant; food,
   // Do not permit a camera-only 'ghost walk' that changes no real world tile.
   if (vi >= MAXA) { say("NO WORKER: GROW COLONY"); sfx_deny(); return; }
   HIDE_SPRITES;
+  // The title help scratch is idle during ANT EYE; use only its first 480
+  // bytes for two gently curved antennae at the bottom of the 3D view.
+  disable_interrupts(); eye_build_antennae(tbuf); enable_interrupts();
   VBK_REG = VBK_TILES;
-  for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
+  for (x = 0; x < VX; x++) for (y = 0; y < VR; y++ ) set_win_tile_xy(x, VY0 + y, x * VR + y);
   // Clean the bottom four status rows AND the top two header rows with one
   // bounded loop. Otherwise stale strategy-map/UI glyphs bleed into ANT EYE.
   for (y = 14; y < 20; y++)

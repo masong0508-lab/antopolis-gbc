@@ -142,3 +142,11 @@ The scene should show tan soil, green grass, brown rock and blue water
 using existing palettes. Near grass can show small tan mottling; distant
 grass should remain a solid green. Confirm walking and diagonal blocking
 still agree with the 2D map and the AHEAD indicator.
+
+## Foreground ant silhouette
+
+ANT EYE should show two restrained curved dark antennae rising from the
+bottom edge (not opaque walls or a HUD sprite). They should stay fixed as
+the camera turns, while the world behind them changes. Exiting to the
+overhead map must restore its HUD; entering again rebuilds the same masks
+without interfering with help text or title scene generation.

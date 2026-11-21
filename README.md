@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **Immersive ANT EYE foreground:** two curved, dark ant antennae and a narrow mandible/head ridge frame the lower first-person view, giving the pilot a visible body reference. The mask is generated once in bank 3 into 480 bytes of the existing text scratch buffer and composited into normal ray-column tile uploads. This costs no new RAM allocation, OAM sprites, or extra ray casts.
+
+
 - **ANT EYE atmosphere and material texture:** the 3D viewport now has a separate indigo upper-sky palette and fine, deterministic one-pixel stippling for sand, grass, rock, and water. Terrain rays and depth geometry remain unchanged; existing tile-column uploads still handle the drawing, with no extra rays, framebuffers, or OAM sprites. Gold scent and combat sprites remain untextured for clarity.
 
 
