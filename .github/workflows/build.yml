@@ -90,6 +90,20 @@ jobs:
         run: |
           make GBDK_HOME="$PWD/gbdk" 2>&1 | tee build.log
           if grep -q "overflow from Bank" build.log; then echo "code overflows the 32 KB that is always mapped"; exit 1; fi
+      - name: Verify fixed-bank trampoline layout
+        run: |
+          python3 - <<'PY'
+          import re
+          data = open('build/empire-ants.map').read()
+          start = re.search(r'([0-9A-Fa-f]{8})\s+s__HOME\b', data)
+          size = re.search(r'([0-9A-Fa-f]{8})\s+l__HOME\b', data)
+          assert start and size, "Missing GBDK trampoline area in linker map"
+          address, length = int(start[1], 16), int(size[1], 16)
+          print("Bank 0 trampoline:", hex(address), "through", hex(address + length))
+          assert 0x200 <= address and address + length < 0x4000, (
+              "Fatal BANKED trampoline placed in switchable ROM1"
+          )
+          PY
       - name: ROM report
         run: |
           python3 - <<'PY'

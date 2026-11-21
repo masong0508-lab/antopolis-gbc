@@ -69,3 +69,14 @@ a visible camera turn, and return to the 2D map. It uploads actual emulator
 screenshots and a JSON report. An emulator boot smoke is not a substitute
 for human testing of terrain collisions, long sessions, audio or physical
 GBC link-cable timing.
+
+## Fixed-bank trampoline safety
+
+The old monolithic linker layout put GBDK's `__sdcc_bcall_ehl` trampoline
+in switchable ROM1 at about 0x7DE8. Any ANT EYE function called with
+`BANKED` selected ROM3 and immediately switched the executing trampoline
+out, causing an emulator LCD shutdown. The Makefile now reserves a fixed
+ROM0 slot at 0x0200 for `_HOME` before linking `_CODE` at 0x0500;
+CI inspects the actual symbol address and fails builds if `_HOME`
+moves into switchable space. This must still pass a real ANT EYE emulator
+screen-transition test, not just a bank-space assertion.
