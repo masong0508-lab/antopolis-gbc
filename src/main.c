@@ -244,7 +244,7 @@ static void help_draw(void) {
 static void help_open(void) {
   htop = 0; text2(HELP2, 0);
   put_str(0, 2, "PAUSED"); attr(0, 2, 6, 2); put_str(7, 2, DNAME[gdiff]);
-  put_line(16, "A:SAVE  B:QUIT");
+  put_line(16, "A:SAVE  B TWICE:QUIT");
   put_str(0, 17, "U/D SCROLL  START:GO");
   help_draw();
 }
@@ -260,7 +260,7 @@ static void win_clear(void) {                      // blank text, white palette 
   hdp = 0;
 }
 static void say(const char *m) { msg = m; msgt = 12; }
-static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255;
+static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255, hc = 255;
 // HUD (window rows 0-1, labels gold, numbers white):
 //   row 0   MP nn [10-cell mana bar] F nn           row 1   Q a/b   A nn   R nn   P nn   FF
 // A hint (say()) temporarily replaces row 1. Window writes are slow, so only what changed is redrawn.
@@ -286,8 +286,11 @@ static void hud(void) {
     for (i = 0; i < 20; i++) put_char(i, 1, ' ');
     put_char(0, 1, 'Q'); put_char(2, 1, '/'); put_char(6, 1, 'A'); put_char(10, 1, 'R'); put_char(14, 1, "PTE"[mp]);   // T = turn time, E = enemy mana
     attr(0, 1, 1, 2); attr(6, 1, 1, 2); attr(10, 1, 1, 2); attr(14, 1, 1, 2);
-    hq0 = hq1 = ha = hr = hp = hf = 255; hlab = 1;
+    hq0 = hq1 = ha = hr = hp = hf = hc = 255; hlab = 1;
   }
+  // One spare HUD cell exposes the cursor's real terrain without changing
+  // the colony counters. Only redraw when its terrain class changes.
+  if (hc != hgt[cy][cx]) { hc = hgt[cy][cx]; put_char(5, 1, "WSGH"[hc]); }
   if (qhp[0] != hq0) { hq0 = qhp[0]; put_char(1, 1, '0' + hq0); }
   if (qhp[1] != hq1) { hq1 = qhp[1]; put_char(3, 1, '0' + hq1); }
   if (ncnt[0] != ha) { ha = ncnt[0]; put_num(7, 1, ha); }
@@ -971,7 +974,7 @@ static void title_tick(void) {                    // one title frame
   if (++tf3 >= 3) { tf3 = 0; if (++tsh >= 48) tsh = 0; if (tsh <= 16) logo_shine((int8_t)tsh - 2); }
   if ((tfr & 31) == 0) twinkle((tfr >> 5) & 1);
   on = (tfr & 63) < 44;
-  if (on != tblink) { tblink = on; put_str(4, 9, on ? "PRESS START" : "           "); }
+  if (on != tblink) { tblink = on; put_str(4, 9, on ? "START: PLAY" : "           "); }
   for (i = 0; i < 5; i++) {                       // 3 black ants march right, 2 red ants march left
     if (!(tfr & 1)) { if (i < 3) { if (++wx[i] >= 168) wx[i] = 0; } else wx[i] = wx[i] ? wx[i] - 1 : 167; }
     set_sprite_tile(i, TW + (((tfr >> 3) + i) & 1));
@@ -995,9 +998,9 @@ static void title_paint(void) {
   put_str(2, 6, "THE RULER OF YOU");
   put_char(5, 7, '<'); put_char(14, 7, '>'); attr(5, 7, 10, 3);          // gold level picker (LEFT / RIGHT)
   diff_draw();
-  if (hassave) put_str(1, 10, "UP:LOAD  B:RECORDS"); else put_str(5, 10, "B: RECORDS");
-  put_str(0, 11, "A:LEARN DOWN:VERSUS");
-  put_str(1, 12, "HOLD SEL: SANDBOX");
+  if (hassave) put_str(1, 10, "UP:CONTINUE B:STATS"); else put_str(5, 10, "B:RECORDS");
+  put_str(0, 11, "A:TUTORIAL DOWN:VS");
+  put_str(1, 12, "SEL START: SANDBOX");
 }
 // Records: wins, losses, fastest win and best score for each level. Hold SELECT + B for 2 s to erase them. START / A goes back.
 static void records_draw(void) {

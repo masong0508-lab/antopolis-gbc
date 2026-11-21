@@ -12,6 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: make test
+      - name: Check UI text layout and font glyphs
+        run: python3 tools/test_ui_copy.py
 
   ant-eye-emulator-smoke:
     name: Headless GBC ANT EYE emulator smoke
