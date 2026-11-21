@@ -686,17 +686,12 @@ static uint8_t save_scan(uint8_t apply) {
 static void save_erase(void) { sram_open(SAV_AT); *sp = 0; sram_close(); }
 
 // ---------- scoring + records ----------
-static uint16_t secs_played(void) {
-  uint16_t s = (uint16_t)(((uint32_t)gt * 2) / 15);     // 7.5 ticks per second
-  return s > 5999 ? 5999 : s ? s : 1;
-}
-// score for a win: 300 / 600 / 900 for the level + up to 600 for speed (one point per second under 10 minutes)
-// + 5 per ant + popularity + 10 per queen HP left
-static uint16_t calc_score(uint16_t secs) {
-  uint16_t sc = 300 * (gdiff + 1);
-  if (secs < 600) sc += 600 - secs;
-  return sc + ncnt[0] * 5 + appr + qhp[0] * 10;
-}
+// Bit-exact match time and score calculations now live in bank 3.
+// This runs only after the match ends: no per-frame bank-switch cost,
+// no fixed-ROM 32-bit division, no new RAM or save-format changes.
+void results_compute(uint16_t ticks, uint8_t difficulty,
+                     uint8_t ants, uint8_t approval, uint8_t queen_hp,
+                     uint16_t *seconds, uint16_t *score) BANKED;
 static uint8_t rec_game(uint16_t secs, uint16_t score) {   // returns bit 0 = new fastest win, bit 1 = new high score
   uint8_t d = gdiff, fl = 0;
   if (over == 1) {
@@ -1699,7 +1694,10 @@ static void play(void) {
   music_stop();
   if (over == 3) return;               // quit from the pause menu: the title screen takes over (a save, if any, is kept)
   count(ncnt);
-  secs = secs_played(); score = (over == 1) ? calc_score(secs) : 0;
+  disable_interrupts();
+  results_compute(gt, gdiff, ncnt[0], appr, qhp[0], &secs, &score);
+  enable_interrupts();
+  if (over != 1) score = 0;
   if (slotgame) { save_erase(); slotgame = 0; hassave = 0; }   // a finished game uses up its save: no reloading after a loss
   if (mp == 2 && over < 3 && me) over ^= 3;                     // on a link, 1 = this GB won
   attr(0, 1, 20, 1);
