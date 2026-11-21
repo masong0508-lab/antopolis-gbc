@@ -81,6 +81,20 @@ are made. The pure visibility and silhouette-size rules are native-tested.
 
 Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.
 
+### ANT EYE short-range home detours
+
+When carrying food, the first-person compass can now suggest a safe
+`DETOUR: NORTH/EAST/SOUTH/WEST` if the direct homeward step is
+blocked by water or a cliff. It checks the actual terrain for **two
+legal cardinal legs** and rejects a second move that merely backtracks
+to the original tile. This helps a worker steer around small moats
+instead of always saying `HOME: CHECK MAP` despite an open bypass.
+It deliberately does **not** claim a full maze route: when no local
+two-step detour exists the prompt still says to consult the map.
+The check runs on ant movement/selection, not on 3D ray frames, and
+requires no new RAM navigation map, heap or sprite resources. Native
+tests cover east/south fallback and a genuinely closed corridor.
+
 ### Safer first-person return-home guidance
 
 When carrying a berry, ANT EYE now checks the next actual terrain step
