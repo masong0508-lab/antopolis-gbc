@@ -600,6 +600,7 @@ static void count(uint8_t *c) {
 #define CFG_MAGIC 0xC5
 #define SAVE_MAGIC 0xA7   // bumped: the ant list shrank (50 slots), old saves are ignored
 typedef ResultsRecord Rec;  // unchanged SRAM bytes: wins/losses, fastest time, highest score
+void terrain_food_normalize(uint8_t heights[32][32], uint8_t berries[32][32]) BANKED;
 static Rec rec;
 static volatile uint8_t *sp; static uint8_t ssum;
 static void sram_open(uint16_t at) {
@@ -665,8 +666,7 @@ static uint8_t save_scan(uint8_t apply) {
   }
   for (y = 0; y < H; y++) for (x = 0; x < W; x += 8) {
     b = sr();
-    if (apply) for (k = 0; k < 8; k++)
-      food[y][x + k] = (uint8_t)TERRAIN_FOOD_AFTER(hgt[y][x + k], (b >> k) & 1u);
+    if (apply) for (k = 0; k < 8; k++) food[y][x + k] = (b >> k) & 1u;
   }
   for (i = 0; i < MAXA; i++) {
     RD(ant[i].x); RD(ant[i].y);
@@ -675,6 +675,13 @@ static uint8_t save_scan(uint8_t apply) {
   }
   ok = ok && (*sp == ssum);
   sram_close();
+  // Keep bank-switching out of the hot terrain/ant loops. This is a
+  // once-per-load migration of historical underwater berry bits.
+  if (apply) {
+    disable_interrupts();
+    terrain_food_normalize(hgt, food);
+    enable_interrupts();
+  }
   return ok;
 }
 static void save_erase(void) { sram_open(SAV_AT); *sp = 0; sram_close(); }
@@ -928,8 +935,8 @@ static void lower_land(void) {
   if (mana && hgt[cy][cx] > 0 && !is_nest(cx, cy)) {
     uint8_t drowned;
     hgt[cy][cx]--; mana--;
-    drowned = (uint8_t)TERRAIN_FOOD_DROWNED(hgt[cy][cx], food[cy][cx]);
-    food[cy][cx] = (uint8_t)TERRAIN_FOOD_AFTER(hgt[cy][cx], food[cy][cx]);
+    drowned = (uint8_t)(!hgt[cy][cx] && food[cy][cx]);
+    if (!hgt[cy][cx]) food[cy][cx] = 0;
     draw_cell(cx, cy); refresh_terrain_neighbors(cx, cy); sfx_lower(); tev |= 4;
     say(drowned ? "FOOD WASHED AWAY" : hgt[cy][cx] == 2 ? "HILL CUT DOWN" :
         hgt[cy][cx] == 1 ? "RAMP LOWERED" : "MOAT DUG");
