@@ -1,6 +1,6 @@
-// First-person ray marcher, kept in switchable ROM bank 1 to preserve the scarce fixed bank.
+// First-person ray marcher, kept in switchable ROM bank 3 to preserve the scarce fixed bank.
 // One BANKED call updates four columns per frame. World state and constants remain in bank 0.
-#pragma bank 1
+#pragma bank 3
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdint.h>
