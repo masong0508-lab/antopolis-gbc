@@ -29,6 +29,51 @@ assert m, "GBC generated sprite tile table missing"
 actual = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", m.group(1))]
 assert len(actual) == 112, f"SPT contains {len(actual)}, expected 112 bytes"
 assert actual == encoded, "Hand-drawn source art and GBC tile bytes are out of sync"
+# Verify every terrain/biome source pixel against what is actually
+# shipped in the .gbc, not merely the seven character tiles.
+def art_array(name):
+    node = next(
+        item.value for item in source.body
+        if isinstance(item, ast.Assign)
+        and any(isinstance(x, ast.Name) and x.id == name for x in item.targets)
+    )
+    return ast.literal_eval(node)
+
+def packed_bytes(pixel_rows):
+    data = []
+    for row in pixel_rows:
+        assert len(row) == 8 and set(row) <= set("0123")
+        lo = hi = 0
+        for digit in row:
+            value = int(digit)
+            lo = (lo << 1) | (value & 1)
+            hi = (hi << 1) | ((value >> 1) & 1)
+        data.extend((lo, hi))
+    return data
+
+def assert_art_table(name, pixels):
+    expected = packed_bytes(pixels)
+    match = re.search(
+        rf"static const uint8_t {name}\\[{len(expected)}\\]\\s*=\\s*\\{{(.*?)\\}};",
+        content, re.S
+    )
+    assert match, f"{name} missing or incorrect tile count"
+    current = [int(x, 16) for x in re.findall(r"0x([0-9A-Fa-f]{2})", match.group(1))]
+    assert current == expected, f"{name}: generated GBC tile data is stale"
+
+biomes = art_array("BG")
+bar = art_array("BAR")
+details = art_array("ALT")
+assert len(biomes) == 48 and len(bar) == 16
+assert len(details) == 8 and all(len(tile) == 8 for tile in details)
+assert_art_table("BGT", biomes + bar)
+assert_art_table("BGT_ALT", [line for tile in details for line in tile])
+# The stylized nests have a genuine dark tunnel entrance, not a blob
+# of the same color as sand; grass berries use contrasting crop clusters.
+assert "0" in "".join(biomes[4*8:5*8])
+assert "1" in "".join(biomes[5*8:6*8])
+assert len(set(tuple(biomes[i*8:(i+1)*8]) for i in range(6))) == 6
+assert all(tuple(details[i*2]) != tuple(details[i*2+1]) for i in range(4))
 assert rows[0:8] != rows[16:24], "Worker and queen must look distinct"
 assert rows[24:32] != rows[32:40], "Walking animation frames must differ"
 assert rows[40:48] != rows[48:56], "Carrying animation frames must differ"
@@ -53,6 +98,9 @@ assert "carrying[index]" in frames
 assert "5u + frame : 3u + frame" in frames
 assert "colony_walker_frame(i, phase, carrying)" in banked
 assert "set_sprite_data(0, 7, SPT)" in gameplay
+assert "set_sprite_palette(0, 7, spal)" in gameplay
+assert "set_sprite_palette(0, 7, fs)" in gameplay
+assert "colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)" in sprite_pass
 assert "tbuf[s] = ant[i].carry" in sprite_pass
 assert "eye_animate_walkers(s, (uint8_t)(sys_time >> 3), tbuf)" in sprite_pass
 assert "shadow_OAM[4u + i].tile =" in banked, (
