@@ -236,13 +236,21 @@ def main():
             look_tile = pyboy.memory[WINDOW_MAP + 1 * 32 + 6]
         finally:
             pyboy.memory[0xFF4F] = bank_saved & 1
-        # Every AHEAD status must be an actual font glyph; the original '.'
-        # category was silently displayed as a space in the 40-glyph font.
-        allowed = {136 + 11 + (ord(c) - ord("A"))
-                   for c in "XWCOFARHQ"}
-        report["hud_look_tile"] = look_tile
-        if look_tile not in allowed:
-            raise AssertionError("AHEAD status is blank or invalid: " + repr(look_tile))
+        # Actual window tile-map, not source-code assumptions: readable
+        # word-based target, selected worker and four non-overlapping rows.
+        target_tile = tile0(7, 1)
+        if target_tile not in {glyph(c) for c in "EWCOFA"}:
+            raise AssertionError("AHEAD target is not a readable word")
+        if tile0(0, 0) != glyph("A") or tile0(9, 0) != glyph("W"):
+            raise AssertionError("Selected worker header is absent")
+        if (tile0(0, 15), tile0(0, 16), tile0(0, 17)) != (
+            glyph("U"), glyph("A"), glyph("S")
+        ):
+            raise AssertionError("ANT EYE commands overlap the wrong rows")
+        if tile0(11, 14) != glyph("X") or tile0(15, 14) != glyph("Y"):
+            raise AssertionError("ANT EYE status lost actual world coordinates")
+        report["hud_target_tile"] = target_tile
+        report["ui"]["eye_commands_grouped"] = True
 
         # Real camera turning should redraw the view, not freeze one half.
         press("right", 18)
@@ -260,11 +268,11 @@ def main():
             # temporarily selects bank 1 for per-tile palette attributes.
             # Read the actual digits from bank 0, never attribute bytes,
             # otherwise a bank swap could falsely look like ant movement.
-            base = WINDOW_MAP + 17 * 32
+            base = WINDOW_MAP + 14 * 32
             previous_bank = pyboy.memory[0xFF4F]
             pyboy.memory[0xFF4F] = 0
             try:
-                return tuple(pyboy.memory[base + col] for col in (1, 2, 5, 6))
+                return tuple(pyboy.memory[base + col] for col in (12, 13, 16, 17))
             finally:
                 pyboy.memory[0xFF4F] = previous_bank & 1
 

@@ -1,3 +1,7 @@
+### ANT EYE HUD redesign
+
+First-person mode now uses a high-contrast gold **ANT EYE / WORKER** header, a human-readable target name with compass heading, and a four-row contextual command bar. The navigation strip shows nearby food or the direction home and real worker X/Y coordinates. Movement, A/B combat, and SELECT/START shortcuts occupy separate consistent rows. The old overlapping debug readouts have been removed. Bank-3 HUD formatting uses only unused bytes 480-500 of existing scratch RAM; it runs on player changes, not per video frame. Emulator checks validate the actual VRAM text and worker movement.
+
 # EMPIRE-ANTS (GBC)
 
 *The ruler of you*

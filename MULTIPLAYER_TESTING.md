@@ -169,3 +169,12 @@ gradient colors after the title fade, and the real pheromone highlights must
 use the gameplay gold/green palette rather than the title's logo colors.
 The smoke test captures RGB pixels in all three sky rows and fails if the
 title-to-game transition did not restore all eight CGB palettes.
+
+## GBC ANT EYE actionable HUD
+
+The two-row header now identifies the selected worker and spells out the
+actual terrain or creature ahead, together with the compass direction. The
+footer keeps food/home guidance plus X/Y coordinates on row 14, movement
+instructions on row 15, A/B actions on row 16, and scent/map shortcuts on
+row 17. No command should be overwritten by navigation text. CI inspects
+the GBC's actual VRAM tilemap, walks the real worker, and verifies exit.

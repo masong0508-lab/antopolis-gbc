@@ -1246,16 +1246,14 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
   VBK_REG = VBK_TILES;
 }
 static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
-static void eye_status(uint8_t vx, uint8_t vy) {
-  put_str(0, 17, "X"); put_num(1, 17, vx); put_str(4, 17, "Y"); put_num(5, 17, vy);
-  put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
-  put_str(12, 17, "FACING"); put_str(18, 17, COMPASS[vang >> 1]);
-}
 // Moved to switchable bank 3, preserving scarce fixed bank space.
 void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
+void eye_ui_ahead(char *b, uint8_t target, uint8_t facing) BANKED;
+void eye_ui_guide(char *b, uint8_t nav, uint8_t carry,
+                  uint8_t x, uint8_t y, uint8_t hx, uint8_t hy) BANKED;
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
@@ -1311,11 +1309,16 @@ static void eye(void) {                              // pilot a black ant; food,
   // bounded loop. Otherwise stale strategy-map/UI glyphs bleed into ANT EYE.
   for (y = 14; y < 20; y++)
     for (x = 0; x < VX; x++) set_win_tile_xy(x, (uint8_t)(y < 18 ? y : y - 18), FT);
-  put_str(0, 0, "ANT EYE");
-  put_str(0, 1, "AHEAD:");
-  put_str(0, 14, "A:NEXT ANT B:BITE   ");
-  put_str(0, 15, "L/R TURN U/D WALK   ");
-  put_str(0, 16, "SEL:SCENT START:MAP ");
+  put_str(0, 0, "ANT EYE  WORKER");
+  put_str(0, 15, "UP/DN WALK L/R TURN");
+  put_str(0, 16, "A NEXT ANT  B BITE");
+  put_str(0, 17, "SEL SCENT  START MAP");
+  attr(0, 0, 20, 2);
+  attr(0, 1, 20, 1);
+  attr(0, 14, 20, 2);
+  attr(0, 15, 20, 1);
+  attr(0, 16, 20, 1);
+  attr(0, 17, 20, 2);
   memset(occ, 0, sizeof occ);
   occ_set();                                        // fresh snapshot, no ghosts from old cells
   move_win(7, 0);
@@ -1335,27 +1338,19 @@ static void eye(void) {                              // pilot a black ant; food,
       // direction previously reset column 0 every four frames, so the
       // right half of the picture could remain stale indefinitely.
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
-      eye_status(vx, vy);
-      // Directly facing a target is useful on a 160x144 screen. Classify
-      // once per movement/turn, not every animation frame or ray column.
+      // The selected ant and ahead object have their own information bars.
+      // Rendering is updated only on a player action, not each frame.
+      put_num(17, 0, (uint8_t)(vi + 1u));
       disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
-      put_char(6, 1, "XWCOFARHQ"[d]);
-      if (ant[vi].carry) {
-        // Use glyphs present in the tiny font. '<' and '>' have dedicated
-        // tiles; N/S/O are printable while '^', 'v' and '=' are blank.
-        put_str(0, 14, "FOOD HOME X");
-        put_char(11, 14, vx < nestx[0] ? '>' : vx > nestx[0] ? '<' : 'O');
-        put_str(12, 14, " Y");
-        put_char(14, 14, vy < nesty[0] ? 'S' : vy > nesty[0] ? 'N' : 'O');
-        put_str(15, 14, "     ");
-      } else {
-        put_str(0, 14, "A:NEXT B:BITE ");
-        if (nav & 0x80) {
-          put_str(14, 14, "F:    ");
-          put_char(16, 14, (nav & 1) ? '>' : (nav & 2) ? '<' : 'O');
-          put_char(18, 14, (nav & 4) ? 'S' : (nav & 8) ? 'N' : 'O');
-        } else put_str(14, 14, "NOFOOD");
-      }
+      disable_interrupts();
+      eye_ui_ahead((char *)tbuf + 480, d, (uint8_t)(vang >> 1));
+      enable_interrupts();
+      put_str(0, 1, (const char *)tbuf + 480);
+      disable_interrupts();
+      eye_ui_guide((char *)tbuf + 480, nav, ant[vi].carry,
+                   vx, vy, nestx[0], nesty[0]);
+      enable_interrupts();
+      put_str(0, 14, (const char *)tbuf + 480);
     }
     vsync();
     if (vcol < VX) {
