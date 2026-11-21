@@ -36,6 +36,22 @@ int main(void) {
         assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, carrying) == want);
       }
   }
-  puts("GBC walking/carrier frames: 36 slots, 256 combinations, no bitshift state PASS");
+  // The same animation tiles must retain intuitive team/role identity.
+  // Carried gold takes precedence over soldier armor (a fighting ant can
+  // also bring back a berry), and both teams use independent palettes.
+  for (unsigned team = 0; team < 2; team++) {
+    assert(colony_worker_palette((uint8_t)team, 0, 0) == team);
+    assert(colony_worker_palette((uint8_t)team, 1, 0) == team + 3);
+    assert(colony_worker_palette((uint8_t)team, 0, 1) == team + 5);
+    assert(colony_worker_palette((uint8_t)team, 1, 1) == team + 3);
+  }
+  for (unsigned team = 0; team < 2; team++)
+    for (unsigned carry = 0; carry < 2; carry++)
+      for (unsigned soldier = 0; soldier < 2; soldier++) {
+        unsigned palette = colony_worker_palette((uint8_t)team,
+                           (uint8_t)carry, (uint8_t)soldier);
+        assert(palette < 7);  // GBC: only seven of eight OBJ palettes used
+      }
+  puts("GBC worker/carrier/soldier palettes and 36 animated OAM slots PASS");
   return 0;
 }
