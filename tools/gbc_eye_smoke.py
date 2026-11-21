@@ -225,6 +225,8 @@ def main():
         report["render_detail"]["sky_gradient_rgb"] = sky_samples
         if len(set(sky_samples)) < 3:
             raise AssertionError("ANT EYE upper sky lacks its three-layer atmosphere")
+        if any(blue < red for red, green, blue in sky_samples):
+            raise AssertionError("ANT EYE sky contains a mismatched red/yellow band")
         if len(eye.getcolors(maxcolors=160 * 144) or []) < 4:
             raise AssertionError("ANT EYE picture looks blank or uses too few colors")
         # Read VRAM bank 0: the foreground palette attribute plane is bank 1.

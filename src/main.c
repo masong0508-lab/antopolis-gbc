@@ -103,7 +103,7 @@ static const palette_color_t bpal[32] = {
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
   RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8), // 6: gold scent over grass and sand
-  RGB(4,10,23),  RGB(7,16,28), RGB(13,22,31),  RGB(31,29,19)}; // 7: three-step dusk sky
+  RGB(4,10,23),  RGB(7,16,28), RGB(13,22,31),  RGB(17,25,31)}; // 7: graded indigo-to-cyan sky
 // Eight palette slots, with a dedicated sky gradient; no extra frame RAM.
 typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 32 ? 1 : -1];
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
