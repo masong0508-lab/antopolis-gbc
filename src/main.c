@@ -101,7 +101,7 @@ static void set_rules(uint8_t d) {
 // Seven 4-colour CGB background palettes (0-6). Keep storage and upload
 // count identical: a 24-entry declaration silently dropped the trail palette.
 static const palette_color_t bpal[32] = {
-  RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
+  RGB(5,12,25), RGB(28,23,14), RGB(9,23,8), RGB(15,11,8),  // 0: deep-water blue / sand / moss / warm rock
   RGB(2,5,13), RGB(6,11,21),  RGB(14,23,28), RGB(31,31,28), // 1: midnight blue and ivory UI
   RGB(2,5,13), RGB(14,9,5),   RGB(26,19,8),  RGB(31,29,16), // 2: warm brass headings
   RGB(18,27,31), RGB(11,26,9), RGB(27,22,12), RGB(21,14,6), // 3: luminous horizon, land + rock
@@ -122,7 +122,7 @@ static const palette_color_t tpal[32] = {
   RGB(1,1,5),   RGB(14,8,2),   RGB(28,18,6),  RGB(31,31,16),   // 6: logo shine, soft
   RGB(1,1,5),   RGB(20,14,6),  RGB(31,26,14), RGB(31,31,28)};  // 7: logo shine, bright
 static const palette_color_t spal[12] = {
-  RGB(0,0,0), RGB(2,2,2),   RGB(14,14,14), RGB(31,31,31),
+  RGB(0,0,0), RGB(5,7,10),  RGB(19,21,25), RGB(31,31,31),
   RGB(0,0,0), RGB(26,3,3),  RGB(31,12,8),  RGB(31,31,31),
   RGB(0,0,0), RGB(31,31,0), RGB(31,20,0),  RGB(31,31,31)};
 
