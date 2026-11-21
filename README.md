@@ -1,3 +1,22 @@
+## Milestone: flood-safe food and honest terrain feedback (November 2026)
+
+GBC terrain edits and natural disasters now remove berries when a cell
+becomes water, matching the GBA port. Raising land again does **not**
+resurrect drowned food. Classic workers, first-person ANT EYE, and the
+3D occupancy view all ignore food on submerged tiles; loading an older
+battery-save normalizes submerged food while leaving the save structure
+and existing ant/terrain state intact.
+
+Lowering a berry-bearing sand cell reports **FOOD WASHED AWAY**.
+Player floods report whether they drowned supplies or only reshaped
+terrain. These changes use the current nine-cell event pass, preserve
+existing earthquake RNG order and multiplayer rules, and require no
+new permanent RAM, framebuffer, or extra ray casts.
+
+A native regression exercises every terrain height, food state,
+sinking transition, and old-save normalization. Full ROM build and
+emulator checks remain required before release.
+
 ## Graphics restoration — GBC terrain, anatomy and role colors (November 2026)
 
 The overhead colony now uses a coherent pixel-art treatment rather than
