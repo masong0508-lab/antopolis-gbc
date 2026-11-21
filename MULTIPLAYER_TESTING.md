@@ -178,3 +178,13 @@ footer keeps food/home guidance plus X/Y coordinates on row 14, movement
 instructions on row 15, A/B actions on row 16, and scent/map shortcuts on
 row 17. No command should be overwritten by navigation text. CI inspects
 the GBC's actual VRAM tilemap, walks the real worker, and verifies exit.
+
+## Terrain-aware ANT EYE food guidance
+
+Place food diagonally across a water/cliff corner and verify the HUD does
+not display a false diagonal bearing. If the horizontal side is open, it
+should suggest that direction; if the nearest food has no legal immediate
+approach, it should choose a farther reachable source when one exists.
+If all food sources are blocked at the first step, show FOOD NONE rather
+than directing the worker into an impassable obstacle. The algorithm is
+greedy for its first step, not a full multi-tile shortest-path solver.

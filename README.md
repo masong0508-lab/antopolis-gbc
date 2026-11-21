@@ -1,3 +1,7 @@
+### Path-aware first-person food directions
+
+Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.
+
 ### ANT EYE action feedback
 
 The first-person command panel now clearly reports **PATH BLOCKED**, **FOOD PICKED UP**, **FOOD DELIVERED**, **BITE MISSED**, **ENEMY DEFEATED**, or **QUEEN HIT!** after real gameplay actions. Messages come from actual movement, inventory and hit results, not decorative guesses; the standard food/home bearings and X/Y coordinates return when the player moves or turns. Invalid bites and blocked steps no longer waste ray-render passes. Banked text formatting reuses the existing 640-byte scratch and does not allocate additional VRAM buffers. The pause guide has been updated to describe the new visible feedback.

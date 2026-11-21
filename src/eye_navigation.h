@@ -99,12 +99,32 @@ static uint8_t eye_ahead_kind(uint8_t heights[EYE_WORLD][EYE_WORLD],
 #ifndef EYE_NAV_RADIUS
 #define EYE_NAV_RADIUS 8
 #endif
+// The food bearing must describe an ACTUALLY WALKABLE first step. Reject
+// diagonal corner cuts and cliffs exactly as ANT EYE movement does. If a
+// diagonal is obstructed but one cardinal leg is open, guide along that
+// side instead of pointing straight into a wall. No heap/queue/map RAM.
+static uint8_t eye_food_first_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
+                                  uint8_t vx, uint8_t vy,
+                                  uint8_t tx, uint8_t ty) {
+  int8_t dx = tx > vx ? 1 : tx < vx ? -1 : 0;
+  int8_t dy = ty > vy ? 1 : ty < vy ? -1 : 0;
+  uint8_t horiz = dx > 0 ? 1u : dx < 0 ? 2u : 0u;
+  uint8_t vert = dy > 0 ? 4u : dy < 0 ? 8u : 0u;
+  if (dx && dy &&
+      eye_legal_leg(heights, vx, vy, dx, dy) &&
+      eye_legal_leg(heights, vx, vy, dx, 0) &&
+      eye_legal_leg(heights, vx, vy, 0, dy))
+    return (uint8_t)(horiz | vert);
+  if (dx && eye_legal_leg(heights, vx, vy, dx, 0)) return horiz;
+  if (dy && eye_legal_leg(heights, vx, vy, 0, dy)) return vert;
+  return 0;
+}
 // Food scan is bounded to a configurable 8-tile radius and only runs when the selected
 // ant CHANGES TILE, not on every ray/turn/frame. Return x/y bearing bits.
 static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
                                 uint8_t berries[EYE_WORLD][EYE_WORLD],
                                 uint8_t vx, uint8_t vy) {
-  uint8_t x, y, best = 255, tx = vx, ty = vy, d;
+  uint8_t x, y, best = 255, d, leg, bearing = 0;
   uint8_t x0 = vx > EYE_NAV_RADIUS ? vx - EYE_NAV_RADIUS : 0;
   uint8_t x1 = vx < (31 - EYE_NAV_RADIUS) ? vx + EYE_NAV_RADIUS : 31;
   uint8_t y0 = vy > EYE_NAV_RADIUS ? vy - EYE_NAV_RADIUS : 0;
@@ -113,10 +133,11 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
     if (!berries[y][x] || !heights[y][x]) continue;
     d = (uint8_t)((x > vx ? x - vx : vx - x) +
                   (y > vy ? y - vy : vy - y));
-    if (d < best) { best = d; tx = x; ty = y; }
+    if (d < best) {
+      leg = eye_food_first_leg(heights, vx, vy, x, y);
+      if (leg) { best = d; bearing = leg; }
+    }
   }
-  return best == 255 ? 0 : (uint8_t)(0x80u |
-    (tx > vx ? 1u : tx < vx ? 2u : 0u) |
-    (ty > vy ? 4u : ty < vy ? 8u : 0u));
+  return best == 255 ? 0 : (uint8_t)(0x80u | bearing);
 }
 #endif

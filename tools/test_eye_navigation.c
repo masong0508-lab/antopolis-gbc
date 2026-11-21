@@ -69,6 +69,17 @@ int main(void) {
   berries[8][9] = 1;
   bearing = eye_food_bearing(terrain, berries, 10, 10);
   assert(bearing == (uint8_t)(0x80 | 2 | 8)); // west, north
+  // An obstructed diagonal must never be advertised as a valid step.
+  terrain[9][10] = 0;   // north water, west still clear
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 2)); // steer west, not NW
+  terrain[10][9] = 0;   // nearest NW food now unreachable at first step
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 1)); // use farther reachable eastern food
+  berries[10][13] = 0;
+  assert(!eye_food_bearing(terrain, berries, 10, 10));
+  terrain[9][10] = 1;
+  terrain[10][9] = 1;
   // Farther than eight tiles is not shown as a close source.
   berries[8][9] = berries[10][13] = 0;
   berries[30][30] = 1;
