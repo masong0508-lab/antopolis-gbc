@@ -174,9 +174,23 @@ def main():
             raise AssertionError("Pause guide did not clear old HUD and draw command header")
         if tile0(0, 1) != 203:
             raise AssertionError("Command screen divider is missing")
+        # Verify the shipped mission-first help text, not an obsolete
+        # START HERE heading from the prior cartridge revision.
         top_help_tile = tile0(0, 3)
-        if top_help_tile != glyph("S"):  # START HERE
-            raise AssertionError("Pause guide did not start at QUICK START")
+        if top_help_tile != glyph("Y"):  # #YOUR MISSION in bank 2
+            raise AssertionError("Pause guide did not open at YOUR MISSION")
+        for col, letter in enumerate("SAVE YOUR QUEEN"):
+            if tile0(col, 4) != glyph(letter):
+                raise AssertionError(
+                    "Pause guide lost readable queen objective at column "
+                    + str(col)
+                )
+        for col, letter in enumerate("DEFEAT THE RED QUEEN"):
+            if tile0(col, 5) != glyph(letter):
+                raise AssertionError(
+                    "Pause guide lost its enemy queen objective at column "
+                    + str(col)
+                )
         snapshot("02_pause_guide")
         press("down", 18)
         pyboy.tick(20, True, False)
