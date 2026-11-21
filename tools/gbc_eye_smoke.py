@@ -180,6 +180,17 @@ def main():
             "real_worker_moved": True,
         }
         snapshot("05_walked_and_scent_marked")
+        # Biting without a nearby enemy must not teleport the worker or
+        # crash the new ROM3 target classifier.
+        standing = position_glyphs()
+        press("b", 18)
+        pyboy.tick(84, True, False)
+        if not (pyboy.memory[0xFF40] & 0x80):
+            raise AssertionError("ANT EYE bite shut off the GBC display")
+        if position_glyphs() != standing:
+            raise AssertionError("ANT EYE bite moved the worker unexpectedly")
+        report["combat"] = {"bite_kept_worker_position": True}
+        snapshot("06_bite")
 
         # Leave first person and make sure the regular 2D tile map returns.
         # A ray sweep may span more than three emulated frames; hold START
@@ -187,7 +198,7 @@ def main():
         # impossibly short emulator-only tap during VRAM uploads.
         press("start", 18)
         pyboy.tick(120, True, False)
-        snapshot("06_back_to_strategy")
+        snapshot("07_back_to_strategy")
         vbk = pyboy.memory[0xFF4F]
         pyboy.memory[0xFF4F] = 0
         try:
@@ -201,7 +212,7 @@ def main():
                 "ANT EYE did not restore the 2D HUD and window position: "
                 + repr(report["vram"])
             )
-        report["result"] = "PASS: GBC boot, strategy, 3D ANT EYE, turn, worker walking, scent, 2D return"
+        report["result"] = "PASS: GBC boot, 3D ANT EYE, turning, walking, scent, bite, 2D return"
         print(report["result"])
     except Exception as error:
         report["result"] = "FAIL: " + repr(error)

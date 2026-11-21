@@ -44,6 +44,25 @@ int main(void) {
   assert(x == 11 && y == 10);
   x = 0; y = 0;
   assert(!eye_attack_target(terrain, x, y, 8, &x, &y));
+  // The ANT EYE target HUD must agree with the real movement and bite
+  // collision rules and identify real objects, not imaginary 3D markers.
+  memset(berries, 0, sizeof berries);
+  assert(eye_ahead_kind(terrain, berries, 0, 0, 8) == 0); // edge
+  terrain[10][11] = 0;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0) == 1); // water
+  terrain[10][11] = 3;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0) == 2); // high step
+  terrain[10][11] = 1;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0) == 3); // free
+  for (i = 1; i <= 5; i++) {
+    berries[10][11] = i;
+    assert(eye_ahead_kind(terrain, berries, 10, 10, 0) ==
+           (uint8_t)(i == 5 ? 4 : i + 4));
+  }
+  berries[10][11] = 0;
+  terrain[10][11] = 0;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 2) == 2); // diagonal water corner
+  terrain[10][11] = 1;
   // Nearby food can be found; directions are canonical compass axes.
   assert(!eye_food_bearing(terrain, berries, 10, 10));
   berries[10][13] = 1;
@@ -75,6 +94,6 @@ int main(void) {
   assert(eye_ground_class(1, 2, 3, 2) == 1);
   assert(eye_ground_class(2, 2, 3, 15) == 2);
   assert(eye_ground_class(1, 2, 2, 2) == 2);
-  puts("GBC ANT EYE movement, collisions, food, scent visibility and terrain shading passed");
+  puts("GBC ANT EYE movement, targeting, food, scent visibility and terrain shading passed");
   return 0;
 }

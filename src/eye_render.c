@@ -59,6 +59,12 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       if (a < 0) a = 0;
       col = o == 5 ? 7 : (o & 1) ? 6 : 5;
       for (r = a; r < e; r++) cls[r] = col;
+      // Queens need a distinct silhouette: a two-pixel royal gold cap on
+      // the otherwise team-colored tower. No extra columns or textures.
+      if ((o == 3 || o == 4) && a < e) {
+        cls[a] = 7;
+        if (a + 1 < e) cls[a + 1] = 7;
+      }
       if (a < lim) lim = (uint8_t)a;
     }
   }
@@ -86,4 +92,10 @@ uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED {
    movement vector used by ANT EYE: never through cliffs or diagonal corners. */
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED {
   return eye_attack_target(hgt, vx, vy, vang, tx, ty);
+}
+
+/* The forward context compass and bite share the exact terrain/ant data.
+   It is sampled only after a change of direction or the selected worker. */
+uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED {
+  return eye_ahead_kind(hgt, occ, vx, vy, vang);
 }

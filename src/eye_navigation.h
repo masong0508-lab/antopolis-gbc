@@ -73,6 +73,27 @@ static uint8_t eye_attack_target(uint8_t heights[EYE_WORLD][EYE_WORLD],
   *tx = x; *ty = y;
   return 1;
 }
+// Status code for the cell directly ahead, sharing the same real collision
+// rule as ANT EYE walking and biting. No map allocations or extra camera rays.
+// 0 boundary, 1 water, 2 blocked cliff/corner, 3 empty, 4 food,
+// 5 friendly worker, 6 enemy worker, 7 home queen, 8 enemy queen.
+static uint8_t eye_ahead_kind(uint8_t heights[EYE_WORLD][EYE_WORLD],
+                              uint8_t entities[EYE_WORLD][EYE_WORLD],
+                              uint8_t x, uint8_t y, uint8_t facing) {
+  int8_t nx = (int8_t)x + EYE_DX[facing & 15];
+  int8_t ny = (int8_t)y + EYE_DY[facing & 15];
+  uint8_t tx, ty, o;
+  if (nx < 0 || ny < 0 || nx >= EYE_WORLD || ny >= EYE_WORLD) return 0;
+  if (!heights[(uint8_t)ny][(uint8_t)nx]) return 1;
+  if (!eye_attack_target(heights, x, y, facing, &tx, &ty)) return 2;
+  o = entities[ty][tx];
+  if (!o) return 3;
+  if (o == 5) return 4;
+  if (o == 1) return 5;
+  if (o == 2) return 6;
+  if (o == 3) return 7;
+  return 8;
+}
 #ifndef EYE_NAV_RADIUS
 #define EYE_NAV_RADIUS 8
 #endif

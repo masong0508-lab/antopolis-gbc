@@ -108,3 +108,12 @@ a call to a general multiplication routine in switchable ROM1. Rotate/look
 tests did not exercise it. The helper now uses sign inversion for backward
 steps; a real-ROM smoke must verify changing the pilot's world coordinates
 while LCDC remains enabled, including SELECT pheromone marking.
+
+## Real-world target cue / queen silhouette
+
+In ANT EYE, face water, cliffs, an empty tile, food, a worker, and each
+queen (when reachable). The `AHEAD:` indicator must show `W`, `C`,
+`.`, `F`, `A`/`R`, and `H`/`Q` respectively; an off-grid direction
+shows `X`. It must never claim a bite through a blocked diagonal corner.
+Queen posts have a tiny gold cap in the 3D view. The headless emulator now
+presses B after a real walk to catch regressions from the banked attack path.

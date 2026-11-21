@@ -1216,6 +1216,7 @@ static void eye_status(uint8_t vx, uint8_t vy) {
 void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
+uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
@@ -1269,7 +1270,7 @@ static void eye(void) {                              // pilot a black ant; food,
   for (y = 14; y < 20; y++)
     for (x = 0; x < VX; x++) set_win_tile_xy(x, (uint8_t)(y < 18 ? y : y - 18), FT);
   put_str(0, 0, "ANT EYE");
-  put_str(0, 1, "SCENT TRAILS: GOLD");
+  put_str(0, 1, "AHEAD:");
   put_str(0, 14, "A:NEXT ANT B:BITE   ");
   put_str(0, 15, "L/R TURN U/D WALK   ");
   put_str(0, 16, "SEL:SCENT START:MAP ");
@@ -1293,6 +1294,10 @@ static void eye(void) {                              // pilot a black ant; food,
       // right half of the picture could remain stale indefinitely.
       go = 0; if (vcol >= VX) vcol = 0; else dirty = 1;
       eye_status(vx, vy);
+      // Directly facing a target is useful on a 160x144 screen. Classify
+      // once per movement/turn, not every animation frame or ray column.
+      disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
+      put_char(6, 1, "XWC.FARHQ"[d]);
       if (ant[vi].carry) {
         // Use glyphs present in the tiny font. '<' and '>' have dedicated
         // tiles; N/S/O are printable while '^', 'v' and '=' are blank.
