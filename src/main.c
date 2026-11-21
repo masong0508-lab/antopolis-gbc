@@ -99,7 +99,7 @@ static const palette_color_t bpal[24] = {
   RGB(0,0,0),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),   // 2: (spare)
   RGB(3,7,20),   RGB(11,26,9),  RGB(4,16,6),    RGB(21,14,6),    // 3: ant eye, land + rock
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(4,16,6),     // 4: ant eye, water
-  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(4,16,6)};    // 5: ant eye, red / black ants
+  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8)}; // gold food in ANT EYE    // 5: ant eye, red / black ants
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
 static const palette_color_t tpal[32] = {
   RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 0: night sky (top)
@@ -1036,7 +1036,14 @@ static void records_screen(void) {
 static uint8_t lk(uint8_t v) {
   uint16_t t0 = sys_time; uint8_t r;
   if (!me) {
-    do { SB_REG = v; SC_REG = 0x81; while (SC_REG & 0x80) {} r = SB_REG; if (r != 0xFF) return r; } while ((uint16_t)(sys_time - t0) < 180);
+    do {
+      SB_REG = v; SC_REG = 0x81;
+      // Disconnects must not trap the main thread in an endless serial busy-wait.
+      while ((SC_REG & 0x80) && (uint16_t)(sys_time - t0) < 180) {}
+      if (SC_REG & 0x80) { SC_REG = 0; break; }
+      r = SB_REG;
+      if (r != 0xFF) return r;
+    } while ((uint16_t)(sys_time - t0) < 180);
   } else {
     SB_REG = v == 0xFF ? 0xFE : v; SC_REG = 0x80;
     while ((uint16_t)(sys_time - t0) < 180) if (!(SC_REG & 0x80)) { r = SB_REG; SB_REG = 0xFF; return r; }
@@ -1141,7 +1148,7 @@ static void title(void) {
 static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
 static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
 // pixel class (0 sky, 1/2 checker land, 3 hill, 4 water, 5 red, 6 black) -> colour of palette 3 / 4 / 5
-static const uint8_t PMAP[3][7] = {{0, 1, 2, 3, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0}, {0, 3, 3, 3, 0, 1, 2}};
+static const uint8_t PMAP[3][8] = {{0, 1, 2, 3, 0, 0, 0, 0}, {0, 2, 3, 3, 1, 0, 0, 0}, {0, 3, 3, 3, 0, 1, 2, 3}}; // 7 = golden food
 static int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 static uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
 
@@ -1175,11 +1182,11 @@ static void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) {
     }
     o = occ[y][x];
     if (o && !(x == vx && y == vy) && (uint8_t)(px - 64) < 128 && (uint8_t)(py - 64) < 128) {   // centre of the cell only
-      a = BBH[n]; if (o > 2) a <<= 1;
+      a = BBH[n]; if (o == 5) a >>= 1; else if (o > 2) a <<= 1;
       a = yt - a;                                    // top row of the post
       e = yt < lb ? yt : lb;
       if (a < 0) a = 0;
-      col = (o & 1) ? 6 : 5;
+      col = o == 5 ? 7 : (o & 1) ? 6 : 5;
       for (r = a; r < e; r++) cls[r] = col;
       if (a < lim) lim = (uint8_t)a;
     }
@@ -1187,8 +1194,9 @@ static void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) {
 }
 
 static uint8_t tcol[VR * 16];
-static void occ_set(uint8_t on) {                    // mark ants / queen towers on the occupancy map (and clear it again)
-  uint8_t i;
+static void occ_set(uint8_t on) {                    // visible food, ants and queens in the SAME world as the colony map
+  uint8_t i, x, y;
+  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = on ? 5 : 0;
   for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = on ? ant[i].team + 1 : 0;
   for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = on ? 3 + i : 0;
 }
@@ -1216,7 +1224,7 @@ static void eye_status(uint8_t vx, uint8_t vy) {
   put_str(9, 17, "H"); put_char(10, 17, '0' + hgt[vy][vx]);
   put_str(12, 17, "FACING"); put_str(18, 17, COMPASS[vang >> 1]);
 }
-static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward (dir 1) or back (-1), ants' rules: no cliffs, no water
+static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell forward/back; same cliff and water rules as ants
   int8_t fx = SIN16[(vang + 4) & 15], fy = SIN16[vang], dx = 0, dy = 0;
   if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1; else dy = fy < 0 ? -1 : 1;
   dx *= dir; dy *= dir;
@@ -1225,7 +1233,46 @@ static void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) {   // walk one cell 
 
 static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
 
-static void eye(void) {                              // time stands still while you look through a black ant's eyes
+// Pilot the selected worker in the real map; first-person movement is no longer a camera-only trick.
+// Keep the colony simulation paused to leave enough GBC time for ray rendering, but preserve all changes.
+static void eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
+  Ant *a;
+  if (vi >= MAXA || !vok(vi)) return;
+  a = &ant[vi]; a->x = vx; a->y = vy;
+  if (scent) ph[vy][vx] = 255;
+  if (!a->carry && food[vy][vx]) {
+    food[vy][vx] = 0; a->carry = 1; draw_cell(vx, vy); sfx_food();
+  }
+  if (a->carry && vx == nestx[0] && vy == nesty[0]) {
+    a->carry = 0;
+    if (stock[0] < 99) stock[0]++;
+    mana = (mana + MANA_PER_FOOD > MANA_MAX) ? MANA_MAX : mana + MANA_PER_FOOD;
+    apr(1); sfx_mana();
+  }
+  memset(occ, 0, sizeof occ); occ_set(1);
+}
+
+// A bite has an actual target in the cell ahead; this affects ants and the enemy queen in the real game.
+static void eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
+  int8_t fx, fy, dx = 0, dy = 0;
+  int16_t tx, ty; uint8_t i;
+  if (vi >= MAXA || !vok(vi)) return;
+  fx = SIN16[(vang + 4) & 15]; fy = SIN16[vang];
+  if ((fx < 0 ? -fx : fx) >= (fy < 0 ? -fy : fy)) dx = fx < 0 ? -1 : 1;
+  else dy = fy < 0 ? -1 : 1;
+  tx = (int16_t)vx + dx; ty = (int16_t)vy + dy;
+  if (tx < 0 || ty < 0 || tx >= W || ty >= H) { sfx_deny(); return; }
+  for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == 1 && ant[i].x == tx && ant[i].y == ty) {
+    die(&ant[i]); sfx_fight(); memset(occ, 0, sizeof occ); occ_set(1); return;
+  }
+  if (tx == nestx[1] && ty == nesty[1] && qhp[1]) {
+    qhp[1]--; sfx_hit(); if (!qhp[1]) over = 1;
+    memset(occ, 0, sizeof occ); occ_set(1); return;
+  }
+  sfx_deny();
+}
+
+static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirs, last = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
@@ -1233,9 +1280,9 @@ static void eye(void) {                              // time stands still while 
   VBK_REG = VBK_TILES;
   for (x = 0; x < VX; x++) for (y = 0; y < VR; y++) set_win_tile_xy(x, VY0 + y, x * VR + y);
   for (y = 14; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, FT);
-  put_str(0, 14, "A:NEXT ANT B:GO HERE");
-  put_str(0, 15, "L/R TURN  U/D WALK");
-  put_str(0, 16, "START BACK TIME STOP");
+  put_str(0, 14, "A:NEXT ANT B:BITE   ");
+  put_str(0, 15, "L/R TURN U/D WALK   ");
+  put_str(0, 16, "SEL:SCENT START:MAP ");
   occ_set(1);                                        // ants cannot move in here: mark them once
   move_win(7, 0);
   prev = joypad();
@@ -1243,25 +1290,32 @@ static void eye(void) {                              // time stands still while 
     if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
       if (go == 1) { if (vi < MAXA) { vx = ant[vi].x; vy = ant[vi].y; } else { vx = nestx[0]; vy = nesty[0]; } }
       go = 0; vcol = 0; eye_status(vx, vy);
+      put_str(0, 14, vi < MAXA && ant[vi].carry ? "FOOD: TAKE HOME!    " : "A:NEXT ANT B:BITE   ");
     }
     vsync();
     if (vcol < VX) { view_cols(vx, vy, vcol, vcol + 4); vcol += 4; }   // 4 columns per frame: the view sweeps in, input stays live
     k = joypad(); p = k & ~prev; prev = k;
     if (p & J_START) break;
-    if (p & J_B) { cx = vx; cy = vy; break; }          // transfer: the cursor jumps to where you were looking from
+    if (p & J_B) { eye_bite(vi, vx, vy); go = 2; if (over) break; }
     if (p & J_A) { i = 0; do { vi = (vi == MAXA) ? 0 : vi + 1; } while (!vok(vi) && ++i <= MAXA); sfx_food(); go = 1; }
+    if ((k & J_SELECT) && vi < MAXA) ph[vy][vx] = 255;
     dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
     if (dirs != last) { rep = 0; last = dirs; }
     if (dirs) {
       if (rep == 0 || (rep >= 8 && !(rep & 3))) {
         if (dirs & J_RIGHT) { vang = (vang + 1) & 15; go = 2; }
         else if (dirs & J_LEFT) { vang = (vang + 15) & 15; go = 2; }
-        else { x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1); if (vx != x || vy != y) go = 2; }
+        else {
+          x = vx; y = vy; eye_step(&vx, &vy, (dirs & J_UP) ? 1 : -1);
+          if (vx != x || vy != y) { eye_pilot(vi, vx, vy, (uint8_t)(k & J_SELECT)); go = 2; }
+          else sfx_deny();
+        }
       }
       if (rep < 250) rep++;
     }
   }
-  occ_set(0);
+  cx = vx; cy = vy;                       // map cursor follows the actual pilot when leaving ANT EYE
+  memset(occ, 0, sizeof occ);
   win_clear(); hdirty = 1;
   move_win(7, 128); SHOW_SPRITES;
   waitpadup();
