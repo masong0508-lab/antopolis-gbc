@@ -20,3 +20,5 @@ test:
 	mkdir -p build
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_navigation.c -o build/test_eye_navigation
 	./build/test_eye_navigation
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_ui.c -o build/test_eye_ui
+	./build/test_eye_ui
