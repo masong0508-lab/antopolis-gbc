@@ -59,6 +59,14 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
       if (a < 0) a = 0;
       col = o == 5 ? 7 : (o & 1) ? 6 : 5;
       for (r = a; r < e; r++) cls[r] = col;
+      // At readable distances split the actual ant into antenna/leg
+      // outlines around a solid thorax and abdomen. The tile composer
+      // uses a different pixel mask for limb class 9/10 (red/black).
+      if (o != 5 && e > a + 4) {
+        cls[a] = (col == 5) ? 9 : 10;
+        cls[e - 1] = (col == 5) ? 9 : 10;
+        if (e > a + 10) cls[e - 2] = (col == 5) ? 9 : 10;
+      }
       // Queens need a distinct silhouette: a two-pixel royal gold cap on
       // the otherwise team-colored tower. No extra columns or textures.
       if ((o == 3 || o == 4) && a < e) {

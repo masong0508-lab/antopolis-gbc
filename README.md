@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **Readable 3D ants and twilight atmosphere:** real worker and queen ray hits now render with segmented 8-pixel body and leg/antenna masks, rather than solid vertical rectangles. Red/black ownership and queen gold crown remain intact. The upper ANT EYE sky uses three graded blue CGB shades and a luminous horizon. No new sprite objects, ray casts, framebuffers, or RAM buffers; the same 240 tile-column renderer is used, with additional emulator sky checks.
+
+
 - **Immersive ANT EYE foreground:** two curved, dark ant antennae and a narrow mandible/head ridge frame the lower first-person view, giving the pilot a visible body reference. The mask is generated once in bank 3 into 480 bytes of the existing text scratch buffer and composited into normal ray-column tile uploads. This costs no new RAM allocation, OAM sprites, or extra ray casts.
 
 

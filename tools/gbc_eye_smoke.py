@@ -219,6 +219,12 @@ def main():
         if upper_sky_palette != 7 or grain_bytes < 20:
             raise AssertionError("ANT EYE lost atmospheric sky / terrain detail")
 
+        # The horizon should brighten through actual blue tones, not
+        # remain the previous near-black monolithic upper rectangle.
+        sky_samples = [eye.convert("RGB").getpixel((24, y)) for y in (20, 28, 36)]
+        report["render_detail"]["sky_gradient_rgb"] = sky_samples
+        if len(set(sky_samples)) < 3:
+            raise AssertionError("ANT EYE upper sky lacks its three-layer atmosphere")
         if len(eye.getcolors(maxcolors=160 * 144) or []) < 4:
             raise AssertionError("ANT EYE picture looks blank or uses too few colors")
         # Read VRAM bank 0: the foreground palette attribute plane is bank 1.

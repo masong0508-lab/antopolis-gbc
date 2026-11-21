@@ -150,3 +150,13 @@ bottom edge (not opaque walls or a HUD sprite). They should stay fixed as
 the camera turns, while the world behind them changes. Exiting to the
 overhead map must restore its HUD; entering again rebuilds the same masks
 without interfering with help text or title scene generation.
+
+## ANT EYE organism silhouette and gradient
+
+Inspect an actual worker, enemy worker, and queen in ANT EYE: a nearby
+figure should show small gaps for antennae/legs around a segmented body
+rather than a solid vertical rectangle. Ally is dark and enemy red,
+with gold on the queens. Distant silhouettes remain compact dots.
+The sky should graduate from navy through blue to the light horizon in
+the top 24 px of the 3D viewport. The emulator tests three distinct
+RGB samples and continues exercising walking, bite and returning to map.

@@ -99,11 +99,11 @@ static const palette_color_t bpal[32] = {
   RGB(8,16,28), RGB(28,24,14), RGB(8,20,6), RGB(6,4,3),      // 0: terrain
   RGB(2,5,13), RGB(6,11,21),  RGB(14,23,28), RGB(31,31,28), // 1: midnight blue and ivory UI
   RGB(2,5,13), RGB(14,9,5),   RGB(26,19,8),  RGB(31,29,16), // 2: warm brass headings
-  RGB(7,15,27),  RGB(11,26,9),  RGB(27,22,12),  RGB(21,14,6),    // 3: sky near horizon, land + rock
+  RGB(18,27,31), RGB(11,26,9), RGB(27,22,12), RGB(21,14,6), // 3: luminous horizon, land + rock
   RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
   RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
   RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8), // 6: gold scent over grass and sand
-  RGB(1,3,11),   RGB(8,16,25), RGB(17,25,30),  RGB(31,31,28)}; // 7: indigo upper atmosphere
+  RGB(4,10,23),  RGB(7,16,28), RGB(13,22,31),  RGB(31,29,19)}; // 7: three-step dusk sky
 // Eight palette slots, with a dedicated sky gradient; no extra frame RAM.
 typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 32 ? 1 : -1];
 // title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
@@ -1150,12 +1150,16 @@ const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, 
 // Precomputed 1-bit texture masks avoid a variable shift inside the
 // 240-tile ANT EYE sweep; 8 ROM bytes, no RAM or extra rendering passes.
 static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
-const uint8_t PMAP[5][9] = {
-  {0, 1, 2, 3, 0, 0, 0, 0, 0}, // land
-  {0, 2, 3, 3, 1, 0, 0, 0, 0}, // water
-  {0, 3, 3, 3, 0, 1, 2, 3, 0}, // ants and food
-  {0, 1, 2, 3, 0, 0, 0, 3, 3}, // gold pheromone
-  {0, 1, 2, 3, 0, 0, 0, 0, 0}  // dark upper sky
+// 8px silhouettes carved out of a real ant/queen ray hit. Red and black
+// bodies remain team-colored; transparent gaps read as deep shadow.
+static const uint8_t EYE_BODY[8]={0x24,0x3C,0x7E,0x3C,0x7E,0x7E,0xA5,0x42};
+static const uint8_t EYE_LIMBS[8]={0x81,0xC3,0xA5,0x42,0xA5,0x81,0x42,0x24};
+const uint8_t PMAP[5][11] = {
+  {0,1,2,3,0,0,0,0,0,0,0}, // land
+  {0,2,3,3,1,0,0,0,0,0,0}, // water
+  {0,3,3,3,0,1,2,3,0,1,2}, // ants, gold food, segmented red/black limbs
+  {0,1,2,3,0,0,0,3,3,0,0}, // gold pheromone
+  {0,1,2,3,0,0,0,0,0,0,0}  // upper sky
 };
 int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
@@ -1205,6 +1209,20 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
         v = cls[r * 8 + k];
         lo = (PMAP[p][v] & 1u) ? 0xFFu : 0;
         hi = (PMAP[p][v] & 2u) ? 0xFFu : 0;
+        // A real three-stage blue sky, rather than a black rectangle over a
+        // blue rectangle. Two dithered edges soften the tile-row boundaries.
+        if (p == 4 && v == 0) {
+          lo = r >= 1 ? 0xFFu : (k >= 6 ? 0xAAu : 0);
+          hi = r >= 2 ? 0xFFu : (r == 1 && k >= 6 ? 0xAAu : 0);
+        }
+        // Keep ants visibly arthropod-shaped, not solid colored posts:
+        // their segmented bodies and projecting legs use the real team
+        // palette and the same ray visibility/occlusion as before.
+        if (p == 2 && (v == 5 || v == 6 || v == 9 || v == 10)) {
+          uint8_t mask = (v >= 9) ? EYE_LIMBS[k] : EYE_BODY[k];
+          lo &= mask;
+          hi &= mask;
+        }
         // Sparse 1-pixel rock grains, grass tufts and water ripples.
         // Only natural terrain gets them: ants and gold trails stay crisp.
         if ((p == 0 || p == 1) && (k & 3u) == 0) {
