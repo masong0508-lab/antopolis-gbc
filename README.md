@@ -1,3 +1,7 @@
+### Strategy HUD readability
+
+The overhead colony now labels its top resources **MANA** and **FOOD** in words, with a five-step mana indicator that fits beside both numbers. Holding SELECT replaces the cryptic stat strip with the controls it modifies: **A:TRADE B:FAST START**; releasing SELECT restores the colony status counters. New games give the clear initial instruction **A RAISE B LOWER**. These changes preserve the two-row gameplay window and do not reduce the visible map.
+
 ### ANT EYE HUD redesign
 
 First-person mode now uses a high-contrast gold **ANT EYE / WORKER** header, a human-readable target name with compass heading, and a four-row contextual command bar. The navigation strip shows nearby food or the direction home and real worker X/Y coordinates. Movement, A/B combat, and SELECT/START shortcuts occupy separate consistent rows. The old overlapping debug readouts have been removed. Bank-3 HUD formatting uses only unused bytes 480-500 of existing scratch RAM; it runs on player changes, not per video frame. Emulator checks validate the actual VRAM text and worker movement.

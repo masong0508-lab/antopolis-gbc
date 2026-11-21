@@ -109,11 +109,14 @@ def main():
                 + repr(detail_tiles)
             )
         strategy_head = pyboy.memory[ANT_EYE_HEADER]
-        if strategy_head != 136 + 23:  # 'M' from the MP HUD in row zero
+        if strategy_head != 136 + 23:  # 'M' from the MANA HUD in row zero
             raise AssertionError(
                 "Expected strategy HUD after title START, got window tile "
                 + repr(strategy_head)
             )
+        # Status band is understandable without opening the manual.
+        if tile0(1, 0) != glyph("A") or tile0(14, 0) != glyph("F"):
+            raise AssertionError("Strategy HUD lost MANA/FOOD resource labels")
         before = pyboy.memory[ANT_EYE_VIEW_ROW + 1]
         terrain_tile = tile0(5, 1)
         if terrain_tile not in {glyph(c) for c in "WSGH"}:

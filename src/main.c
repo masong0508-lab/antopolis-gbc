@@ -233,19 +233,22 @@ static void win_clear(void) {                      // blank text, white palette 
   hdp = 0;
 }
 static void say(const char *m) { msg = m; msgt = 12; }
-static uint8_t hdirty = 1, hlab, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255, hc = 255;
+static uint8_t hdirty = 1, hlab, hmod, hm = 255, hs = 255, hq0 = 255, hq1 = 255, ha = 255, hr = 255, hf = 255, hp = 255, hc = 255;
 // HUD (window rows 0-1, labels gold, numbers white):
 //   row 0   MP nn [10-cell mana bar] F nn           row 1   Q a/b   A nn   R nn   P nn   FF
 // A hint (say()) temporarily replaces row 1. Window writes are slow, so only what changed is redrawn.
 static void hud(void) {
   uint8_t i;
   if (hdirty) {                                  // new game: static labels + force every number
-    put_str(0, 0, "MP"); attr(0, 0, 2, 2); put_char(17, 0, 'F'); attr(17, 0, 1, 2);
-    hm = hs = hq0 = hq1 = ha = hr = hf = hp = 255; hlab = 0; hdirty = 0;
+    // Real word labels replace the ambiguous MP/F diagnostic abbreviations.
+    put_str(0, 0, "MANA"); attr(0, 0, 4, 2);
+    put_str(14, 0, "FOOD"); attr(14, 0, 4, 2);
+    hm = hs = hq0 = hq1 = ha = hr = hf = hp = 255;
+    hlab = hmod = 0; hdirty = 0;
   }
   if (mana != hm) {
-    hm = mana; put_num(3, 0, mana);
-    for (i = 0; i < 10; i++) set_win_tile_xy(6 + i, 0, mana > 2 * i ? BAR_F : BAR_E);   // mana bar, 2 mana per cell
+    hm = mana; put_num(5, 0, mana);
+    for (i = 0; i < 5; i++) set_win_tile_xy(8 + i, 0, mana > (i << 2) ? BAR_F : BAR_E);
   }
   if (stock[pl] != hs) { hs = stock[pl]; put_num(18, 0, hs); }
   if (msgt) {                                   // hint overlay: text padded to the full 20 columns
@@ -255,6 +258,17 @@ static void hud(void) {
     if (hlab) { attr(0, 1, 20, 1); hlab = 0; }  // labels must be redrawn afterwards
     return;
   }
+  // SELECT is the game's modifier key; explain its controls while held,
+  // without stealing any of the overhead map's visible playfield.
+  if (joypad() & J_SELECT) {
+    if (!hmod) {
+      put_line(1, "A:TRADE B:FAST START");
+      attr(0, 1, 20, 2);
+      hmod = 1; hlab = 0;
+    }
+    return;
+  }
+  if (hmod) { hmod = 0; hlab = 0; }
   if (!hlab) {
     for (i = 0; i < 20; i++) put_char(i, 1, ' ');
     put_char(0, 1, 'Q'); put_char(2, 1, '/'); put_char(6, 1, 'A'); put_char(10, 1, 'R'); put_char(14, 1, "PTE"[mp]);   // T = turn time, E = enemy mana
@@ -840,7 +854,7 @@ static void newgame(uint8_t load) {
   camx = 0; camy = H - VH; follow(); scx = (int16_t)camx * 8; scy = (int16_t)camy * 8;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) draw_cell(x, y);
   win_clear(); hud();
-  say(ok ? "GAME LOADED" : sandbox ? "SANDBOX: NO LIMITS" : mp == 1 ? "P1 BLACK GOES FIRST" : mp ? (me ? "YOU ARE RED" : "YOU ARE BLACK") : "A/B LAND START HELP");
+  say(ok ? "GAME LOADED" : sandbox ? "SANDBOX: NO LIMITS" : mp == 1 ? "P1 BLACK GOES FIRST" : mp ? (me ? "YOU ARE RED" : "YOU ARE BLACK") : "A RAISE B LOWER");
   move_win(7, 128);                    // window = 2-row HUD at the bottom
   SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;
   SHOW_WIN; SHOW_SPRITES;
