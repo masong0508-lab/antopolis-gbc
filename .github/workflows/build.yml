@@ -118,8 +118,13 @@ jobs:
           assert start and size, "Missing GBDK trampoline area in linker map"
           address, length = int(start[1], 16), int(size[1], 16)
           print("Bank 0 trampoline:", hex(address), "through", hex(address + length))
-          assert 0x200 <= address and address + length < 0x4000, (
-              "Fatal BANKED trampoline placed in switchable ROM1"
+          # After packing the header-adjacent free space, check both
+          # that trampoline calls stay in bank 0 AND no code overlaps them.
+          code = re.search(r'([0-9A-Fa-f]{8})\s+s__CODE\b', data)
+          assert code, "Missing _CODE area in linker map"
+          code_start = int(code[1], 16)
+          assert 0x0150 <= address and address + length <= code_start < 0x4000, (
+              "BANKED trampoline overlaps fixed code or cartridge header"
           )
           PY
       - name: ROM report
