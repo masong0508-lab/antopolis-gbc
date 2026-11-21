@@ -533,7 +533,11 @@ static void draw_cell(uint8_t x, uint8_t y) {
   // World detail is keyed to fixed coordinates rather than a global RNG:
   // the same water, soil, grass and rock patches remain identifiable after
   // returning from ANT EYE; never allocate another 32x32 terrain array.
-  if (t < 4 && ((x + y + (x >> 2)) & 3u))
+  // Alt tiles are accents on one quarter of the terrain, not on three
+  // quarters of every screen. Keep the large colored landforms legible
+  // while retaining two coordinate-stable water/soil/grass/rock details.
+  // No new tiles, RAM, redraw passes or additional per-frame work.
+  if (t < 4 && !((x + y + (x >> 2)) & 3u))
     set_bkg_tile_xy(x, y, (uint8_t)(WORLD_DETAIL + (t << 1) + ((x ^ y) & 1u)));
   else set_bkg_tile_xy(x, y, BT + t);
 }
