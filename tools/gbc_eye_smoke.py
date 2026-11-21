@@ -35,7 +35,7 @@ def main():
         image = pyboy.screen.image.copy()
         path = args.out / (name + ".png")
         image.save(path)
-        frame_diff = None if last is None else bool(ImageChops.difference(last, image).getbbox())
+        frame_diff = None if last is None else bool(ImageChops.difference(last.convert("RGB"), image.convert("RGB")).getbbox())
         report["snapshots"][name] = {
             "path": path.name,
             "size": list(image.size),
@@ -92,7 +92,7 @@ def main():
         press("right", 18)
         pyboy.tick(120, True, False)
         rotated = snapshot("04_turned_camera")
-        if not ImageChops.difference(eye, rotated).getbbox():
+        if not ImageChops.difference(eye.convert("RGB"), rotated.convert("RGB")).getbbox():
             raise AssertionError("ANT EYE camera did not visibly update on turn")
 
         # Leave first person and make sure the regular 2D tile map returns.

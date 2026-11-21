@@ -24,6 +24,9 @@ jobs:
         with:
           name: empire-ants
           path: build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - name: Install pinned headless Game Boy Color emulator
         run: python3 -m pip install pyboy==2.9.0
       - name: Boot ROM and validate 2D / 3D screen transitions
