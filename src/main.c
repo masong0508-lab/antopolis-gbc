@@ -72,32 +72,23 @@ static const int8_t DY[4] = {0, 0, 1, -1};
 // ---------- difficulty ----------
 // 0 EASY, 1 NORMAL, 2 HARD (title screen: LEFT/RIGHT). Everything that differs lives in this table and set_rules() copies it into the
 // variables the game loop reads. NORMAL is exactly the game as it was before levels existed.
-typedef struct { uint8_t mana0, trk, drn, hc, thr, q0, q1; } Rules;
-static const Rules DIF[3] = {
-  // start MP | mana trickle mask | popularity drain mask | red food per ant | red soldiers march at | my queen HP | red queen HP
-  { 14, 15, 63, 4, 12, 7, 4 },
-  { 10, 31, 31, 3,  8, 5, 5 },
-  {  6, 63, 15, 2,  6, 4, 6 }};
+// Difficulty arithmetic and its seven-byte rule table now live in
+// switchable ROM3. Two calls per normal match at most (new game/perk).
 static const char *const DNAME[3] = {"EASY  ", "NORMAL", "HARD  "};
-static uint8_t diff, gdiff;                    // diff = the title screen's choice (remembered); gdiff = level of the game being played
-static uint8_t trk, drn, hcost[2], thr[2], qmax[2], fcost;
-// Roguelike perks: after every election that is not a coup you may take one of two random perks (A or B) for the rest of the run.
-// perk = bit mask of owned perks (saved in the free upper bits of the save-game flag byte, so old saves still load).
-static uint8_t perk, pend, pa, pb;             // pend = ticks left to choose (0 = no offer), pa/pb = the two offered perks
+static uint8_t diff, gdiff;                    // chosen difficulty and active difficulty
+static uint8_t trk, drn, hcost[2], thr[2], qmax[2], fcost, mana_start;
+// Perks remain the same six persistent bits and use identical save data.
+static uint8_t perk, pend, pa, pb;
+void rules_build(uint8_t difficulty,uint8_t owned,uint8_t out[10]) BANKED;
 static void set_rules(uint8_t d) {
-  trk = DIF[d].trk; drn = DIF[d].drn;          // mana +1 every (trk+1) ticks, popularity -1 every (drn+1) ticks
-  hcost[0] = 3; hcost[1] = DIF[d].hc;          // food per hatched ant
-  thr[0] = 8;   thr[1] = DIF[d].thr;           // colony size at which soldiers start marching
-  qmax[0] = DIF[d].q0; qmax[1] = DIF[d].q1;    // queen HP
-  fcost = 8;                                   // perks (bits 0..5) tweak the rules on top of the level
-  if (perk & 1) fcost = 4;                     // FLOOD 4:  flood costs 4 MP
-  if (perk & 2) hcost[0] = 2;                  // FASTEGG:  your ants hatch from 2 food
-  if (perk & 4) trk >>= 1;                     // MANA UP:  mana trickles twice as fast
-  if (perk & 8) drn = (drn << 1) | 1;          // CALM:     popularity sinks slower (and disasters come less often)
-  if (perk & 16) qmax[0]++;                    // QUEENUP:  one more queen HP
-  if (perk & 32) hcost[1]++;                   // SLOWRED:  red ants hatch from 1 more food
+  uint8_t v[10];  // a temporary ten-byte result, no permanent WRAM map
+  disable_interrupts();
+  rules_build(d, perk, v);
+  enable_interrupts();
+  mana_start=v[0]; trk=v[1]; drn=v[2]; hcost[0]=v[3];
+  hcost[1]=v[4]; thr[0]=v[5]; thr[1]=v[6];
+  qmax[0]=v[7]; qmax[1]=v[8]; fcost=v[9];
 }
-
 // ---------- palettes & graphics (generated from strings) ----------
 // Seven 4-colour CGB background palettes (0-6). Keep storage and upload
 // count identical: a 24-entry declaration silently dropped the trail palette.
@@ -897,7 +888,7 @@ static void newgame(uint8_t load) {
     for (i = 0; i < MAXA; i++) ant[i].alive = 0;
     stock[0] = stock[1] = 0; qhp[0] = qmax[0]; qhp[1] = qmax[1]; hatched[0] = hatched[1] = 0;
     for (k = 0; k < 3; k++) { spawn(0); spawn(1); }
-    appr = 50; etk = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = DIF[gdiff].mana0; tk = 0; gt = 0;
+    appr = 50; etk = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = mana_start; tk = 0; gt = 0;
   }
   count(ncnt);
   ff = 0; slice = 0; hdirty = 1; cheat = 0; over = 0; pend = 0; pl = 0; tt = sys_time + TURN;
