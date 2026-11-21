@@ -6,6 +6,9 @@ An ant-colony terraforming strategy game for Game Boy Color, GBDK-2020. Every gr
 
 ## Gameplay and multiplayer update (November 2026)
 
+- **Critical CGB palette restoration fix:** the game used eight background palettes but the title-to-game fade restored only the first six. Palette 6 (gold scent) and palette 7 (atmospheric sky) silently retained title-screen colors, causing the black sky and inconsistent highlights. Both title and gameplay fades now update all eight CGB palette slots. The emulator checks the actual three distinct blue sky bands in normal gameplay and the banked no-food diagnostic.
+
+
 - **Fixed-bank capacity recovery:** perspective height/depth lookup now uses a 175-byte static ROM3 table, copied once at boot in place of the original nested 16-bit divide loops in the nearly full base ROM. The table preserves the original signed, clamped offsets exactly. This allows more renderer/UI detail without overflowing the 32KB always-mapped ROM and prevents banked division-helper crashes.
 
 

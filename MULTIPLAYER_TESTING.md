@@ -160,3 +160,12 @@ with gold on the queens. Distant silhouettes remain compact dots.
 The sky should graduate from navy through blue to the light horizon in
 the top 24 px of the 3D viewport. The emulator tests three distinct
 RGB samples and continues exercising walking, bite and returning to map.
+
+## Full 8-palette game transition regression
+
+Boot through the title and start a normal single-player game, then enter
+ANT EYE. The top 24 pixels of the 3D scene must have distinct navy/blue
+gradient colors after the title fade, and the real pheromone highlights must
+use the gameplay gold/green palette rather than the title's logo colors.
+The smoke test captures RGB pixels in all three sky rows and fails if the
+title-to-game transition did not restore all eight CGB palettes.

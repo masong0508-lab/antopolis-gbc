@@ -486,11 +486,14 @@ static uint16_t dim(uint16_t c, uint8_t l) {
   return (uint16_t)(r | ((uint16_t)g << 5) | ((uint16_t)b << 10));
 }
 static void fade_calc(uint8_t lvl, uint8_t tit) {    // lvl 0 = black .. 8 = full colour; tit = title palettes
-  uint8_t i, n = tit ? 32 : 24, v = lvl > 7 ? 7 : lvl;
+  // Both title and gameplay now consume all eight CGB BG palettes. The
+  // old 24-color gameplay fade left palettes 6/7 set to title colors,
+  // rendering ANT EYE's upper sky black and tinting scent trails wrong.
+  uint8_t i, n = 32, v = lvl > 7 ? 7 : lvl;
   const palette_color_t *p = tit ? tpal : bpal;
   for (i = 0; i < n; i++) fb[i] = dim(p[i], lvl);    // the maths is slow: do it first, write right after vsync (fade_apply)
   for (i = 0; i < 12; i++) fs[i] = dim(spal[i], lvl);
-  fpn = tit ? 8 : 6;
+  fpn = 8;
   NR50_REG = (uint8_t)((v << 4) | v);                // master volume follows the fade
 }
 static void fade_apply(void) {
