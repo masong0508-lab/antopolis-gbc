@@ -99,3 +99,12 @@ while holding SELECT to leave real pheromone. It then verifies the window
 returns to the overhead map. The 3D ray marcher displays strong local
 pheromone on height 1-2 soil as a small gold marker, using palette 6.
 Native tests check the exact soil, strength, center and distance thresholds.
+
+## First-person movement bank safety (regression)
+
+Actual-ROM emulator walking tests caught a second runtime arithmetic
+failure: `dx *= dir; dy *= dir` in the ROM3 movement helper compiled into
+a call to a general multiplication routine in switchable ROM1. Rotate/look
+tests did not exercise it. The helper now uses sign inversion for backward
+steps; a real-ROM smoke must verify changing the pilot's world coordinates
+while LCDC remains enabled, including SELECT pheromone marking.

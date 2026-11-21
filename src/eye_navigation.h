@@ -20,7 +20,10 @@ static uint8_t eye_try_step(uint8_t heights[EYE_WORLD][EYE_WORLD],
                             uint8_t *x, uint8_t *y,
                             uint8_t facing, int8_t dir) {
   int8_t dx = EYE_DX[facing & 15], dy = EYE_DY[facing & 15];
-  dx *= dir; dy *= dir;
+  // Do not multiply two runtime bytes inside bank 3. SDCC may link the
+  // multiplication helper into switchable ROM1, crashing on the first real
+  // step even though turning and 3D rendering already work.
+  if (dir < 0) { dx = -dx; dy = -dy; }
   // Two orthogonal clearance checks stop sliding through diagonal corners;
   // the destination must obey the same height/cliff rules as ordinary ants.
   if (!eye_legal_leg(heights, *x, *y, dx, dy)) return 0;
