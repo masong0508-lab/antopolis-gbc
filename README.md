@@ -81,6 +81,24 @@ are made. The pure visibility and silhouette-size rules are native-tested.
 
 Food navigation now checks the ant's actual first step before showing a direction. A diagonal corner blocked by water or a cliff will yield a reachable cardinal alternative, and a nearby food target that cannot be approached from the current tile is skipped for a farther viable one. This eliminates misleading immediate "walk into water" arrows without adding a BFS queue, a new world buffer, or per-frame processing. The existing eight-tile scan still runs only after a worker walks or is selected; native tests cover diagonal obstructions, alternative food and fully blocked approaches.
 
+### GBC fixed-ROM headroom and actual colony animation
+
+The GBC linker caught the fixed game-code bank spilling past `0x7FFF`
+after the new overhead colony animation. To protect real hardware rather
+than shipping a cartridge with bank overlap, the **one-time** hill-bump
+and cliff-smoothing functions have been moved into switchable ROM bank 3.
+Both run only while a new world is generated, so there is no new
+simulation-frame cost. Calls guard the bank-1 music interrupt. The
+original smoothing logic and the water/land classification are preserved.
+
+Native regression tests exercise 50 deterministic random terrain maps,
+edge-of-world hill bumps, and water-preserving smoothing. The actual
+visible walking ants share one guarded bank-3 shadow-OAM animation pass
+every fourth frame, reusing the cartridge's existing two silhouette
+tiles. No additional framebuffer, save format change or OAM slot is
+needed. The build workflow continues to fail closed if the fixed code
+bank overflows or the BANKED trampoline reaches switchable ROM.
+
 ### ANT EYE short-range home detours
 
 When carrying food, the first-person compass can now suggest a safe
