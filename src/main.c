@@ -828,8 +828,8 @@ static void tick_slice(void) {
           uint8_t bonus = colony_milestone_bonus(hatched[0]);
           if (bonus) {
             mana = (uint8_t)(mana + bonus > MANA_MAX ? MANA_MAX : mana + bonus);
-            say(hatched[0] == 8 ? "8 ANTS +3 MANA" :
-                hatched[0] == 16 ? "16 ANTS +4 MANA" : "24 ANTS +5 MANA");
+            say(hatched[0] == 8 ? "8 ANTS: 3 MORE MANA" :
+                hatched[0] == 16 ? "16 ANTS: 4 MORE MANA" : "24 ANTS: 5 MORE MANA");
             sfx_mana();
           }
         }
