@@ -129,6 +129,26 @@ static uint8_t eye_ahead_kind(uint8_t heights[EYE_WORLD][EYE_WORLD],
 // diagonal corner cuts and cliffs exactly as ANT EYE movement does. If a
 // diagonal is obstructed but one cardinal leg is open, guide along that
 // side instead of pointing straight into a wall. No heap/queue/map RAM.
+/* Avoid a two-tile dead end: after the first cardinal step there must
+ * be a second legal step toward the berry, not a turn straight back.
+ * Called only by the bounded food scan on worker movement, never a ray. */
+static uint8_t eye_food_followup(uint8_t heights[EYE_WORLD][EYE_WORLD],
+                                 uint8_t x, uint8_t y,
+                                 uint8_t tx, uint8_t ty,
+                                 int8_t sx, int8_t sy) {
+  uint8_t nx = (uint8_t)((int8_t)x + sx);
+  uint8_t ny = (uint8_t)((int8_t)y + sy);
+  int8_t dx = tx > nx ? 1 : tx < nx ? -1 : 0;
+  int8_t dy = ty > ny ? 1 : ty < ny ? -1 : 0;
+  if (nx == tx && ny == ty) return 1;
+  return (uint8_t)((dx && dx != -sx &&
+                    eye_legal_leg(heights, nx, ny, dx, 0)) ||
+                   (dy && dy != -sy &&
+                    eye_legal_leg(heights, nx, ny, 0, dy)));
+}
+/* FOOD bearings are actual safe next moves, with one extra lookahead.
+ * When direct progress is blocked along a single axis, point to a
+ * two-step sidestep instead. It is LOCAL guidance, not claimed BFS. */
 static uint8_t eye_food_first_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
                                   uint8_t vx, uint8_t vy,
                                   uint8_t tx, uint8_t ty) {
@@ -141,8 +161,24 @@ static uint8_t eye_food_first_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
       eye_legal_leg(heights, vx, vy, dx, 0) &&
       eye_legal_leg(heights, vx, vy, 0, dy))
     return (uint8_t)(horiz | vert);
-  if (dx && eye_legal_leg(heights, vx, vy, dx, 0)) return horiz;
-  if (dy && eye_legal_leg(heights, vx, vy, 0, dy)) return vert;
+  if (dx && eye_legal_leg(heights, vx, vy, dx, 0) &&
+      eye_food_followup(heights, vx, vy, tx, ty, dx, 0)) return horiz;
+  if (dy && eye_legal_leg(heights, vx, vy, 0, dy) &&
+      eye_food_followup(heights, vx, vy, tx, ty, 0, dy)) return vert;
+  /* Only use the shallow detour for axis-aligned goals. A speculative
+     diagonal detour could prefer an unreachable berry over reachable
+     food elsewhere, and could oscillate at blocked corners. */
+  if (!dx && dy) {
+    if (eye_legal_leg(heights, vx, vy, 1, 0) &&
+        eye_legal_leg(heights, (uint8_t)(vx + 1u), vy, 0, dy)) return 1u;
+    if (eye_legal_leg(heights, vx, vy, -1, 0) &&
+        eye_legal_leg(heights, (uint8_t)(vx - 1u), vy, 0, dy)) return 2u;
+  } else if (!dy && dx) {
+    if (eye_legal_leg(heights, vx, vy, 0, -1) &&
+        eye_legal_leg(heights, vx, (uint8_t)(vy - 1u), dx, 0)) return 8u;
+    if (eye_legal_leg(heights, vx, vy, 0, 1) &&
+        eye_legal_leg(heights, vx, (uint8_t)(vy + 1u), dx, 0)) return 4u;
+  }
   return 0;
 }
 // Food scan is bounded to a configurable 8-tile radius and only runs when the selected

@@ -93,6 +93,20 @@ int main(void) {
   berries[8][9] = berries[10][13] = 0;
   berries[30][30] = 1;
   assert(!eye_food_bearing(terrain, berries, 10, 10));
+  // A northward berry behind one blocked step needs a safe east
+  // sidestep. From that sidestep, the HUD must NOT steer west again.
+  memset(berries, 0, sizeof berries);
+  berries[8][10] = 1;
+  terrain[9][10] = 0;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 1));
+  assert(eye_food_bearing(terrain, berries, 11, 10) == (uint8_t)(0x80 | 8));
+  assert(eye_food_bearing(terrain, berries, 11, 9) == (uint8_t)(0x80 | 8));
+  assert(eye_food_bearing(terrain, berries, 11, 8) == (uint8_t)(0x80 | 2));
+  // Neither bypass has a legal second step: no invented bearing.
+  terrain[9][11] = terrain[9][9] = 0;
+  assert(!eye_food_bearing(terrain, berries, 10, 10));
+  terrain[9][10] = terrain[9][11] = terrain[9][9] = 1;
+  memset(berries, 0, sizeof berries);
   // Reproduce every ANT EYE ray column term, including negative sines,
   // without crossing banks to the 16-bit SDCC multiply helper.
   for (int16_t s = -64; s <= 64; s += 8)
