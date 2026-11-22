@@ -12,7 +12,7 @@ static uint8_t eye_legal_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
                              uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
   int8_t nx = (int8_t)x + dx, ny = (int8_t)y + dy, change;
   if (nx < 0 || ny < 0 || nx >= EYE_WORLD || ny >= EYE_WORLD) return 0;
-  if (!heights[(uint8_t)ny][(uint8_t)nx]) return 0;
+  if (!heights[y][x] || !heights[(uint8_t)ny][(uint8_t)nx]) return 0;
   change = (int8_t)heights[(uint8_t)ny][(uint8_t)nx] - (int8_t)heights[y][x];
   return (uint8_t)(change >= -1 && change <= 1);
 }
