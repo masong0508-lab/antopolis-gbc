@@ -20,6 +20,15 @@ int main(void) {
   x = 0; y = 0;
   assert(!eye_try_step(terrain, &x, &y, 8, 1));
   assert(x == 0 && y == 0);
+  // A still-alive worker waiting for its AI drowning slice cannot use
+  // paused first-person movement or biting to escape its submerged cell.
+  x = 10; y = 10; terrain[10][10] = 0;
+  assert(!eye_try_step(terrain, &x, &y, 0, 1));
+  assert(x == 10 && y == 10);
+  assert(!eye_try_step(terrain, &x, &y, 0, -1));
+  assert(!eye_attack_target(terrain, x, y, 0, &x, &y));
+  assert(x == 10 && y == 10);
+  terrain[10][10] = 1;
   // Prevent diagonal corner cutting through water and cliffs.
   x = 10; y = 10;
   terrain[10][11] = 0;

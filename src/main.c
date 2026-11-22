@@ -1333,10 +1333,13 @@ uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
 void eye_ui_ahead(char *b, uint8_t target) BANKED;
 void eye_ui_notice(char *b, uint8_t result) BANKED;
+void eye_ui_scent(char *b, uint8_t active) BANKED;
 void eye_ui_guide(char *b, uint8_t nav, uint8_t carry,
                   uint8_t x, uint8_t y, uint8_t hx, uint8_t hy) BANKED;
 
-static uint8_t vok(uint8_t i) { return i < MAXA ? (ant[i].alive && ant[i].team == 0) : qhp[0] > 0; }
+// A worker awaiting its ordinary drowning slice cannot escape through
+// the paused first-person mode. The queen is never a controllable worker.
+static uint8_t vok(uint8_t i) { return i < MAXA && ant[i].alive && ant[i].team == 0 && hgt[ant[i].y][ant[i].x]; }
 
 // Pilot the selected worker in the real map; first-person movement is no longer a camera-only trick.
 // Keep the colony simulation paused to leave enough GBC time for ray rendering, but preserve all changes.
@@ -1415,7 +1418,7 @@ static void eye(void) {                              // pilot a black ant; food,
   attr(0, 17, 20, 2);
   notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0); // resolve landing tile on entry
   move_win(7, 0);
-  prev = joypad();
+  prev = joypad() & ~J_SELECT;       // acknowledge held entry scent; keep START suppressed
   while (1) {
     if (go) {                                        // 1 = jump to the chosen ant, 2 = same spot (turned / walked)
       if (go == 1) { vx = ant[vi].x; vy = ant[vi].y; need_nav = 1; }
@@ -1460,17 +1463,13 @@ static void eye(void) {                              // pilot a black ant; food,
       vcol += 2;
       if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }
     }   // complete every sweep; redo after camera changes during a sweep
-    k = joypad(); p = k & ~prev; prev = k;
-    if (p & J_START) break;
-    if (p & J_B) {
-      notice = eye_bite(vi, vx, vy);
-      if (notice != 4) go = 2;  // Only rerender rays if an enemy really changed.
-      else {
-        disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
-        put_str(0, 14, (const char *)tbuf + 480);
-      }
-      if (over) break;
+    k = joypad(); p = k & ~prev;
+    if ((k ^ prev) & J_SELECT) {
+      disable_interrupts(); eye_ui_scent((char *)tbuf + 480, k & J_SELECT); enable_interrupts();
+      put_str(0, 17, (const char *)tbuf + 480);
     }
+    prev = k;
+    if (p & J_START) break;
     if (p & J_A) {
       // Switch only among living workers. The old loop could select the
       // queen as an unmovable camera, despite advertising NEXT ANT.
@@ -1479,12 +1478,27 @@ static void eye(void) {                              // pilot a black ant; food,
         if (vok(vi)) break;
       }
       if (i < MAXA) {
-        notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0);
+        // Commit the new camera before processing this poll's movement,
+        // bite or scent. Otherwise A+UP teleports this ant to the old one.
+        vx = ant[vi].x; vy = ant[vi].y;
+        notice = eye_pilot(vi, vx, vy, 0);
         if (!notice) sfx_food();
-        go = 1;
+        go = 1; need_nav = 1;
       }
     }
-    if ((k & J_SELECT) && vi < MAXA) ph[vy][vx] = 255;
+    if (p & J_B) {
+      notice = eye_bite(vi, vx, vy);
+      if (notice != 4 && !go) go = 2;  // Keep a pending worker change; redraw only a changed enemy.
+      else if (notice == 4) {
+        disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
+        put_str(0, 14, (const char *)tbuf + 480);
+      }
+      if (over) break;
+    }
+    if ((k & J_SELECT) && ph[vy][vx] != 255) {
+      ph[vy][vx] = 255;
+      if (!go) go = 2;                 // one sweep for a changed scent tile, not every held frame
+    }
     dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
     if (dirs != last) { rep = 0; last = dirs; }
     if (dirs) {

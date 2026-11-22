@@ -19,6 +19,11 @@ void eye_ui_notice(char *b,uint8_t result) BANKED {
   blank(b);
   if(result<7) field(b,0,messages[result]);
 }
+// The existing controls row acknowledges stationary scent immediately.
+// The caller updates it only when SELECT changes, using existing scratch.
+void eye_ui_scent(char *b,uint8_t active) BANKED {
+  blank(b); field(b,0,active?"SCENT ON   START MAP":"SEL SCENT  START MAP");
+}
 // Every first-person target identifies the gameplay implication, not a
 // technical collision code. All messages fit the GBC's 20-tile status row.
 void eye_ui_ahead(char *b,uint8_t target) BANKED {

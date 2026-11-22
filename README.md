@@ -1,3 +1,30 @@
+## ANT EYE worker selection and action feedback
+
+Switching workers now updates the view position before processing any
+movement, bite or scent input from that same frame. Previously A plus a
+direction could move the newly selected worker beside the old worker,
+even across disconnected islands. Simultaneous actions now originate
+from the worker actually selected.
+
+Submerged workers are excluded from direct control, and first-person
+navigation rejects a water origin. A worker awaiting its ordinary colony
+drowning update cannot be rescued by entering ANT EYE and walking onto
+nearby dry land. If no eligible worker remains, the game stays on the map
+and displays its existing NO WORKER: GROW COLONY message.
+
+Laying scent while stationary now produces immediate on-screen feedback.
+The existing view is refreshed when a tile gains scent, and the footer
+responds to pressing or releasing SELECT. There is no continuous extra
+ray sweep while holding the button over the same marked tile.
+
+An actual-ROM regression uses valid original-format battery fixtures,
+Continue and ordinary controls to check separated workers, simultaneous
+selection/actions, submerged workers and scent feedback. Existing save,
+queen-safety, palette and graphics checks remain release gates.
+The cartridge remains 64 KiB with 6,158 bytes of permanent WRAM. This
+pass uses 111 bytes of the recovered fixed-code space, leaving 265 bytes;
+the release workflow continues to enforce the bank and trampoline limits.
+
 ## More fixed-bank space and faster fades
 
 Palette tables and fade arithmetic now live together in ROM bank 3,
