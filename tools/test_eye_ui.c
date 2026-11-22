@@ -35,7 +35,8 @@ int main(void) {
   };
   static const char *const actions[] = {
     "", "BLOCKED: TURN FIRST", "FOOD PICKED UP", "FOOD DELIVERED",
-    "NO ENEMY IN REACH", "ENEMY ANT DEFEATED", "RED QUEEN DAMAGED"
+    "NO ENEMY IN REACH", "ENEMY ANT DEFEATED", "RED QUEEN DAMAGED",
+    "PRACTICE QUEEN SAFE"
   };
   unsigned i;
   for (i=0; i<9; ++i) {
@@ -43,7 +44,7 @@ int main(void) {
     expect(hazards[i]);
   }
   eye_ui_ahead(row, 255); expect("AHEAD: MAP EDGE");
-  for (i=0; i<7; ++i) {
+  for (i=0; i<8; ++i) {
     eye_ui_notice(row, (uint8_t)i);
     expect(actions[i]);
   }
