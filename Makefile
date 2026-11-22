@@ -30,6 +30,9 @@ test:
 	python3 tools/test_eye_occupancy_integration.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_ui.c -o build/test_eye_ui
 	./build/test_eye_ui
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_help_paging.c -o build/test_help_paging
+	./build/test_help_paging
+	python3 tools/test_title_help_wiring.py
 	python3 tools/test_help_text.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_terrain_build.c -o build/test_terrain_build
 	./build/test_terrain_build

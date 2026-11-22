@@ -13,6 +13,7 @@
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 #include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
 #include "eye_occupancy.h" // original six-byte worker type, banked per-tile visibility
+#include "help_paging.h" // safe one-line and full-page help navigation
 
 #define W 32            // world size = size of the hardware BG map
 #define H 32
@@ -192,12 +193,11 @@ static void help_open(void) {
   attr(0, 1, 20, 2);
   put_str(0, 2, "PAUSED"); put_str(7, 2, DNAME[gdiff]); attr(0, 2, 20, 2);
   put_line(16, "A:SAVE  B TWICE:QUIT");
-  put_str(0, 17, "U/D SCROLL  START:GO"); attr(0, 16, 20, 2);
+  put_str(0, 17, "START:GO U/D L/R PG"); attr(0, 16, 20, 2);
   help_draw();
 }
 static void help_scroll(int8_t d) {
-  uint8_t t = htop;
-  if (d < 0) { if (t) t--; } else if (t + HR < hlines) t++;
+  uint8_t t = ant_help_next_top(htop, hlines, d);
   if (t != htop) { htop = t; help_draw(); }
 }
 static void win_clear(void) {                      // blank text, white palette everywhere
@@ -1078,9 +1078,11 @@ static void title_paint(void) {
   attr(0, 11, 20, 5); attr(0, 12, 20, 5);
   put_char(5, 7, '<'); put_char(14, 7, '>');
   diff_draw();
+  put_str(4, 9, "START: PLAY");
   if (hassave) put_str(1, 10, "UP:CONTINUE B:STATS"); else put_str(5, 10, "B:RECORDS");
   put_str(0, 11, "A:TUTORIAL DOWN:VS");
   put_str(1, 12, "SEL START: SANDBOX");
+  put_str(0, 13, "GOAL: FEED YOUR ANTS");
 }
 // Records: wins, losses, fastest win and best score for each level. Hold SELECT + B for 2 s to erase them. START / A goes back.
 static void records_draw(void) {
@@ -1684,10 +1686,11 @@ static void play(void) {
         if (qask) over = 3;
         else { qask = 1; sconf = 0; put_line(16, "B AGAIN: QUIT"); }
       }
-      dirs = (k | k1) & (J_UP | J_DOWN);
+      dirs = (k | k1) & (J_UP | J_DOWN | J_LEFT | J_RIGHT);
       if (dirs != last) { rep = 0; last = dirs; }
       if (dirs) {
-        if (rep == 0 || (rep >= 12 && !(rep & 3))) help_scroll((dirs & J_DOWN) ? 1 : -1);
+        if (rep == 0 || (rep >= 12 && !(rep & 3)))
+          help_scroll((dirs & J_RIGHT) ? HR : (dirs & J_LEFT) ? -HR : (dirs & J_DOWN) ? 1 : -1);
         if (rep < 250) rep++;
       }
       tt++;                            // the turn clock stands still while paused
