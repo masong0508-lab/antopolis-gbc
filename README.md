@@ -1,3 +1,24 @@
+## Easier starting and faster manual navigation (GBC)
+
+The GBC title now explicitly identifies **START: PLAY**, separate from
+**A: TUTORIAL**, and explains the immediate goal:
+**GOAL: FEED YOUR ANTS**. Other actions—difficulty arrows, saved
+game Continue, local/link multiplayer and SELECT+START sandbox—are
+unchanged.
+
+Pause with START to open the existing command manual. UP/DOWN still
+scroll **one line** at a time; LEFT/RIGHT now jump **13 lines**,
+one complete visible page. Both directions clamp safely at the top and
+bottom. The 20-character control footer displays the page shortcut
+and START resume action.
+
+A strict host test checks **327,680** combinations of help length,
+position and navigation direction. Source integration checks protect
+the exact title and pause controls, and an actual PyBoy cartridge test
+reads their rendered text, visits the next page and back, then resumes
+the same colony. No new game RAM, saved fields, renderer or per-frame
+logic is added.
+
 ## ANT EYE movement and bite responsiveness: incremental occupancy
 
 The former GBC first-person input path cleared **all 1,024 bytes** of
