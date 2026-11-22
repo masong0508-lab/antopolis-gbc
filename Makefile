@@ -42,6 +42,8 @@ test:
 	./build/test_eye_surface_detail
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_route.c -o build/test_colony_route
 	./build/test_colony_route
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_milestones.c -o build/test_colony_milestones
+	./build/test_colony_milestones
 	python3 tools/test_colony_route_source.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_results_calc.c -o build/test_results_calc
 	./build/test_results_calc
