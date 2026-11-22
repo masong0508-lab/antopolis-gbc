@@ -15,8 +15,12 @@ assert "eye_occ_pair(oldx, oldy, vx, vy)" in pilot, "Movement must refresh only 
 assert "eye_occ_pair(tx, ty, tx, ty)" in bite, "Bite must refresh only actual target"
 assert "memset(occ" not in pilot + bite, "No full occupancy atlas reset per input"
 assert "occ_set()" not in pilot + bite, "No 1,024-cell food scan per input"
-assert "memset(occ, 0, sizeof occ); occ_set();" in eye, "Build real atlas once on entry"
+assert "eye_occ_init();" in eye, "Build atlas once on entry via ROM3"
+assert "memset(occ, 0, sizeof occ); occ_set();" not in eye
 assert "memset(occ, 0, sizeof occ);" in eye, "Clean occupancy before leaving"
-assert "eye_occ_pair" in module and "#pragma bank 3" in module
+assert "eye_occ_init" in module and "eye_occ_pair" in module
+assert "#pragma bank 3" in module
+assert "occ[y][x] = food[y][x] ? 5u : 0u;" in module, (
+    "Full initialization must clear empty cells as well as restore food")
 assert "occ[" in render, "The native first-person view must use this exact atlas"
-print("PASS: GBC ANT EYE builds occupancy once, then refreshes only touched tiles")
+print("PASS: GBC ROM3 initializes occupancy once, then refreshes only touched tiles")
