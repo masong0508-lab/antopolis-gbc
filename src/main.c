@@ -781,8 +781,13 @@ static void step_ant(Ant *a) {
     if (a->sol) { if (rand() & 1) {
       // Sandbox and active lessons keep the last queen HP even when
       // several soldiers attack in the same simulation slice.
-      if (qhp[e] > 1 || !(sandbox | tut)) qhp[e]--;
-      if (e == 0) apr(-3); if (qhp[e]) sfx_hit(); else sfx_qdead();
+      if (qhp[e] > 1 || !(sandbox | tut)) {
+        qhp[e]--;
+        // No phantom popularity penalty or queen-hit sound in practice
+        // when the last heart is protected from damage.
+        if (e == 0) apr(-3);
+        if (qhp[e]) sfx_hit(); else sfx_qdead();
+      }
     } }
     else if (stock[e]) { stock[e]--; a->carry = 1; sfx_fight(); }
   }
@@ -1390,7 +1395,11 @@ static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
   if (i == MAXA && tx == nestx[1] && ty == nesty[1] && qhp[1]) {
     // ANT EYE pauses the colony loop, including its practice-mode healing.
     // Keep the last HP here as well; ordinary matches still end on a bite.
-    if (qhp[1] > 1 || !(sandbox | tut)) qhp[1]--;
+    if (qhp[1] == 1 && (sandbox | tut)) {
+      sfx_deny();
+      return 7; // protected practice queen: truthful ANT EYE response
+    }
+    qhp[1]--;
     sfx_hit(); result = 6; if (!qhp[1]) over = 1;
   } else if (i == MAXA) { sfx_deny(); return 4; }
   memset(occ, 0, sizeof occ); occ_set();
@@ -1498,8 +1507,8 @@ static void eye(void) {                              // pilot a black ant; food,
     }
     if (p & J_B) {
       notice = eye_bite(vi, vx, vy);
-      if (notice != 4 && !go) go = 2;  // Keep a pending worker change; redraw only a changed enemy.
-      else if (notice == 4) {
+      if (notice != 4 && notice != 7 && !go) go = 2; // Redraw only a changed enemy.
+      else if (notice == 4 || notice == 7) {
         disable_interrupts(); eye_ui_notice((char *)tbuf + 480, notice); enable_interrupts();
         put_str(0, 14, (const char *)tbuf + 480);
       }
