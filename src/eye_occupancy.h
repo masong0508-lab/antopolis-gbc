@@ -10,7 +10,7 @@ typedef struct { uint8_t x, y, team, alive, carry, sol; } EyeAnt;
 
 static uint8_t eye_occupancy_at(uint8_t x, uint8_t y,
                                 const EyeAnt ants[EYE_OCC_ANTS],
-                                const uint8_t berries[32][32],
+                                uint8_t berries[32][32],
                                 const uint8_t queens[2],
                                 const uint8_t queens_x[2],
                                 const uint8_t queens_y[2]) {
