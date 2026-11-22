@@ -1269,15 +1269,10 @@ uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 b
 void eye_init_offsets(void) BANKED;
 
 uint8_t tcol[VR * 16];
-// Full rebuild is needed once upon ANT EYE entry; later inputs only touch
-// one/two tiles through a guarded ROM3 call, preserving OAM and bank-0 space.
+// Full atlas construction on entry and tiny old/new-cell updates during
+// play both live in ROM3; keep almost-full fixed CODE available for input.
+void eye_occ_init(void) BANKED;
 void eye_occ_pair(uint8_t ox, uint8_t oy, uint8_t nx, uint8_t ny) BANKED;
-static void occ_set(void) {                    // mark real food, ants and queens; callers clear stale cells
-  uint8_t i, x, y;
-  for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = 5;
-  for (i = 0; i < MAXA; i++) if (ant[i].alive) occ[ant[i].y][ant[i].x] = ant[i].team + 1;
-  for (i = 0; i < 2; i++) if (qhp[i]) occ[nesty[i]][nestx[i]] = 3 + i;
-}
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED; // isolated pure ray march in ROM bank 3
 void eye_build_antennae(uint8_t *scratch) BANKED; // 480-byte procedural mask, once per entry
@@ -1443,8 +1438,9 @@ static void eye(void) {                              // pilot a black ant; food,
   attr(0, 15, 20, 1);
   attr(0, 16, 20, 1);
   attr(0, 17, 20, 2);
-  // Rebuild the occupancy atlas once per entry; incremental patches after.
-  memset(occ, 0, sizeof occ); occ_set();
+  // Full atlas only once on entry. ROM3 walks the 1,024 food cells,
+  // while regular input only updates one or two exact occupancy cells.
+  disable_interrupts(); eye_occ_init(); enable_interrupts();
   notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0); // resolve landing tile on entry
   move_win(7, 0);
   prev = joypad() & ~J_SELECT;       // acknowledge held entry scent; keep START suppressed
