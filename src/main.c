@@ -12,6 +12,7 @@
 #include "terrain_food.h"  // submerged berry removal shared with the GBA port
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 #include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
+#include "eye_occupancy.h" // original six-byte worker type, banked per-tile visibility
 
 #define W 32            // world size = size of the hardware BG map
 #define H 32
@@ -42,11 +43,12 @@ static void text2(const char *t, uint8_t nth) {   // copy the nth '\0'-separated
   while ((*d++ = *t++)) {}
   SWITCH_ROM(1); enable_interrupts();
 }
-typedef struct { uint8_t x, y, team, alive, carry, sol; } Ant;
+typedef EyeAnt Ant; // shared exact worker layout for bank-3 occupancy refresh
 
 uint8_t hgt[H][W], food[H][W], ph[H][W];
-static Ant ant[MAXA];
-static uint8_t nestx[2], nesty[2], stock[2], qhp[2], ncnt[2], hatched[2];
+Ant ant[MAXA]; // same 300 WRAM bytes, now visible to bank-3 occupancy code
+uint8_t nestx[2], nesty[2], qhp[2];
+static uint8_t stock[2], ncnt[2], hatched[2];
 // Export the existing cursor bytes for genuine ROM-emulator world-state checks.
 // No new RAM allocation: these also follow the selected first-person worker.
 uint8_t cx, cy;
@@ -1267,6 +1269,9 @@ uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 b
 void eye_init_offsets(void) BANKED;
 
 uint8_t tcol[VR * 16];
+// Full rebuild is needed once upon ANT EYE entry; later inputs only touch
+// one/two tiles through a guarded ROM3 call, preserving OAM and bank-0 space.
+void eye_occ_pair(uint8_t ox, uint8_t oy, uint8_t nx, uint8_t ny) BANKED;
 static void occ_set(void) {                    // mark real food, ants and queens; callers clear stale cells
   uint8_t i, x, y;
   for (y = 0; y < H; y++) for (x = 0; x < W; x++) if (food[y][x]) occ[y][x] = 5;
@@ -1362,9 +1367,10 @@ static uint8_t vok(uint8_t i) { return i < MAXA && ant[i].alive && ant[i].team =
 // selected while already standing on food or the nest resolve that tile.
 static uint8_t eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
   Ant *a;
-  uint8_t event = 0;
+  uint8_t event = 0, oldx, oldy;
   if (vi >= MAXA || !vok(vi)) return 0;
-  a = &ant[vi]; a->x = vx; a->y = vy;
+  a = &ant[vi]; oldx = a->x; oldy = a->y;
+  a->x = vx; a->y = vy;
   cx = vx; cy = vy; // map cursor tracks the real piloted worker
   if (scent) ph[vy][vx] = 255;
   if (!a->carry && food[vy][vx]) {
@@ -1378,7 +1384,9 @@ static uint8_t eye_pilot(uint8_t vi, uint8_t vx, uint8_t vy, uint8_t scent) {
     apr(1); sfx_mana();
     event = 3;
   }
-  memset(occ, 0, sizeof occ); occ_set();
+  // Preserve food/worker/queen overlap priority at both affected tiles.
+  // Moving, selecting and collecting never touch unrelated occupancy cells.
+  disable_interrupts(); eye_occ_pair(oldx, oldy, vx, vy); enable_interrupts();
   return event;
 }
 
@@ -1402,7 +1410,7 @@ static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
     qhp[1]--;
     sfx_hit(); result = 6; if (!qhp[1]) over = 1;
   } else if (i == MAXA) { sfx_deny(); return 4; }
-  memset(occ, 0, sizeof occ); occ_set();
+  disable_interrupts(); eye_occ_pair(tx, ty, tx, ty); enable_interrupts();
   return result;
 }
 
@@ -1435,6 +1443,8 @@ static void eye(void) {                              // pilot a black ant; food,
   attr(0, 15, 20, 1);
   attr(0, 16, 20, 1);
   attr(0, 17, 20, 2);
+  // Rebuild the occupancy atlas once per entry; incremental patches after.
+  memset(occ, 0, sizeof occ); occ_set();
   notice = eye_pilot(vi, ant[vi].x, ant[vi].y, 0); // resolve landing tile on entry
   move_win(7, 0);
   prev = joypad() & ~J_SELECT;       // acknowledge held entry scent; keep START suppressed
