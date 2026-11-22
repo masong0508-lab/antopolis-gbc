@@ -25,6 +25,9 @@ test:
 	./build/test_terrain_food
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_navigation.c -o build/test_eye_navigation
 	./build/test_eye_navigation
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_occupancy.c -o build/test_eye_occupancy
+	./build/test_eye_occupancy
+	python3 tools/test_eye_occupancy_integration.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_ui.c -o build/test_eye_ui
 	./build/test_eye_ui
 	python3 tools/test_help_text.py

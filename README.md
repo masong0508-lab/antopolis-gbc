@@ -1,3 +1,34 @@
+## ANT EYE movement and bite responsiveness: incremental occupancy
+
+The former GBC first-person input path cleared **all 1,024 bytes** of
+its occupancy map, rescanned **all 1,024 food cells** and all 50 ants,
+then reinserted both queens **every time the controlled ant moved,
+switched, picked up food, or bit an enemy**. This added needless latency
+on hardware with an especially slow 3D software ray marcher.
+
+ANT EYE now builds its complete occupancy atlas **only on entry**.
+Subsequent events refresh only the old and new worker tiles (one tile
+for a bite or stationary food event) using the same strict priority:
+berry, then living ants in slot order, then queens. The local update
+runs in spacious ROM bank 3 with audio interrupts guarded, not in the
+nearly full fixed ROM. It correctly restores a berry or second ant
+hidden underneath a moving worker and removes dead enemy occupancy
+immediately.
+
+There is **no new 2D or 3D buffer, heap, per-frame update or save
+change**. The existing 1,024-byte occupancy map and 300-byte worker
+array are shared without resizing. Relative to the old path, each
+input-event refresh avoids two full 32×32 memory walks and visits at
+most 50 workers for each changed tile.
+
+The native differential regression compares **8,000** movement,
+kill/revival, food, overlap and queen transitions against a full-world
+reference, checking every one of the **1,024 world cells** after each
+action. An integration gate ensures neither movement nor bites can
+silently restore the expensive full rebuild. Final cartridge, bank
+layout, input/food-save, queen-safety, palette and actual PyBoy 3D
+emulator checks remain mandatory before merging.
+
 ## Practice queen damage and honest ANT EYE feedback
 
 Sandbox and tutorials already protect the last heart of each queen.
