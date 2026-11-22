@@ -800,7 +800,12 @@ static void step_ant(Ant *a) {
   }
   // at the enemy nest: soldiers bite the queen, other ants steal food and run home
   if (!a->carry && qhp[e] && a->x == nestx[e] && a->y == nesty[e]) {
-    if (a->sol) { if (rand() & 1) { qhp[e]--; if (e == 0) apr(-3); if (qhp[e]) sfx_hit(); else sfx_qdead(); } }
+    if (a->sol) { if (rand() & 1) {
+      // Sandbox and active lessons keep the last queen HP even when
+      // several soldiers attack in the same simulation slice.
+      if (qhp[e] > 1 || !(sandbox | tut)) qhp[e]--;
+      if (e == 0) apr(-3); if (qhp[e]) sfx_hit(); else sfx_qdead();
+    } }
     else if (stock[e]) { stock[e]--; a->carry = 1; sfx_fight(); }
   }
 }
@@ -1402,7 +1407,10 @@ static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
     die(&ant[i]); sfx_fight(); break;
   }
   if (i == MAXA && tx == nestx[1] && ty == nesty[1] && qhp[1]) {
-    qhp[1]--; sfx_hit(); result = 6; if (!qhp[1]) over = 1;
+    // ANT EYE pauses the colony loop, including its practice-mode healing.
+    // Keep the last HP here as well; ordinary matches still end on a bite.
+    if (qhp[1] > 1 || !(sandbox | tut)) qhp[1]--;
+    sfx_hit(); result = 6; if (!qhp[1]) over = 1;
   } else if (i == MAXA) { sfx_deny(); return 4; }
   memset(occ, 0, sizeof occ); occ_set();
   return result;
@@ -1638,7 +1646,9 @@ static void play(void) {
   uint8_t k, k1 = 0, prev = 0, p, dirs, last = 0, rep = 0, t = 4, ki = 0, paused = 0, n, qask = 0, sconf = 0, fl = 0;
   uint16_t secs, score;
   const char *m;
-  if (tutor) { tut = 1; tut_enter(); }
+  // The title chooses every match's mode. Quitting a live lesson must
+  // not carry its protection or objectives into a continued/normal game.
+  tut = tutor; if (tut) tut_enter();
   while (!over) {
     vsync();
     SCX_REG = (uint8_t)scx; SCY_REG = (uint8_t)scy;

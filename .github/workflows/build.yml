@@ -41,11 +41,15 @@ jobs:
         run: python3 -m pip install pyboy==2.9.0 Pillow==12.0.0
       - name: Boot ROM and validate 2D / 3D screen transitions
         run: python3 -u tools/gbc_eye_smoke.py build/empire-ants.gbc --out build/eye-smoke
+      - name: Keep practice queens alive and preserve normal victories
+        run: python3 -u tools/gbc_queen_safety_smoke.py build/empire-ants.gbc --out build/queen-safety
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: antopolis-gbc-eye-emulator-screens
-          path: build/eye-smoke
+          path: |
+            build/eye-smoke
+            build/queen-safety
           if-no-files-found: warn
 
 
@@ -123,11 +127,15 @@ jobs:
           # After packing the header-adjacent free space, check both
           # that trampoline calls stay in bank 0 AND no code overlaps them.
           code = re.search(r'([0-9A-Fa-f]{8})\s+s__CODE\b', data)
-          assert code, "Missing _CODE area in linker map"
+          code_length = re.search(r'([0-9A-Fa-f]{8})\s+l__CODE\b', data)
+          assert code and code_length, "Missing _CODE area in linker map"
           code_start = int(code[1], 16)
+          code_end = code_start + int(code_length[1], 16)
           assert 0x0200 <= address and address + length <= code_start < 0x4000, (
               "BANKED trampoline overlaps CRT0 startup, fixed CODE or a ROM bank"
           )
+          assert code_end <= 0x8000, "Fixed _CODE exceeds the 32 KiB mapping"
+          print("Fixed CODE ends:", hex(code_end), "bytes remaining:", 0x8000 - code_end)
           PY
       - name: ROM report
         run: |

@@ -1,3 +1,26 @@
+## Sandbox and tutorial queen protection
+
+Practice games can no longer end because a queen dies in ANT EYE or
+during a crowded colony attack. The ordinary map healed practice queens
+before simulation, but several soldiers could remove all their hearts
+in the following slice. ANT EYE bypassed that healing entirely. Both
+queen-damage paths now preserve the final heart in sandbox or an active
+tutorial lesson; ordinary games still allow the queen to fall.
+Starting or continuing another match also resets the active lesson state
+from the title's mode selection, so quitting a tutorial cannot carry its
+protection into an ordinary game.
+
+The PyBoy regression loads original-format battery saves through the
+game's Continue command, then uses real controls to bite the red queen
+in ANT EYE or lets a group of soldiers attack her in the overhead view.
+Both sandbox cases must stay playable, and both normal-mode controls
+must reach the win screen. The previous release fails the two sandbox
+cases. Tests inspect the shipping ROM without changing runtime game
+state. A fifth case starts a tutorial, quits a live lesson, continues an
+ordinary save and requires a normal victory. The save format and checksum
+are unchanged. CI also checks the fixed code's exact end address against
+the 32 KiB mapping, in addition to the banked-call trampoline bounds.
+
 ## Milestone: flood-safe food and honest terrain feedback (November 2026)
 
 GBC terrain edits and natural disasters now remove berries when a cell
