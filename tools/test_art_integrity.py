@@ -139,7 +139,7 @@ hit = hit.split("static void disaster(void)", 1)[0]
 assert hit.count("draw_cell(") == 1 and "refresh_terrain_neighbors(" not in hit
 assert "if (is_nest(x, y)) tile = BT + 4" in gameplay
 assert "else if (food[y][x] && t) tile = BT + 5" in gameplay
-assert "set_sprite_palette(0, 7, spal)" in gameplay
+assert "fade_level(8, 0)" in gameplay.split("void main(void)", 1)[1]
 assert "set_sprite_palette(0, 7, fs)" in gameplay
 assert "colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)" in sprite_pass
 assert "tbuf[s] = ant[i].carry" in sprite_pass

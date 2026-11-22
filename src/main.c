@@ -11,6 +11,7 @@
 #include "colony_route.h"   // pheromone-aware home steering; no added world buffers
 #include "terrain_food.h"  // submerged berry removal shared with the GBA port
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
+#include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
 
 #define W 32            // world size = size of the hardware BG map
 #define H 32
@@ -91,43 +92,7 @@ static void set_rules(uint8_t d) {
   hcost[1]=v[4]; thr[0]=v[5]; thr[1]=v[6];
   qmax[0]=v[7]; qmax[1]=v[8]; fcost=v[9];
 }
-// ---------- palettes & graphics (generated from strings) ----------
-// Seven 4-colour CGB background palettes (0-6). Keep storage and upload
-// count identical: a 24-entry declaration silently dropped the trail palette.
-static const palette_color_t bpal[32] = {
-  RGB(5,12,25), RGB(28,23,14), RGB(9,23,8), RGB(15,11,8),  // 0: deep-water blue / sand / moss / warm rock
-  RGB(2,5,13), RGB(6,11,21),  RGB(14,23,28), RGB(31,31,28), // 1: midnight blue and ivory UI
-  RGB(2,5,13), RGB(14,9,5),   RGB(26,19,8),  RGB(31,29,16), // 2: warm brass headings
-  RGB(18,27,31), RGB(11,26,9), RGB(27,22,12), RGB(21,14,6), // 3: luminous horizon, land + rock
-  RGB(3,7,20),   RGB(8,18,30),  RGB(11,26,9),   RGB(27,22,12),   // 4: blue water beside green/tan land
-  RGB(3,7,20),   RGB(31,6,4),   RGB(0,0,0),     RGB(31,27,8), // 5: ant eye, enemies and gold food
-  RGB(3,7,20),   RGB(11,26,9),  RGB(27,22,12),  RGB(31,27,8), // 6: gold scent over grass and sand
-  RGB(4,10,23),  RGB(7,16,28), RGB(13,22,31),  RGB(17,25,31)}; // 7: graded indigo-to-cyan sky
-// Eight palette slots, with a dedicated sky gradient; no extra frame RAM.
-typedef char verify_gbc_bg_palettes[(sizeof bpal / sizeof bpal[0]) == 32 ? 1 : -1];
-// title screen palettes (replace bpal while the title is up): night sky in three bands, gold logo + two shine steps, hills
-static const palette_color_t tpal[32] = {
-  RGB(1,1,5),   RGB(5,5,13),   RGB(11,11,22), RGB(31,29,22),   // 0: night sky (top)
-  RGB(4,2,9),   RGB(9,6,17),   RGB(15,10,23), RGB(31,29,22),   // 1: dusk sky
-  RGB(10,4,11), RGB(17,8,15),  RGB(24,13,15), RGB(31,29,22),   // 2: horizon glow
-  RGB(1,1,5),   RGB(10,5,1),   RGB(22,12,3),  RGB(31,27,8),    // 3: gold logo
-  RGB(10,4,11), RGB(13,26,8),  RGB(5,15,7),   RGB(9,5,4),      // 4: hills, grass, soil
-  RGB(2,4,12), RGB(6,13,21),  RGB(15,23,27), RGB(31,31,27), // 5: raised title menu panel
-  RGB(1,1,5),   RGB(14,8,2),   RGB(28,18,6),  RGB(31,31,16),   // 6: logo shine, soft
-  RGB(1,1,5),   RGB(20,14,6),  RGB(31,26,14), RGB(31,31,28)};  // 7: logo shine, bright
-// OBJ palettes 0-2 = base black/red ants and cursor. Palettes 3-4
-// carry a golden berry, palettes 5-6 distinguish soldiers from foragers.
-// Each recolors the SAME 7 ant sprites; only 32 extra ROM data bytes.
-static const palette_color_t spal[28] = {
-  RGB(0,0,0), RGB(5,7,10),  RGB(19,21,25), RGB(31,31,31), // 0: black workers
-  RGB(0,0,0), RGB(26,3,3),  RGB(31,12,8),  RGB(31,31,31), // 1: red workers
-  RGB(0,0,0), RGB(31,31,0), RGB(31,20,0), RGB(31,31,31), // 2: cursor
-  RGB(0,0,0), RGB(5,7,10),  RGB(19,21,25), RGB(31,26,8), // 3: black carrying gold
-  RGB(0,0,0), RGB(26,3,3),  RGB(31,12,8),  RGB(31,26,8), // 4: red carrying gold
-  RGB(0,0,0), RGB(5,11,19), RGB(17,26,31), RGB(27,31,31), // 5: black soldier steel
-  RGB(0,0,0), RGB(19,3,3), RGB(31,17,7), RGB(31,28,13)  // 6: red soldier ember
-};
-
+// Palette tables and fade arithmetic are in ROM3; no extra RAM buffers.
 // terrain / mana-bar / sprite / scenery tiles live in art.h (BGT: 0 water,1 sand,2 grass,3 hill,4 nest,5 food, 6-7 mana bar;
 // SPT: 0 worker ant, 1 cursor, 2 queen, 3-4 walking ant; TAT: title scenery)
 
@@ -502,18 +467,21 @@ static void snd_isr(void) { music_update(); tm_update(); jingle_update(); }
 // ---------- fades: scale every palette entry towards black; the master volume follows ----------
 static palette_color_t fb[32], fs[28];
 static uint8_t fpn;                                  // number of BG palettes waiting in fb[] (0 = nothing pending)
-static uint16_t dim(uint16_t c, uint8_t l) {
-  uint8_t r = (uint8_t)(((c & 31) * l) >> 3), g = (uint8_t)((((c >> 5) & 31) * l) >> 3), b = (uint8_t)((((c >> 10) & 31) * l) >> 3);
-  return (uint16_t)(r | ((uint16_t)g << 5) | ((uint16_t)b << 10));
-}
 static void fade_calc(uint8_t lvl, uint8_t tit) {    // lvl 0 = black .. 8 = full colour; tit = title palettes
-  // Both title and gameplay now consume all eight CGB BG palettes. The
-  // old 24-color gameplay fade left palettes 6/7 set to title colors,
-  // rendering ANT EYE's upper sky black and tinting scent trails wrong.
-  uint8_t i, n = 32, v = lvl > 7 ? 7 : lvl;
-  const palette_color_t *p = tit ? tpal : bpal;
-  for (i = 0; i < n; i++) fb[i] = dim(p[i], lvl);    // the maths is slow: do it first, write right after vsync (fade_apply)
-  for (i = 0; i < 28; i++) fs[i] = dim(spal[i], lvl);
+  uint8_t i, v = lvl > 7 ? 7 : lvl;
+  // Process one hardware palette at a time. All 32 background colors and
+  // 28 object colors retain their original values and upload schedule;
+  // short guarded calls allow pending audio/VBlank work between batches.
+  for (i = 0; i < 8; i++) {
+    disable_interrupts();
+    palette_fade4(fb + (i << 2), (uint8_t)(i + (tit ? 8u : 0u)), lvl);
+    enable_interrupts();
+  }
+  for (i = 0; i < 7; i++) {
+    disable_interrupts();
+    palette_fade4(fs + (i << 2), (uint8_t)(i + 16u), lvl);
+    enable_interrupts();
+  }
   fpn = 8;
   NR50_REG = (uint8_t)((v << 4) | v);                // master volume follows the fade
 }
@@ -1750,9 +1718,8 @@ void main(void) {
   set_bkg_data(WORLD_DETAIL, 8, BGT_ALT);
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 7, SPT);  // two animated carrying-food silhouettes in tiles 5/6
-  set_bkg_palette(0, 8, bpal);
+  fade_level(8, 0);                                 // same full-color upload from existing fb/fs scratch
   disable_interrupts(); eye_init_offsets(); enable_interrupts();
-  set_sprite_palette(0, 7, spal);
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, 1);

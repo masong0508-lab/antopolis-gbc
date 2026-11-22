@@ -43,3 +43,5 @@ test:
 	./build/test_perk_labels
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_rules_calc.c -o build/test_rules_calc
 	./build/test_rules_calc
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_palette_fade.c -o build/test_palette_fade
+	./build/test_palette_fade

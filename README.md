@@ -1,3 +1,26 @@
+## More fixed-bank space and faster fades
+
+Palette tables and fade arithmetic now live together in ROM bank 3,
+freeing 373 bytes in the crowded fixed code area. Its remaining space
+increased from 3 to 376 bytes while the cartridge stays 64 KiB and
+permanent WRAM remains 6,158 bytes. Four-color batches fill the existing
+background and sprite buffers; no new framebuffer or palette RAM is used.
+
+The fade calculation uses exact shift/add arithmetic and avoids calling
+library multiplication code through the switched-out bank. Each banked
+batch is guarded, and interrupts can run again before the next palette.
+All 92 authored colors, nine brightness levels, palette upload counts,
+and explicit fade waits are preserved.
+
+Native tests compare all 589,824 encoded color/brightness combinations,
+the original palette fingerprint, and every bounded four-color batch.
+Actual PyBoy palette reads also verify title/game colors. In the matched
+transition comparison, full gameplay color appeared 205 frames after
+START instead of 228; title black appeared at frame 42 instead of 53.
+This reduces transition overhead; it is not a gameplay frame-rate claim.
+The existing ANT EYE and five queen-safety/mode-transition checks remain
+release gates, along with the fixed-code and trampoline bounds.
+
 ## Sandbox and tutorial queen protection
 
 Practice games can no longer end because a queen dies in ANT EYE or
