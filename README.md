@@ -1,3 +1,22 @@
+## Colony-growth awards and better ANT EYE foraging (GBC)
+
+In normal **single-player** games, hatching the 8th, 16th and 24th
+worker earns a one-time **+3, +4 and +5 mana** bonus, respectively
+(up to the usual 20-mana cap). A HUD message announces each milestone,
+providing a visible reason to grow the colony. The already-saved
+hatch counter determines the reward: there are no new SRAM bytes,
+per-frame timers or temporary progress state. The bonus is deliberately
+disabled in tutorials, sandbox and multiplayer, preserving existing
+practice expectations and link-cable rules.
+
+In ANT EYE, the food compass checks a **second legal step** before
+proposing a cardinal direction. This helps avoid returning immediately
+to a blocked position and, for a direct berry with an obstacle one
+tile ahead, can offer a verified two-step sidestep. It is **local
+guidance within the existing eight-tile scan**, not full pathfinding.
+The updated pause help and ANT EYE lesson explain the food guide.
+No new RAM buffers, ray casts or per-frame scans were introduced.
+
 ## Easier starting and faster manual navigation (GBC)
 
 The GBC title now explicitly identifies **START: PLAY**, separate from
