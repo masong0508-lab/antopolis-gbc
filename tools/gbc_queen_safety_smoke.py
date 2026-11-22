@@ -179,6 +179,11 @@ def run_case(rom, name, out):
             if not colony:
                 assert cart.row(0).startswith("ANT EYE"), "Sandbox left ANT EYE"
                 assert "RED QUEEN" in cart.row(1), "Protected queen disappeared"
+                # Repeated bites must explicitly acknowledge that the
+                # last heart is protected, not claim phantom damage.
+                assert any("PRACTICE QUEEN SAFE" in hit["feedback"]
+                           for hit in record["bites"]), (
+                    "The protected queen never displayed truthful practice feedback")
                 cart.press("start", 60, 180)
             assert cart.pyboy.memory[0xFF4A] == 128, "Strategy HUD did not return"
             cart.press("start", 18, 40)

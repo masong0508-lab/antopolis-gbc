@@ -10,14 +10,16 @@
 static void blank(char *b){uint8_t i;for(i=0;i<20;i++)b[i]=' ';b[20]=0;}
 static void field(char *b,uint8_t x,const char *s){while(*s&&x<20)b[x++]=*s++;}
 // Feedback codes are shared with the fixed-bank input loop:
- // 1 blocked, 2 picked up, 3 delivered, 4 missed, 5 enemy, 6 queen.
+ // 1 blocked, 2 picked up, 3 delivered, 4 missed, 5 enemy,
+ // 6 queen damaged, 7 protected tutorial/sandbox queen.
 void eye_ui_notice(char *b,uint8_t result) BANKED {
-  static const char *const messages[7]={
+  static const char *const messages[8]={
     "", "BLOCKED: TURN FIRST", "FOOD PICKED UP", "FOOD DELIVERED",
-    "NO ENEMY IN REACH", "ENEMY ANT DEFEATED", "RED QUEEN DAMAGED"
+    "NO ENEMY IN REACH", "ENEMY ANT DEFEATED", "RED QUEEN DAMAGED",
+    "PRACTICE QUEEN SAFE"
   };
   blank(b);
-  if(result<7) field(b,0,messages[result]);
+  if(result<8) field(b,0,messages[result]);
 }
 // The existing controls row acknowledges stationary scent immediately.
 // The caller updates it only when SELECT changes, using existing scratch.

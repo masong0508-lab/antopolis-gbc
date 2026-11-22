@@ -1,3 +1,23 @@
+## Practice queen damage and honest ANT EYE feedback
+
+Sandbox and tutorials already protect the last heart of each queen.
+However, ordinary overhead soldier attacks still deducted popularity
+and played queen-hit feedback even when the damage was blocked.
+Likewise ANT EYE described a blocked last-heart bite as "RED QUEEN
+DAMAGED," making practice combat look like a victory attempt.
+
+Damage, popularity and hit effects now occur only when a queen
+actually loses a heart. A protected last-heart bite instead displays
+**PRACTICE QUEEN SAFE**. The original victory and result flow remains
+unchanged in normal games, including regular queen knockouts.
+
+This changes no battery-save fields, RAM allocations, frame buffers,
+terrain maps, movement rules or random draws. Native UI tests check
+all eight action responses at the actual 20-character GBC width.
+The real-ROM PyBoy queen-safety suite now requires the protection
+message after repeated bites, plus surviving sandbox games, normal
+wins, and correct save checksums. Fixed ROM bank limits remain gated.
+
 ## Battery-save integrity: corrupted positions cannot enter live games
 
 The previous GBC loader trusted the save checksum alone. An intact
