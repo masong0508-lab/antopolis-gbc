@@ -1,3 +1,25 @@
+## Battery-save integrity: corrupted positions cannot enter live games
+
+The previous GBC loader trusted the save checksum alone. An intact
+checksum cannot guarantee valid gameplay data: a saved cursor or living
+ant with an x/y coordinate beyond the 32×32 world could be offered as a
+continue slot and then index outside the terrain arrays.
+
+Continue now rejects out-of-range live cursor/ant coordinates and
+unsupported difficulty values **before loading**. Unused ant slots may
+still contain stale coordinates, preserving compatibility with
+historical original-format battery saves. Missing, invalid and
+corrupted games simply do not offer Continue; per-difficulty records
+remain independent and unaffected.
+
+The existing checksum, save record layout, terrain food normalization,
+RAM footprint and regular gameplay loop are unchanged. Validation runs
+only during title/save loading. CI runs the real PyBoy ROM with a
+correct-checksum save containing invalid cursor X/Y, invalid live ant
+X/Y, invalid difficulty, a valid original save, and a valid save with
+stale inactive-ant coordinates. It checks that legitimate Continue is
+preserved and malformed games are never offered as playable.
+
 ## ANT EYE worker selection and action feedback
 
 Switching workers now updates the view position before processing any
