@@ -80,7 +80,7 @@ class Cartridge:
         self.pyboy.set_emulation_speed(0)
         symbols = rom.with_suffix(".map").read_text()
         self.address = {}
-        for name in ("cx", "cy", "hgt", "food", "ph"):
+        for name in ("cx", "cy", "hgt", "food", "ph", "occ"):
             match = re.search(r"([0-9A-Fa-f]{8})\s+_" + name + r"\b", symbols)
             assert match, "Missing world symbol: " + name
             self.address[name] = int(match[1], 16)
@@ -231,18 +231,28 @@ def run_case(rom, name, out):
             if name == "switch-only":
                 check("switching alone preserves both worker positions",
                       cart.cursor() == [22, 22] and workers[0]["x"] == 10 and workers[1]["x"] == 22)
+                check("both separated ants remain in 3D occupancy",
+                      cart.tile("occ", 10, 10) == 1 and cart.tile("occ", 22, 22) == 1)
             elif name == "switch-forward":
                 check("A+UP moves from the new island", 22 < workers[1]["x"] <= 24 and workers[1]["y"] == 22)
                 check("the old pilot stays in place", workers[0]["x"] == workers[0]["y"] == 10)
                 check("the new pilot collects its own island's berry",
                       workers[1]["carry"] == 1 and cart.tile("food", 23, 22) == 0)
+                check("only the old/new 3D cells change during walking",
+                      cart.tile("occ", workers[1]["x"], 22) == 1 and
+                      cart.tile("occ", 22, 22) == 0 and cart.tile("occ", 10, 10) == 1)
             elif name == "switch-backward":
                 check("A+DOWN retreats on the new island", 20 <= workers[1]["x"] < 22 and workers[1]["y"] == 22)
                 check("the old pilot stays in place", workers[0]["x"] == workers[0]["y"] == 10)
+                check("retreat only refreshes changed 3D tiles",
+                      cart.tile("occ", workers[1]["x"], 22) == 1 and
+                      cart.tile("occ", 22, 22) == 0 and cart.tile("occ", 10, 10) == 1)
             elif name == "switch-bite":
                 check("A+B attacks at the new pilot", workers[3]["alive"] == 0 and workers[2]["alive"] == 1)
                 check("biting never moves either pilot", cart.cursor() == [22, 22] and workers[0]["x"] == 10 and workers[1]["x"] == 22)
                 check("the successful bite is acknowledged", "ENEMY ANT DEFEATED" in cart.row(14))
+                check("3D target clears dead ant without disturbing distant enemy",
+                      cart.tile("occ", 23, 22) == 0 and cart.tile("occ", 11, 10) == 2)
             elif name in ("switch-scent", "stationary-scent"):
                 x, y = (22, 22) if name == "switch-scent" else (10, 10)
                 check("scent is placed at the selected worker", cart.tile("ph", x, y) == 255)
@@ -263,6 +273,8 @@ def run_case(rom, name, out):
                 check("ordinary colony simulation still drowns that worker", cart.workers()[wet]["alive"] == 0)
             elif name == "food-save-continue":
                 check("ordinary dry movement still collects food", workers[0]["carry"] == 1 and cart.tile("food", 11, 10) == 0)
+                check("first-person food pickup leaves exact rendered occupancy",
+                      cart.tile("occ", workers[0]["x"], 10) == 1 and cart.tile("occ", 10, 10) == 0)
                 cart.press("start", 18, 6)
                 cart.press("start", 18, 40)
                 cart.press("a", 18, 40)
