@@ -622,10 +622,14 @@ static uint8_t save_scan(uint8_t apply) {
   uint8_t i, x, y, b, k, ok;
   sram_open(SAV_AT);
   ok = (sr() == SAVE_MAGIC);
-  RD(gdiff);
+  // The checksum alone cannot prove a position is in the 32x32 world.
+  // Reject a valid-checksum but invalid save BEFORE the caller loads it.
+  b = sr(); if (b > 2u) ok = 0; if (apply) gdiff = b;
   b = sr(); if (apply) { norec = b & 1; sandbox = (b >> 1) & 1; perk = b >> 2; }
   RD(stock[0]); RD(stock[1]); RD(qhp[0]); RD(qhp[1]); RD(hatched[0]); RD(hatched[1]);
-  RD(cx); RD(cy); RD(mana); RD(appr); RD(tk);
+  b = sr(); if (b >= W) ok = 0; if (apply) cx = b;
+  b = sr(); if (b >= H) ok = 0; if (apply) cy = b;
+  RD(mana); RD(appr); RD(tk);
   b = sr(); k = sr(); if (apply) etk = b | ((uint16_t)k << 8);
   b = sr(); k = sr(); if (apply) gt = b | ((uint16_t)k << 8);
   for (y = 0; y < H; y++) for (x = 0; x < W; x += 4) {
@@ -637,9 +641,15 @@ static uint8_t save_scan(uint8_t apply) {
     if (apply) for (k = 0; k < 8; k++) food[y][x + k] = (b >> k) & 1u;
   }
   for (i = 0; i < MAXA; i++) {
-    RD(ant[i].x); RD(ant[i].y);
-    b = sr();
-    if (apply) { ant[i].alive = b & 1; ant[i].team = (b >> 1) & 1; ant[i].carry = (b >> 2) & 1; ant[i].sol = (b >> 3) & 1; }
+    x = sr(); y = sr(); b = sr();
+    // Inactive slots may contain stale coordinates in historical saves.
+    // Only living ants are dereferenced by the game simulation.
+    if ((b & 1u) && (x >= W || y >= H)) ok = 0;
+    if (apply) {
+      ant[i].x = x; ant[i].y = y;
+      ant[i].alive = b & 1; ant[i].team = (b >> 1) & 1;
+      ant[i].carry = (b >> 2) & 1; ant[i].sol = (b >> 3) & 1;
+    }
   }
   ok = ok && (*sp == ssum);
   sram_close();
