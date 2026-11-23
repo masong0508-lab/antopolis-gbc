@@ -1640,14 +1640,14 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
   if (dirs != d->lst) { d->rp = 0; d->lst = dirs; }
   /* Ignore normal D-pad scrolling while SELECT+UP/DOWN is held.
      The tiny cursor assignments below cannot affect world simulation. */
-  if (!nest_chord && dirs) {                       // hold to repeat after a short delay
-    if (d->rp == 0 || (d->rp >= 10 && (d->rp % 3) == 1)) {
+  if (!nest_chord && dirs) {                       // one step, then 10-frame delay and 3-frame repeat
+    if (d->rp <= 1) {
       if ((dirs & J_LEFT) && cx > 0) cx--;
       if ((dirs & J_RIGHT) && cx < W - 1) cx++;
       if ((dirs & J_UP) && cy > 0) cy--;
       if ((dirs & J_DOWN) && cy < H - 1) cy++;
-    }
-    if (d->rp < 250) d->rp++;
+      d->rp = d->rp ? 3 : 10;
+    } else d->rp--;
   }
   if (k & J_SELECT) {                              // SELECT modifies terrain, speed and cursor navigation
     if (p & J_SELECT) d->su = 0;
