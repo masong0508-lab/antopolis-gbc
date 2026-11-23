@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard the *shipping GBC input loop*, not merely the pure cursor helper."""
+"""Protect live GBC nest shortcut controls and original input behaviour."""
 from pathlib import Path
 
 source = Path("src/main.c").read_text()
@@ -8,17 +8,17 @@ assert '#include "colony_cursor.h"' in source
 pin = source.split("static void pin(uint8_t k, Pad *d) {", 1)[1].split(
     "static void pass_card(void)", 1
 )[0]
-assert "nest_chord" in pin
-assert "if (!nest_chord && dirs)" in pin, "Held chord must not move cursor"
-assert "if (nest_chord)" in pin, "Held chord must keep cursor fixed"
-assert "colony_cursor_target(pl, (uint8_t)((k & J_DOWN) >> 3))" in pin
+assert "(k & J_SELECT) && (dirs & (J_UP | J_DOWN))" in pin
+assert "colony_cursor_target(pl, (uint8_t)((dirs & J_DOWN) >> 3))" in pin
 assert "cx = nestx[team]; cy = nesty[team];" in pin
-assert "d->su = 1;" in pin, "A warp must not become an accidental flood"
-assert "d->rp = d->rp ? 3 : 10;" in pin, "Stable cursor repeat countdown missing"
-assert "else d->rp--;" in pin and "d->rp % 3" not in pin, (
-    "Cursor input must not use frame-time modulo or saturate at 250"
+assert "dirs = 0;" in pin, "Held jump must suppress ordinary movement"
+assert "d->su = 1;" in pin, "Releasing SELECT must not flood"
+assert pin.index("if (p & J_SELECT) d->su = 0;") < pin.index(
+    "if ((k & J_SELECT)") < pin.index("d->su = 1;"), (
+    "SELECT reset must happen before jump consumes SELECT on the same frame"
 )
-assert "uint8_t nest_chord" in pin
+assert "(d->rp % 3) == 1" in pin, "Keep the original repeat cadence"
 assert "if (d->sl && !d->su) flood();" in pin, "Keep ordinary SELECT flood"
-assert 'SEL UP HOME DN RIVAL' in help_text, "Teach both new shortcuts"
-print("GBC compact cursor shortcut wired: both nests, held-key suppression, flood safety")
+assert "if (p & J_A) { offering();" in pin, "Keep SELECT+A trade"
+assert 'SEL UP HOME DN RIVAL' in help_text
+print("GBC nest warp wired with no drift/flood; original controls preserved")
