@@ -84,6 +84,20 @@ int main(void){
   // while unscented direct movement still scores ahead of a detour.
   assert(colony_home_score(3,0,0)>colony_home_score(4,0,0));
   assert(colony_home_score(3,255,0)<colony_home_score(4,0,0));
-  puts("GBC return-home routing: direct path + 45 obstacle routes PASS");
+  /* Previously an empty square with scent 255 beat adjacent food with
+     scent 0: 255+31 > 120. Food must now win against EVERY empty trail
+     and random roll; searching on empty land keeps exactly the old score. */
+  for (unsigned trail = 0; trail <= 255; ++trail)
+    for (unsigned roll = 0; roll < 32; ++roll) {
+      assert(colony_forager_score((uint8_t)trail, 0, (uint8_t)roll) ==
+             (int16_t)(trail + roll));
+      assert(colony_forager_score((uint8_t)trail, 1, (uint8_t)roll) ==
+             (int16_t)(trail + roll + 288));
+      assert(colony_forager_score((uint8_t)trail, 1, (uint8_t)roll) >
+             colony_forager_score(255, 0, 31));
+    }
+  assert(colony_forager_score(0, 1, 0) > colony_forager_score(255, 0, 31));
+  assert(colony_forager_score(255, 1, 0) > colony_forager_score(0, 1, 31));
+  puts("GBC return-home routing + berry-first foraging: obstacle routes and all scent/roll combinations PASS");
   return 0;
 }
