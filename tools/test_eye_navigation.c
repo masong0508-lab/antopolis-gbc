@@ -74,6 +74,13 @@ int main(void) {
   terrain[10][11] = 1;
   // Nearby food can be found; directions are canonical compass axes.
   assert(!eye_food_bearing(terrain, berries, 10, 10));
+  // Food underfoot is immediately reachable even though walking needs
+  // no first leg. Nearby earlier-scanned fruit must not hide FOOD: HERE.
+  berries[10][10] = 1;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 0x10));
+  berries[9][10] = 1;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 0x10));
+  berries[9][10] = berries[10][10] = 0;
   berries[10][13] = 1;
   berries[8][9] = 1;
   bearing = eye_food_bearing(terrain, berries, 10, 10);
