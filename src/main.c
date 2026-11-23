@@ -1652,7 +1652,7 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
   if (k & J_SELECT) {                              // SELECT modifies terrain, speed and cursor navigation
     if (p & J_SELECT) d->su = 0;
     if (nest_chord) {
-      uint8_t team = colony_cursor_target(pl, (uint8_t)!(k & J_UP));
+      uint8_t team = colony_cursor_target(pl, (uint8_t)((k & J_DOWN) >> 3));
       cx = nestx[team]; cy = nesty[team];
       d->su = 1;  // releasing SELECT must never trigger a flood
     }
