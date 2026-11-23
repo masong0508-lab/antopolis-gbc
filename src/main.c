@@ -1635,32 +1635,32 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
 
 static void pin(uint8_t k, Pad *d) {               // one player's controls (the live cursor / mana)
   uint8_t p = k & ~d->prv, dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
-  uint8_t nest_chord = (uint8_t)((k & J_SELECT) && (k & (J_UP | J_DOWN)));
   d->prv = k;
+  /* Reuse the existing cursor and SELECT-consumed bit. Holding the
+     chord leaves direction zero so key repeat cannot drift off-nest. */
+  if ((k & J_SELECT) && (dirs & (J_UP | J_DOWN))) {
+    uint8_t team = colony_cursor_target(pl, (uint8_t)((dirs & J_DOWN) >> 3));
+    cx = nestx[team]; cy = nesty[team];
+    d->su = 1;
+    dirs = 0;
+  }
   if (dirs != d->lst) { d->rp = 0; d->lst = dirs; }
-  /* Ignore normal D-pad scrolling while SELECT+UP/DOWN is held.
-     The tiny cursor assignments below cannot affect world simulation. */
-  if (!nest_chord && dirs) {                       // one step, then 10-frame delay and 3-frame repeat
-    if (d->rp <= 1) {
+  if (dirs) {                                      // hold to repeat after a short delay
+    if (d->rp == 0 || (d->rp >= 10 && (d->rp % 3) == 1)) {
       if ((dirs & J_LEFT) && cx > 0) cx--;
       if ((dirs & J_RIGHT) && cx < W - 1) cx++;
       if ((dirs & J_UP) && cy > 0) cy--;
       if ((dirs & J_DOWN) && cy < H - 1) cy++;
-      d->rp = d->rp ? 3 : 10;
-    } else d->rp--;
-  }
-  if (k & J_SELECT) {                              // SELECT modifies terrain, speed and cursor navigation
-    if (p & J_SELECT) d->su = 0;
-    if (nest_chord) {
-      uint8_t team = colony_cursor_target(pl, (uint8_t)((k & J_DOWN) >> 3));
-      cx = nestx[team]; cy = nesty[team];
-      d->su = 1;  // releasing SELECT must never trigger a flood
     }
+    if (d->rp < 250) d->rp++;
+  }
+  if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A trade, SEL+B fast, release flood
+    if (p & J_SELECT) d->su = 0;
     if (p & J_A) { offering(); d->su = 1; }
     if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); d->su = 1; }
   } else {
     if (d->sl && !d->su) flood();
-    if (pend && !msgt) { if (p & (J_A | J_B)) pick((p & J_A) ? pa : pb); }   // offer on the HUD: A / B take a perk
+    if (pend && !msgt) { if (p & (J_A | J_B)) pick((p & J_A) ? pa : pb); }
     else { if (p & J_A) raise_land(); if (p & J_B) lower_land(); }
   }
   d->sl = k & J_SELECT;
