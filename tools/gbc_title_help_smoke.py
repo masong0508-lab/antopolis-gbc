@@ -7,6 +7,7 @@ No game RAM or ROM patching. Saves screenshots and compact JSON evidence.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from gbc_queen_safety_smoke import Cartridge
 
@@ -50,6 +51,62 @@ def main():
         assert "COLONY COMMAND" not in cart.row(0), "START did not return to game"
         cart.snapshot("04_resumed_colony")
         report["checks"].append("START resumes the same playable colony")
+        # Read the real compiled SRAM/world symbols; the cartridge receives
+        # only ordinary GBC buttons, never modified RAM or injected code.
+        symbols=args.rom.with_suffix(".map").read_text()
+        def addr(name):
+            match=re.search(r"([0-9A-Fa-f]{8})\s+_" + name + r"\b",symbols)
+            assert match, "Missing shipping symbol: " + name
+            value=int(match[1],16)
+            assert 0xC000 <= value < 0xE000
+            return value
+        mem=cart.pyboy.memory
+        cx,cy=addr("cx"),addr("cy")
+        nx,ny=addr("nestx"),addr("nesty")
+        hgt=addr("hgt")
+        own=(mem[nx],mem[ny])
+        rival=(mem[nx+1],mem[ny+1])
+        assert own != rival and all(0 <= n < 32 for n in own + rival)
+        before=bytes(mem[hgt:hgt+1024])
+        def jump_and_check(key,target,shot):
+            cart.pyboy.button_press("select")
+            cart.pyboy.button_press(key)
+            cart.tick(20)
+            assert (mem[cx],mem[cy]) == target, (
+                "SELECT nest shortcut did not recenter",key,target,(mem[cx],mem[cy]))
+            # A held chord must not keep moving one tile per repeat frame.
+            cart.tick(40)
+            assert (mem[cx],mem[cy]) == target, (
+                "Holding SELECT moved cursor off its nest",key)
+            cart.pyboy.button_release(key)
+            cart.pyboy.button_release("select")
+            cart.tick(12)
+            assert (mem[cx],mem[cy]) == target, "Release moved cursor"
+            cart.snapshot(shot)
+        jump_and_check("up",own,"05_warp_home")
+        jump_and_check("down",rival,"06_warp_rival")
+        assert bytes(mem[hgt:hgt+1024]) == before, (
+            "Nest shortcuts modified terrain: possible SELECT-release flood")
+        # A displayed emulator frame is not one game-loop input poll:
+        # painting/simulation spans multiple VBlanks. Validate that the
+        # released SELECT restores ordinary scrolling without overshoot.
+        # At most six moves are possible in 24 consecutive input polls.
+        x0,y0=mem[cx],mem[cy]
+        direction="left" if x0>=16 else "right"
+        cart.press(direction,24,8)
+        x1,y1=mem[cx],mem[cy]
+        steps=x0-x1 if direction=="left" else x1-x0
+        assert y1==y0 and 1 <= steps <= 6, (
+            "Cursor movement direction or repeat upper bound changed",
+            direction,(x0,y0),(x1,y1),steps)
+        cart.snapshot("07_cursor_repeat")
+        report["checks"].append(
+            "Cursor resumes in the intended direction with bounded repetition")
+        assert bytes(mem[hgt:hgt+1024]) == before, (
+            "Nest shortcuts modified terrain: possible SELECT-release flood")
+        report["checks"].append(
+            "SELECT+UP/DOWN reach both real nests; held/released chord never floods")
+        report["nest_warps"]={"home":own,"rival":rival}
         report["passed"]=True
     except Exception as exc:
         report["error"]=str(exc)

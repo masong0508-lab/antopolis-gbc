@@ -146,6 +146,11 @@ jobs:
           assert 0x0200 <= address and address + length <= code_start < 0x4000, (
               "BANKED trampoline overlaps CRT0 startup, fixed CODE or a ROM bank"
           )
+          # The shortcut deliberately reclaims only spare padding.
+          # Keep >=128 bytes available for future bank-call trampolines.
+          assert code_start - (address + length) >= 128, (
+              "Not enough reserved HOME trampoline growth room"
+          )
           assert code_end <= 0x8000, "Fixed _CODE exceeds the 32 KiB mapping"
           print("Fixed CODE ends:", hex(code_end), "bytes remaining:", 0x8000 - code_end)
           PY

@@ -10,6 +10,7 @@
 #include "sprite_logic.h"   // team/role palettes, same OAM slots and animation tiles
 #include "colony_route.h"   // pheromone-aware home steering; no added world buffers
 #include "colony_milestones.h" // saved hatch counts grant modest solo milestones
+#include "colony_cursor.h" // SELECT+UP/DOWN jumps the existing cursor to nests
 #include "terrain_food.h"  // submerged berry removal shared with the GBA port
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 #include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
@@ -1635,6 +1636,15 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
 static void pin(uint8_t k, Pad *d) {               // one player's controls (the live cursor / mana)
   uint8_t p = k & ~d->prv, dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
   d->prv = k;
+  if (p & J_SELECT) d->su = 0;  // reset before a same-frame nest chord consumes SELECT
+  /* Reuse the existing cursor and SELECT-consumed bit. Holding the
+     chord leaves direction zero so key repeat cannot drift off-nest. */
+  if ((k & J_SELECT) && (dirs & (J_UP | J_DOWN))) {
+    uint8_t team = colony_cursor_target(pl, (uint8_t)((dirs & J_DOWN) >> 3));
+    cx = nestx[team]; cy = nesty[team];
+    d->su = 1;
+    dirs = 0;
+  }
   if (dirs != d->lst) { d->rp = 0; d->lst = dirs; }
   if (dirs) {                                      // hold to repeat after a short delay
     if (d->rp == 0 || (d->rp >= 10 && (d->rp % 3) == 1)) {
@@ -1643,15 +1653,14 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
       if ((dirs & J_UP) && cy > 0) cy--;
       if ((dirs & J_DOWN) && cy < H - 1) cy++;
     }
-    if (d->rp < 250) d->rp++;
+    d->rp++; /* Wrap naturally instead of accelerating at 250 frames */
   }
-  if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A embezzle, SEL+B fast forward, alone (on release) flood
-    if (p & J_SELECT) d->su = 0;
+  if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A trade, SEL+B fast, release flood
     if (p & J_A) { offering(); d->su = 1; }
     if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); d->su = 1; }
   } else {
     if (d->sl && !d->su) flood();
-    if (pend && !msgt) { if (p & (J_A | J_B)) pick((p & J_A) ? pa : pb); }   // offer on the HUD: A / B take a perk
+    if (pend && !msgt) { if (p & (J_A | J_B)) pick((p & J_A) ? pa : pb); }
     else { if (p & J_A) raise_land(); if (p & J_B) lower_land(); }
   }
   d->sl = k & J_SELECT;
