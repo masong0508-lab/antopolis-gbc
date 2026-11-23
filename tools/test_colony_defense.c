@@ -9,7 +9,13 @@ static EyeAnt ants[EYE_OCC_ANTS];
 
 int main(void) {
   uint8_t i;
+  /* The shared EyeAnt declaration also brings the bank-3 occupancy
+     helper into this host fixture. Exercise it so -Werror correctly
+     treats the header's static function as used. */
+  uint8_t berries[32][32] = {{0}};
+  uint8_t queens[2] = {0, 0}, qx[2] = {4, 27}, qy[2] = {26, 5};
   memset(ants, 0, sizeof ants);
+  assert(eye_occupancy_at(0, 0, ants, berries, queens, qx, qy) == 0);
   assert(colony_home_threat(ants, 0, 4, 26) == EYE_OCC_ANTS);
   assert(colony_home_threat(ants, 1, 27, 5) == EYE_OCC_ANTS);
   assert(!colony_guard_intercept(8, EYE_OCC_ANTS));
