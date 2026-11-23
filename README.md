@@ -11,8 +11,14 @@ Normal tap-SELECT flooding, SELECT+A food trading, SELECT+B fast
 forward and SELECT+START ANT EYE remain unchanged. Only the existing
 cursor coordinates are updated; workers, queen health, map terrain,
 battery-save layout, and link-cable protocol remain as before.
-The native test and headless GBC ROM test verify both jumps and terrain
-integrity.
+
+For ordinary D-pad scrolling, a small countdown replaces the old
+per-frame modulo calculation: **one immediate step, then the existing
+10-frame delay and a repeat every 3 frames**. Very long holds no longer
+accelerate unexpectedly after the old 250-frame counter saturated.
+This saves instructions in the nearly full fixed ROM bank and maintains
+the original short-hold feel. The native test and headless GBC ROM
+test cover both nest jumps, repeat cadence and terrain integrity.
 
 ## Colony-growth awards and better ANT EYE foraging (GBC)
 
