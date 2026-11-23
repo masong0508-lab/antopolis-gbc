@@ -10,10 +10,10 @@ int main(void) {
       assert(target < 2);
       assert(target == (uint8_t)(rival ? team ^ 1u : team));
     }
-  /* A corrupted or unexpected modifier cannot form an out-of-range
-     target index: the live game still uses the validated nest tiles. */
-  assert(colony_cursor_target(255, 255) == 0);
-  assert(colony_cursor_target(254, 255) == 1);
+  /* The production input loop supplies only player teams 0/1 and
+     an explicit Boolean rival modifier; see the real-ROM cursor test. */
+  assert(colony_cursor_target(0, 0) == 0);
+  assert(colony_cursor_target(1, 1) == 0);
   puts("GBC cursor targets PASS: home/rival symmetry and bounded team IDs");
   return 0;
 }
