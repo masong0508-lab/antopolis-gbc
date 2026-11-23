@@ -4,7 +4,8 @@
    pheromone field is the no-allocation history of recently visited
    ground; returning workers deposit scent before picking each step.
    Penalize revisiting heavily scented cells even if those cells are
-   geometrically nearer. Searchers/soldiers retain their original AI.
+   geometrically nearer. Unloaded foragers now always notice adjacent
+   berries even along a crowded pheromone trail; soldier AI is unchanged.
    No BFS buffer, new WRAM, floating point, or per-frame map scan. */
 #ifndef ANTOPOLIS_COLONY_ROUTE_H
 #define ANTOPOLIS_COLONY_ROUTE_H
