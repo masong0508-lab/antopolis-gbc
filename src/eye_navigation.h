@@ -156,10 +156,14 @@ static uint8_t eye_food_first_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
   int8_t dy = ty > vy ? 1 : ty < vy ? -1 : 0;
   uint8_t horiz = dx > 0 ? 1u : dx < 0 ? 2u : 0u;
   uint8_t vert = dy > 0 ? 4u : dy < 0 ? 8u : 0u;
+  // A legal diagonal landing can still enter a one-step pocket with
+  // no forward exit toward the berry. Require the same cheap second
+  // progress step as cardinal food guidance before advertising it.
   if (dx && dy &&
       eye_legal_leg(heights, vx, vy, dx, dy) &&
       eye_legal_leg(heights, vx, vy, dx, 0) &&
-      eye_legal_leg(heights, vx, vy, 0, dy))
+      eye_legal_leg(heights, vx, vy, 0, dy) &&
+      eye_food_followup(heights, vx, vy, tx, ty, dx, dy))
     return (uint8_t)(horiz | vert);
   if (dx && eye_legal_leg(heights, vx, vy, dx, 0) &&
       eye_food_followup(heights, vx, vy, tx, ty, dx, 0)) return horiz;
