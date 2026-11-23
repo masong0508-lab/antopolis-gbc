@@ -1636,6 +1636,7 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
 static void pin(uint8_t k, Pad *d) {               // one player's controls (the live cursor / mana)
   uint8_t p = k & ~d->prv, dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
   d->prv = k;
+  if (p & J_SELECT) d->su = 0;  // reset before a same-frame nest chord consumes SELECT
   /* Reuse the existing cursor and SELECT-consumed bit. Holding the
      chord leaves direction zero so key repeat cannot drift off-nest. */
   if ((k & J_SELECT) && (dirs & (J_UP | J_DOWN))) {
@@ -1655,7 +1656,6 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
     if (d->rp < 250) d->rp++;
   }
   if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A trade, SEL+B fast, release flood
-    if (p & J_SELECT) d->su = 0;
     if (p & J_A) { offering(); d->su = 1; }
     if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); d->su = 1; }
   } else {
