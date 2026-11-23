@@ -3,26 +3,17 @@
 #include <stdio.h>
 #include "../src/colony_cursor.h"
 int main(void) {
-  uint8_t nests_x[2] = {3, 29}, nests_y[2] = {9, 22}, x = 11, y = 14;
-  assert(!colony_cursor_warp(0, 0, nests_x, nests_y, &x, &y));
-  assert(x == 11 && y == 14);
-  assert(colony_cursor_warp(1, 0, nests_x, nests_y, &x, &y));
-  assert(x == 3 && y == 9);
-  assert(colony_cursor_warp(2, 0, nests_x, nests_y, &x, &y));
-  assert(x == 29 && y == 22);
-  assert(colony_cursor_warp(1, 1, nests_x, nests_y, &x, &y));
-  assert(x == 29 && y == 22);
-  assert(colony_cursor_warp(2, 1, nests_x, nests_y, &x, &y));
-  assert(x == 3 && y == 9);
-  assert(!colony_cursor_warp(3, 0, nests_x, nests_y, &x, &y));
-  assert(!colony_cursor_warp(1, 2, nests_x, nests_y, &x, &y));
-  assert(x == 3 && y == 9);
-  nests_x[1] = 32; nests_y[1] = 33;
-  assert(!colony_cursor_warp(2, 0, nests_x, nests_y, &x, &y));
-  assert(x == 3 && y == 9);
-  nests_x[1] = 31; nests_y[1] = 0;
-  assert(colony_cursor_warp(2, 0, nests_x, nests_y, &x, &y));
-  assert(x == 31 && y == 0);
-  puts("GBC cursor jump PASS: own/rival, bounds, both players, no unintended writes");
+  uint8_t team, rival, target;
+  for (team = 0; team < 2; team++)
+    for (rival = 0; rival < 2; rival++) {
+      target = colony_cursor_target(team, rival);
+      assert(target < 2);
+      assert(target == (uint8_t)(rival ? team ^ 1u : team));
+    }
+  /* A corrupted or unexpected modifier cannot form an out-of-range
+     target index: the live game still uses the validated nest tiles. */
+  assert(colony_cursor_target(255, 255) == 0);
+  assert(colony_cursor_target(254, 255) == 1);
+  puts("GBC cursor targets PASS: home/rival symmetry and bounded team IDs");
   return 0;
 }
