@@ -200,6 +200,11 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
       if (leg) { best = d; bearing = leg; }
     }
   }
-  return best == 255 ? 0 : (uint8_t)(0x80u | bearing);
+  /* The direction field uses bits 0..3. Spare bits 4/5 encode
+     coarse proximity without another world scan, ray cast or RAM map.
+     They are Manhattan DISTANCE bands, not promised travel times:
+     NEAR <=4, MID 5..8, FAR >=9 squares. */
+  return best == 255 ? 0 : (uint8_t)(0x80u | bearing |
+            (best <= 4u ? 0x10u : best >= 9u ? 0x20u : 0u));
 }
 #endif
