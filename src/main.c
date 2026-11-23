@@ -1640,7 +1640,8 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
   /* Reuse the existing cursor and SELECT-consumed bit. Holding the
      chord leaves direction zero so key repeat cannot drift off-nest. */
   if ((k & J_SELECT) && (dirs & (J_UP | J_DOWN))) {
-    uint8_t team = colony_cursor_target(pl, (uint8_t)((dirs & J_DOWN) >> 3));
+    uint8_t team = pl;
+    if (dirs & J_DOWN) team = colony_cursor_target(team, 1u);
     cx = nestx[team]; cy = nesty[team];
     d->su = 1;
     dirs = 0;
