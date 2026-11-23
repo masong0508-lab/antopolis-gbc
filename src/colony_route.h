@@ -18,4 +18,15 @@ static int16_t colony_home_score(uint8_t manhattan_distance,
          (int16_t)(random_low_nibble & 15u) -
          (int16_t)(existing_scent >> 2);
 }
+/* Adjacent food must beat ANY empty neighbor, including a saturated
+   scent trail with the highest random roll (255+31=286). A 288 bonus
+   guarantees that outcome, yet scent still breaks ties between berries.
+   Existing RNG cadence, four legal steps and both teams stay unchanged.
+   No per-ant RAM or new food/path scan. */
+static int16_t colony_forager_score(uint8_t existing_scent,
+                                    uint8_t has_berry,
+                                    uint8_t random_low_five) {
+  return (int16_t)existing_scent + (int16_t)(random_low_five & 31u) +
+         (has_berry ? 288 : 0);
+}
 #endif
