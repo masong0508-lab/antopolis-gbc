@@ -1,10 +1,8 @@
-/* GBC nest cursor targeting: no allocations or save-format changes.
- * All gameplay nest coordinates are already bounded by world setup/save
- * validation; the player index is 0 for black, 1 for red. */
+/* GBC nest cursor targeting: the live team and modifier are both 0 or 1.
+ * A macro avoids an out-of-line function call in the almost-full fixed
+ * ROM bank. There are no save format, RAM or simulation changes. */
 #ifndef ANTOPOLIS_COLONY_CURSOR_H
 #define ANTOPOLIS_COLONY_CURSOR_H
 #include <stdint.h>
-static uint8_t colony_cursor_target(uint8_t team, uint8_t rival) {
-  return (uint8_t)((team & 1u) ^ (rival & 1u));
-}
+#define colony_cursor_target(team, rival) ((uint8_t)((team) ^ (rival)))
 #endif
