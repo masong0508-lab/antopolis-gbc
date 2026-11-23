@@ -1653,7 +1653,7 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
       if ((dirs & J_UP) && cy > 0) cy--;
       if ((dirs & J_DOWN) && cy < H - 1) cy++;
     }
-    if (d->rp < 250) d->rp++;
+    d->rp++; /* Wrap naturally instead of accelerating at 250 frames */
   }
   if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A trade, SEL+B fast, release flood
     if (p & J_A) { offering(); d->su = 1; }
