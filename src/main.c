@@ -766,7 +766,10 @@ static void step_ant(Ant *a) {
       de = dist(tx, nestx[e]) + dist(ty, nesty[e]);
       sc = -14 * (int16_t)de + (rand() & 31);
     } else {
-      sc = ph[ty][tx] + (food[ty][tx] ? 120 : 0) + (rand() & 31);   // pheromone trails
+      // A real adjacent berry outranks even the strongest empty scent.
+      // The forager still follows trails and retains its one RNG draw.
+      sc = colony_forager_score(ph[ty][tx], food[ty][tx],
+                                (uint8_t)rand());
     }
     if (sc > best) { best = sc; bd = d; found = 1; }
   }
