@@ -18,6 +18,9 @@ assert pin.index("if (p & J_SELECT) d->su = 0;") < pin.index(
     "SELECT reset must happen before jump consumes SELECT on the same frame"
 )
 assert "(d->rp % 3) == 1" in pin, "Keep the original repeat cadence"
+assert "d->rp++;" in pin and "d->rp < 250" not in pin, (
+    "Very long holds must not accelerate from a saturated repeat counter"
+)
 assert "if (d->sl && !d->su) flood();" in pin, "Keep ordinary SELECT flood"
 assert "if (p & J_A) { offering();" in pin, "Keep SELECT+A trade"
 assert 'SEL UP HOME DN RIVAL' in help_text
