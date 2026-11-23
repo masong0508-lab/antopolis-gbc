@@ -96,6 +96,17 @@ int main(void) {
   assert(!eye_food_bearing(terrain, berries, 10, 10));
   terrain[9][10] = 1;
   terrain[10][9] = 1;
+  // A free diagonal landing is not enough: if both onward legs toward
+  // the berry are water, show a safe cardinal approach instead.
+  memset(berries, 0, sizeof berries);
+  berries[12][12] = 1;
+  terrain[11][12] = terrain[12][11] = 0;
+  assert(eye_food_first_leg(terrain, 10, 10, 12, 12) == 1);
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 0x10 | 1));
+  terrain[11][12] = terrain[12][11] = 1;
+  assert(eye_food_first_leg(terrain, 10, 10, 12, 12) == (1 | 4));
+  berries[12][12] = 0;
   // Farther than eight tiles is not shown as a close source.
   berries[8][9] = berries[10][13] = 0;
   berries[30][30] = 1;
