@@ -14,6 +14,11 @@
 static int16_t colony_home_score(uint8_t manhattan_distance,
                                  uint8_t existing_scent,
                                  uint8_t random_low_nibble) {
+  /* Reaching the nest must outrank every non-home neighbor, even if
+     hundreds of earlier deliveries saturated its pheromone trail.
+     Otherwise a food carrier can circle one square from home forever.
+     All non-home scores and the per-candidate RNG call are unchanged. */
+  if (!manhattan_distance) return 16;
   return (int16_t)(-10 * (int16_t)manhattan_distance) +
          (int16_t)(random_low_nibble & 15u) -
          (int16_t)(existing_scent >> 2);
