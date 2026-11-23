@@ -1,3 +1,19 @@
+## Map shortcuts: jump to your queen or the rival nest (GBC)
+
+In the overhead map, **hold SELECT and press UP** to recenter the cursor
+on your own queen's nest. **Hold SELECT and press DOWN** to jump to
+the rival nest. These controls work for either player's colony, are
+shown in the in-game pause help and cursor tutorial, and cost no mana.
+Holding either chord does not slide the cursor away from the target.
+
+Releasing SELECT after a nest shortcut **does not trigger a flood**.
+Normal tap-SELECT flooding, SELECT+A food trading, SELECT+B fast
+forward and SELECT+START ANT EYE remain unchanged. Only the existing
+cursor coordinates are updated; workers, queen health, map terrain,
+battery-save layout, and link-cable protocol remain as before.
+The native test and headless GBC ROM test verify both jumps and terrain
+integrity.
+
 ## Colony-growth awards and better ANT EYE foraging (GBC)
 
 In normal **single-player** games, hatching the 8th, 16th and 24th
