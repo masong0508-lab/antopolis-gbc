@@ -195,6 +195,9 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
     if (!berries[y][x] || !heights[y][x]) continue;
     d = (uint8_t)((x > vx ? x - vx : vx - x) +
                   (y > vy ? y - vy : vy - y));
+    // No first step is necessary when a berry is under this worker.
+    // This also avoids finishing the radius scan once food is found here.
+    if (d == 0u) return 0x90u; // FOOD: HERE, NEAR
     if (d < best) {
       leg = eye_food_first_leg(heights, vx, vy, x, y);
       if (leg) { best = d; bearing = leg; }
