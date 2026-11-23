@@ -1636,11 +1636,10 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
 static void pin(uint8_t k, Pad *d) {               // one player's controls (the live cursor / mana)
   uint8_t p = k & ~d->prv, dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
   uint8_t nest_chord = (uint8_t)((k & J_SELECT) && (k & (J_UP | J_DOWN)));
-  uint8_t jump = 0;
   d->prv = k;
   if (dirs != d->lst) { d->rp = 0; d->lst = dirs; }
-  /* Holding SELECT+UP/DOWN must NOT slide the cursor away from its new
-     target on the very next frame. The chord uses a press edge once. */
+  /* Ignore normal D-pad scrolling while SELECT+UP/DOWN is held.
+     The tiny cursor assignments below cannot affect world simulation. */
   if (!nest_chord && dirs) {                       // hold to repeat after a short delay
     if (d->rp == 0 || (d->rp >= 10 && (d->rp % 3) == 1)) {
       if ((dirs & J_LEFT) && cx > 0) cx--;
@@ -1652,11 +1651,10 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
   }
   if (k & J_SELECT) {                              // SELECT modifies terrain, speed and cursor navigation
     if (p & J_SELECT) d->su = 0;
-    if (nest_chord && (p & (J_SELECT | J_UP | J_DOWN)))
-      jump = (uint8_t)((k & J_UP) ? 1 : 2);
-    if (jump && colony_cursor_warp(jump, pl, nestx, nesty, &cx, &cy)) {
-      d->su = 1;  // releasing SELECT after a warp must never trigger a flood
-      say(jump == 1 ? "CURSOR: HOME NEST" : "CURSOR: RIVAL NEST");
+    if (nest_chord) {
+      uint8_t team = colony_cursor_target(pl, (uint8_t)!(k & J_UP));
+      cx = nestx[team]; cy = nesty[team];
+      d->su = 1;  // releasing SELECT must never trigger a flood
     }
     if (p & J_A) { offering(); d->su = 1; }
     if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); d->su = 1; }
