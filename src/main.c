@@ -15,6 +15,7 @@
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 #include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
 #include "eye_occupancy.h" // original six-byte worker type, banked per-tile visibility
+#include "colony_defense.h" // inexpensive local defense near either queen
 #include "help_paging.h" // safe one-line and full-page help navigation
 
 #define W 32            // world size = size of the hardware BG map
@@ -50,6 +51,7 @@ typedef EyeAnt Ant; // shared exact worker layout for bank-3 occupancy refresh
 
 uint8_t hgt[H][W], food[H][W], ph[H][W];
 Ant ant[MAXA]; // same 300 WRAM bytes, now visible to bank-3 occupancy code
+static uint8_t defend_i[2]; // closest home threat indices; refreshed per colony cycle
 uint8_t nestx[2], nesty[2], qhp[2];
 static uint8_t stock[2], ncnt[2], hatched[2];
 // Export the existing cursor bytes for genuine ROM-emulator world-state checks.
@@ -751,6 +753,18 @@ static void step_ant(Ant *a) {
   uint8_t d, t = a->team, e = t ^ 1, found = 0, bd = 0, tx, ty, de;
   int16_t sc, best = -32000;
   uint8_t soldier = !a->carry && qhp[e] && ncnt[t] >= thr[t] && a->sol;  // soldiers only march once the colony is big enough
+  uint8_t goal_x = nestx[e], goal_y = nesty[e];
+  // Soldiers within eight tiles of their own queen intercept the closest
+  // living intruder near home. Else they continue their normal offensive
+  // march. Read only the previous colony-cycle's two cached enemy indices.
+  if (soldier &&
+      colony_guard_intercept((uint8_t)(dist(a->x, nestx[t]) +
+                                        dist(a->y, nesty[t])), defend_i[t])) {
+    Ant *enemy = &ant[defend_i[t]];
+    if (enemy->alive && enemy->team == e) {
+      goal_x = enemy->x; goal_y = enemy->y;
+    }
+  }
   if (!a->carry && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
   if (a->carry) { uint8_t p = ph[a->y][a->x]; ph[a->y][a->x] = p > 215 ? 255 : p + 40; }
   for (d = 0; d < 4; d++) {
@@ -763,7 +777,7 @@ static void step_ant(Ant *a) {
       (uint8_t)(dist(tx, nestx[t]) + dist(ty, nesty[t])),
       ph[ty][tx], (uint8_t)rand());
     else if (soldier) {                                 // soldiers march straight for the enemy nest
-      de = dist(tx, nestx[e]) + dist(ty, nesty[e]);
+      de = dist(tx, goal_x) + dist(ty, goal_y);
       sc = -14 * (int16_t)de + (rand() & 31);
     } else {
       // A real adjacent berry outranks even the strongest empty scent.
@@ -820,6 +834,10 @@ static void tick_slice(void) {
   slice = 0;
   tk++; if (gt < 65535) gt++;
   count(ncnt);
+  // Once per eight simulation slices, never every ray, ant step or frame.
+  // Both linked consoles compute identical targets without new RNG calls.
+  defend_i[0] = colony_home_threat(ant, 0, nestx[0], nesty[0]);
+  defend_i[1] = colony_home_threat(ant, 1, nestx[1], nesty[1]);
   for (i = 0; i < 2; i++) {
     if (!qhp[i]) continue;                         // no queen, no eggs
     if (stock[i] >= hcost[i] && spawn(i)) {
@@ -912,6 +930,7 @@ static void newgame(uint8_t load) {
     appr = 50; etk = 0; cx = nestx[0]; cy = nesty[0] - 2; mana = mana_start; tk = 0; gt = 0;
   }
   count(ncnt);
+  defend_i[0] = defend_i[1] = MAXA; // never inherit targets from previous games or saves
   ff = 0; slice = 0; hdirty = 1; cheat = 0; over = 0; pend = 0; pl = 0; tt = sys_time + TURN;
   ocx = nestx[1]; ocy = nesty[1] + 2; omana = mana;
   memset(pad, 0, sizeof pad);

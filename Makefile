@@ -43,6 +43,9 @@ test:
 	./build/test_eye_surface_detail
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_route.c -o build/test_colony_route
 	./build/test_colony_route
+	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_defense.c -o build/test_colony_defense
+	./build/test_colony_defense
+	python3 tools/test_colony_defense_source.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_cursor.c -o build/test_colony_cursor
 	./build/test_colony_cursor
 	python3 tools/test_colony_cursor_wiring.py
