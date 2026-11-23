@@ -12,11 +12,13 @@ forward and SELECT+START ANT EYE remain unchanged. Only the existing
 cursor coordinates are updated; workers, queen health, map terrain,
 battery-save layout, and link-cable protocol remain as before.
 
-For ordinary D-pad scrolling, the original key-repeat schedule remains
-unchanged. The shortcut reuses the existing cursor and SELECT-consumed
-bit rather than adding a second input path, so it avoids extra fixed-bank
-ROM code. The native test and headless GBC ROM test cover both nest
-jumps, normal hold-to-repeat movement and terrain integrity.
+For ordinary D-pad scrolling, the usual immediate movement, 10-frame
+delay and 3-frame repeats remain unchanged on normal short holds.
+The old 250-frame cap caused the repeat rate to jump to every frame
+during very long holds; the counter now wraps instead of saturating.
+The shortcut reuses the existing cursor and SELECT-consumed bit, with
+no extra world buffer. The native test and headless GBC ROM test cover
+both nest jumps, normal hold-to-repeat movement and terrain integrity.
 
 ## Colony-growth awards and better ANT EYE foraging (GBC)
 
