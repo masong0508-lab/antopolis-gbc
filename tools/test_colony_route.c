@@ -84,6 +84,19 @@ int main(void){
   // while unscented direct movement still scores ahead of a detour.
   assert(colony_home_score(3,0,0)>colony_home_score(4,0,0));
   assert(colony_home_score(3,255,0)<colony_home_score(4,0,0));
+  /* A carrier one tile from home previously avoided the heavily scented
+     nest in favor of any clean detour. All 256 scent values and all 16
+     random rolls MUST favor stepping onto the nest. Non-home behavior
+     retains its original byte-for-byte arithmetic. */
+  for (unsigned trail = 0; trail <= 255; ++trail)
+    for (unsigned roll = 0; roll < 16; ++roll) {
+      assert(colony_home_score(0, (uint8_t)trail, (uint8_t)roll) == 16);
+      for (unsigned step = 1; step <= 62; ++step)
+        assert(colony_home_score(0, (uint8_t)trail, (uint8_t)roll) >
+               colony_home_score((uint8_t)step, 0, 15));
+      assert(colony_home_score(3, (uint8_t)trail, (uint8_t)roll) ==
+             (int16_t)(-30 + roll - (trail >> 2)));
+    }
   /* Previously an empty square with scent 255 beat adjacent food with
      scent 0: 255+31 > 120. Food must now win against EVERY empty trail
      and random roll; searching on empty land keeps exactly the old score. */
