@@ -14,6 +14,10 @@ assert "if (nest_chord)" in pin, "Held chord must keep cursor fixed"
 assert "colony_cursor_target(pl, (uint8_t)((k & J_DOWN) >> 3))" in pin
 assert "cx = nestx[team]; cy = nesty[team];" in pin
 assert "d->su = 1;" in pin, "A warp must not become an accidental flood"
+assert "d->rp = d->rp ? 3 : 10;" in pin, "Stable cursor repeat countdown missing"
+assert "else d->rp--;" in pin and "d->rp % 3" not in pin, (
+    "Cursor input must not use frame-time modulo or saturate at 250"
+)
 assert "uint8_t nest_chord" in pin
 assert "if (d->sl && !d->su) flood();" in pin, "Keep ordinary SELECT flood"
 assert 'SEL UP HOME DN RIVAL' in help_text, "Teach both new shortcuts"
