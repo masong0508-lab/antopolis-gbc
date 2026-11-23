@@ -16,7 +16,9 @@ assert "ph[a->y][a->x] = p > 215 ? 255 : p + 40" in logic
 assert "if (a->carry) sc = colony_home_score(" in logic
 assert "ph[ty][tx], (uint8_t)rand()" in logic
 assert "else if (soldier)" in logic
-assert "sc = ph[ty][tx] + (food[ty][tx] ? 120 : 0)" in logic
+assert "sc = colony_forager_score(ph[ty][tx], food[ty][tx]," in logic
+assert "(uint8_t)rand()" in logic
+assert "sc = ph[ty][tx] + (food[ty][tx] ? 120 : 0)" not in logic
 assert "if (found) { a->x += DX[bd]; a->y += DY[bd]; }" in logic
 assert "if (a->carry && a->x == nestx[t] && a->y == nesty[t])" in logic
 print("GBC routing wired into actual carrying ants; searcher and soldier AI preserved")
