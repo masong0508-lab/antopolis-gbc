@@ -9,7 +9,7 @@ pin = source.split("static void pin(uint8_t k, Pad *d) {", 1)[1].split(
     "static void pass_card(void)", 1
 )[0]
 assert "(k & J_SELECT) && (dirs & (J_UP | J_DOWN))" in pin
-assert "colony_cursor_target(pl, (uint8_t)((dirs & J_DOWN) >> 3))" in pin
+assert "if (dirs & J_DOWN) team = colony_cursor_target(team, 1u);" in pin
 assert "cx = nestx[team]; cy = nesty[team];" in pin
 assert "dirs = 0;" in pin, "Held jump must suppress ordinary movement"
 assert "d->su = 1;" in pin, "Releasing SELECT must not flood"
