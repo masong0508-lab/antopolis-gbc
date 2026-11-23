@@ -5,9 +5,9 @@
 #define ANTOPOLIS_COLONY_MILESTONES_H
 #include <stdint.h>
 static uint8_t colony_milestone_bonus(uint8_t hatch_count) {
-  if (hatch_count == 8u) return 3u;
-  if (hatch_count == 16u) return 4u;
-  if (hatch_count == 24u) return 5u;
-  return 0u;
+  /* Only 8, 16 or 24 qualify. An unsigned-byte range test
+     replaces three equality branches; all 256 counts are host-tested. */
+  if ((uint8_t)(hatch_count - 8u) > 16u || (hatch_count & 7u)) return 0u;
+  return (uint8_t)((hatch_count >> 3) + 2u);
 }
 #endif
