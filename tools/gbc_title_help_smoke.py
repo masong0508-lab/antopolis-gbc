@@ -55,7 +55,7 @@ def main():
         # only ordinary GBC buttons, never modified RAM or injected code.
         symbols=args.rom.with_suffix(".map").read_text()
         def addr(name):
-            match=re.search(r"([0-9A-Fa-f]{8})\\s+_" + name + r"\\b",symbols)
+            match=re.search(r"([0-9A-Fa-f]{8})\s+_" + name + r"\b",symbols)
             assert match, "Missing shipping symbol: " + name
             value=int(match[1],16)
             assert 0xC000 <= value < 0xE000
