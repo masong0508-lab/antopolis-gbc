@@ -10,6 +10,7 @@
 #include "sprite_logic.h"   // team/role palettes, same OAM slots and animation tiles
 #include "colony_route.h"   // pheromone-aware home steering; no added world buffers
 #include "colony_milestones.h" // saved hatch counts grant modest solo milestones
+#include "colony_cursor.h" // SELECT+UP/DOWN jumps the existing cursor to nests
 #include "terrain_food.h"  // submerged berry removal shared with the GBA port
 #include "results_calc.h"  // bank-3 record updates; original SRAM bytes preserved
 #include "palette_fade.h"  // four-color bank-3 batches; original fade buffers
@@ -1634,9 +1635,13 @@ static void results_card(uint16_t secs, uint16_t score, uint8_t fl) {   // end o
 
 static void pin(uint8_t k, Pad *d) {               // one player's controls (the live cursor / mana)
   uint8_t p = k & ~d->prv, dirs = k & (J_LEFT | J_RIGHT | J_UP | J_DOWN);
+  uint8_t nest_chord = (uint8_t)((k & J_SELECT) && (k & (J_UP | J_DOWN)));
+  uint8_t jump = 0;
   d->prv = k;
   if (dirs != d->lst) { d->rp = 0; d->lst = dirs; }
-  if (dirs) {                                      // hold to repeat after a short delay
+  /* Holding SELECT+UP/DOWN must NOT slide the cursor away from its new
+     target on the very next frame. The chord uses a press edge once. */
+  if (!nest_chord && dirs) {                       // hold to repeat after a short delay
     if (d->rp == 0 || (d->rp >= 10 && (d->rp % 3) == 1)) {
       if ((dirs & J_LEFT) && cx > 0) cx--;
       if ((dirs & J_RIGHT) && cx < W - 1) cx++;
@@ -1645,8 +1650,14 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
     }
     if (d->rp < 250) d->rp++;
   }
-  if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A embezzle, SEL+B fast forward, alone (on release) flood
+  if (k & J_SELECT) {                              // SELECT modifies terrain, speed and cursor navigation
     if (p & J_SELECT) d->su = 0;
+    if (nest_chord && (p & (J_SELECT | J_UP | J_DOWN)))
+      jump = (uint8_t)((k & J_UP) ? 1 : 2);
+    if (jump && colony_cursor_warp(jump, pl, nestx, nesty, &cx, &cy)) {
+      d->su = 1;  // releasing SELECT after a warp must never trigger a flood
+      say(jump == 1 ? "CURSOR: HOME NEST" : "CURSOR: RIVAL NEST");
+    }
     if (p & J_A) { offering(); d->su = 1; }
     if (p & J_B) { ff ^= 1; say(ff ? "FAST FORWARD ON" : "FAST FORWARD OFF"); d->su = 1; }
   } else {
