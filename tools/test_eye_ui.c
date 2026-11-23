@@ -55,11 +55,15 @@ int main(void) {
   eye_ui_guide(row, 0x80, 0, 10, 10, 2, 2);
   expect("FOOD: HERE");
   eye_ui_guide(row, 0x80 | 8 | 2, 0, 10, 10, 2, 2);
-  expect("FOOD: NORTHWEST");
+  expect("FOOD: NORTHWEST MID");
   eye_ui_guide(row, 0x80 | 4 | 1, 0, 10, 10, 2, 2);
-  expect("FOOD: SOUTHEAST");
+  expect("FOOD: SOUTHEAST MID");
   eye_ui_guide(row, 0x80 | 4, 0, 10, 10, 2, 2);
-  expect("FOOD: SOUTH");
+  expect("FOOD: SOUTH MID");
+  eye_ui_guide(row, 0x80 | 0x10 | 8 | 2, 0, 10, 10, 2, 2);
+  expect("FOOD: NORTHWEST NEAR");
+  eye_ui_guide(row, 0x80 | 0x20 | 4 | 1, 0, 10, 10, 2, 2);
+  expect("FOOD: SOUTHEAST FAR");
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("HOME: NORTHWEST");
   eye_ui_guide(row, 0, 1, 2, 2, 2, 2);

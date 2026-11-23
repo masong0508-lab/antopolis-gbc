@@ -120,4 +120,8 @@ void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
   else if(south){field(b,pos,"SOUTH");pos+=5;}
   if(east){field(b,pos,"EAST");pos+=4;}
   else if(west){field(b,pos,"WEST");pos+=4;}
+  /* A short proximity cue improves foraging without claiming a
+     guaranteed route across the map. There are only 20 HUD cells. */
+  if(!carry && (nav&0x80u))
+    field(b,pos,(nav&0x10u)?" NEAR":(nav&0x20u)?" FAR":" MID");
 }

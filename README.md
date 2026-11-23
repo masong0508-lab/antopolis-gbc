@@ -1,3 +1,20 @@
+## ANT EYE foraging: coarse food proximity (GBC)
+
+While scouting for berries in **ANT EYE**, the existing food bearing now
+also shows **NEAR**, **MID**, or **FAR**. These bands come from the
+Manhattan distance to the currently chosen *nearby* berry:
+**NEAR** is 1–4 map squares, **MID** is 5–8, and **FAR** is 9 or more.
+The display still shows a safe immediate bearing around nearby water
+and cliffs when known; distances are **not** guaranteed walking steps
+or a promise of an unobstructed path.
+
+This uses previously unused bits in the existing one-byte navigation
+result and the same 20-character HUD row. Berries are only scanned
+when the controlled ant moves a tile or changes, not every frame.
+There is no new persistent state, SRAM change, ray cast, asset or RAM
+buffer. The tutorial now explains the proximity words. Native tests
+check distance thresholds, corner safety and exact HUD width.
+
 ## Map shortcuts: jump to your queen or the rival nest (GBC)
 
 In the overhead map, **hold SELECT and press UP** to recenter the cursor

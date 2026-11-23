@@ -77,14 +77,14 @@ int main(void) {
   berries[10][13] = 1;
   berries[8][9] = 1;
   bearing = eye_food_bearing(terrain, berries, 10, 10);
-  assert(bearing == (uint8_t)(0x80 | 2 | 8)); // west, north
+  assert(bearing == (uint8_t)(0x80 | 0x10 | 2 | 8)); // west, north
   // An obstructed diagonal must never be advertised as a valid step.
   terrain[9][10] = 0;   // north water, west still clear
   assert(eye_food_bearing(terrain, berries, 10, 10) ==
-         (uint8_t)(0x80 | 2)); // steer west, not NW
+         (uint8_t)(0x80 | 0x10 | 2)); // steer west, not NW
   terrain[10][9] = 0;   // nearest NW food now unreachable at first step
   assert(eye_food_bearing(terrain, berries, 10, 10) ==
-         (uint8_t)(0x80 | 1)); // use farther reachable eastern food
+         (uint8_t)(0x80 | 0x10 | 1)); // use farther reachable eastern food
   berries[10][13] = 0;
   assert(!eye_food_bearing(terrain, berries, 10, 10));
   terrain[9][10] = 1;
@@ -98,15 +98,30 @@ int main(void) {
   memset(berries, 0, sizeof berries);
   berries[8][10] = 1;
   terrain[9][10] = 0;
-  assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 1));
-  assert(eye_food_bearing(terrain, berries, 11, 10) == (uint8_t)(0x80 | 8));
-  assert(eye_food_bearing(terrain, berries, 11, 9) == (uint8_t)(0x80 | 8));
-  assert(eye_food_bearing(terrain, berries, 11, 8) == (uint8_t)(0x80 | 2));
+  assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 0x10 | 1));
+  assert(eye_food_bearing(terrain, berries, 11, 10) == (uint8_t)(0x80 | 0x10 | 8));
+  assert(eye_food_bearing(terrain, berries, 11, 9) == (uint8_t)(0x80 | 0x10 | 8));
+  assert(eye_food_bearing(terrain, berries, 11, 8) == (uint8_t)(0x80 | 0x10 | 2));
   // Neither bypass has a legal second step: no invented bearing.
   terrain[9][11] = terrain[9][9] = 0;
   assert(!eye_food_bearing(terrain, berries, 10, 10));
   terrain[9][10] = terrain[9][11] = terrain[9][9] = 1;
   memset(berries, 0, sizeof berries);
+  // Proximity is encoded in otherwise unused compass bits. These are
+  // approximate map distances, NOT a count of guaranteed walking steps.
+  berries[10][14] = 1; // distance 4: NEAR
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 0x10 | 1));
+  berries[10][14] = 0; berries[10][15] = 1; // 5: MID
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 1));
+  berries[10][15] = 0; berries[10][18] = 1; // 8: MID
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 1));
+  berries[10][18] = 0; berries[11][18] = 1; // 9: FAR
+  assert(eye_food_bearing(terrain, berries, 10, 10) ==
+         (uint8_t)(0x80 | 0x20 | 1 | 4));
+  berries[11][18] = 0;
   // Reproduce every ANT EYE ray column term, including negative sines,
   // without crossing banks to the 16-bit SDCC multiply helper.
   for (int16_t s = -64; s <= 64; s += 8)
