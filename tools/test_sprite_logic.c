@@ -36,6 +36,24 @@ int main(void) {
         assert(colony_walker_frame((uint8_t)i, (uint8_t)frame, carrying) == want);
       }
   }
+  // Even while periodic walk-pose updates are waiting, switching a sprite
+  // slot between carrying and non-carrying must refresh its tile now.
+  // Pure OAM type comparison never claims to need another bank switch.
+  for (unsigned current = 0; current < 256; current++)
+    for (unsigned carry = 0; carry < 2; carry++) {
+      unsigned should = (current < 3 || current > 6 ||
+                         ((current >= 5) != carry));
+      assert(colony_walker_needs_refresh((uint8_t)current,
+                                        (uint8_t)carry) == should);
+      for (unsigned phase = 0; phase < 8; phase++) {
+        uint8_t slot = (uint8_t)((phase * 7u) % 36u);
+        carrying[slot] = (uint8_t)carry;
+        uint8_t shown = (uint8_t)current;
+        if (colony_walker_needs_refresh(shown, (uint8_t)carry))
+          shown = colony_walker_frame(slot, (uint8_t)phase, carrying);
+        assert(!colony_walker_needs_refresh(shown, (uint8_t)carry));
+      }
+    }
   // The same animation tiles must retain intuitive team/role identity.
   // Carried gold takes precedence over soldier armor (a fighting ant can
   // also bring back a berry), and both teams use independent palettes.
