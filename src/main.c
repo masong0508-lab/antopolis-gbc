@@ -1024,6 +1024,13 @@ static void draw_sprites(void) {
       // No new WRAM, stack arrays, sprite slots or per-frame scans.
       tbuf[s] = ant[i].carry;
       move_sprite(ANTSPR + s, (uint8_t)(sx + 8), (uint8_t)(sy + 16));
+      // Fix carrier/worker silhouette as soon as this sprite slot changes
+      // identity. No extra bank call, framebuffer or per-frame tile upload
+      // for unchanged workers; normal 4-redraw walking animation remains.
+      if (colony_walker_needs_refresh(shadow_OAM[ANTSPR + s].tile,
+                                      ant[i].carry))
+        shadow_OAM[ANTSPR + s].tile =
+          colony_walker_frame(s, (uint8_t)(walker_redraw_clock >> 2), tbuf);
       set_sprite_prop(ANTSPR + s, colony_worker_palette(ant[i].team, ant[i].carry, ant[i].sol)); s++;
     }
   }

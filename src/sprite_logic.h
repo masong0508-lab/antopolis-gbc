@@ -14,6 +14,15 @@ static uint8_t colony_walker_frame(uint8_t index, uint8_t phase,
   uint8_t frame = (uint8_t)((index + phase) & 1u);
   return (uint8_t)(carrying[index] ? 5u + frame : 3u + frame);
 }
+// A newly visible ant can reuse an OAM slot that belonged to a carrier.
+// Update the TILE immediately when the silhouette type changes, without
+// forcing a full bank-3 animation pass on every redraw. The periodic pass
+// still advances walking poses, while this avoids 1-3 wrong-sprite frames.
+static uint8_t colony_walker_needs_refresh(uint8_t shown_tile,
+                                           uint8_t carrying) {
+  return (uint8_t)(shown_tile < 3u || shown_tile > 6u ||
+                   ((shown_tile >= 5u) != (carrying != 0u)));
+}
 
 /* The eight CGB OBJ palettes let the same seven animation tiles give
    workers, soldiers, and food carriers distinct team-aware coloring.
