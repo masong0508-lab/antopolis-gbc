@@ -39,6 +39,7 @@ test:
 	./build/test_terrain_build
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_sprite_logic.c -o build/test_sprite_logic
 	./build/test_sprite_logic
+	python3 tools/test_sprite_wiring.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_surface_detail.c -o build/test_eye_surface_detail
 	./build/test_eye_surface_detail
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_colony_route.c -o build/test_colony_route
