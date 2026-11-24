@@ -754,15 +754,17 @@ static void step_ant(Ant *a) {
   int16_t sc, best = -32000;
   uint8_t soldier = !a->carry && qhp[e] && ncnt[t] >= thr[t] && a->sol;  // soldiers only march once the colony is big enough
   uint8_t goal_x = nestx[e], goal_y = nesty[e];
-  // Soldiers within eight tiles of their own queen intercept the closest
-  // living intruder near home. Else they continue their normal offensive
-  // march. Read only the previous colony-cycle's two cached enemy indices.
-  if (soldier &&
+  // Even a young colony can defend its own queen. The population
+  // threshold applies only to offensive marches, never local defense.
+  // Revalidate the cached enemy's position: it may have moved away or
+  // died since the last cycle. A loaded worker still brings food home.
+  if (!a->carry && a->sol && qhp[t] &&
       colony_guard_intercept((uint8_t)(dist(a->x, nestx[t]) +
                                         dist(a->y, nesty[t])), defend_i[t])) {
     Ant *enemy = &ant[defend_i[t]];
-    if (enemy->alive && enemy->team == e) {
-      goal_x = enemy->x; goal_y = enemy->y;
+    if (enemy->alive && enemy->team == e &&
+        dist(enemy->x, nestx[t]) + dist(enemy->y, nesty[t]) <= 5u) {
+      goal_x = enemy->x; goal_y = enemy->y; soldier = 1;
     }
   }
   if (!a->carry && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
@@ -836,8 +838,7 @@ static void tick_slice(void) {
   count(ncnt);
   // Once per eight simulation slices, never every ray, ant step or frame.
   // Both linked consoles compute identical targets without new RNG calls.
-  defend_i[0] = colony_home_threat(ant, 0, nestx[0], nesty[0]);
-  defend_i[1] = colony_home_threat(ant, 1, nestx[1], nesty[1]);
+  colony_home_threats(ant, nestx, nesty, defend_i);
   for (i = 0; i < 2; i++) {
     if (!qhp[i]) continue;                         // no queen, no eggs
     if (stock[i] >= hcost[i] && spawn(i)) {
