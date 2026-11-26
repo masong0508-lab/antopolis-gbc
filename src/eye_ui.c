@@ -89,8 +89,9 @@ void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
     // compass arrow that tells the player to walk straight into water.
     if(dx||dy) {
       if(dx&&dy&&ui_legal_home_leg(x,y,dx,dy)&&
-         ui_legal_home_leg(x,y,dx,0)&&ui_legal_home_leg(x,y,0,dy)) {
-        // Both axes are safe; keep the informative diagonal heading.
+         ui_legal_home_leg(x,y,dx,0)&&ui_legal_home_leg(x,y,0,dy)&&
+         ui_home_followup(x,y,hx,hy,dx,dy)) {
+        // Landing and at least one onward progress leg are safe.
       } else if(dx&&ui_legal_home_leg(x,y,dx,0) &&
                  ui_home_followup(x,y,hx,hy,dx,0)) {
         north=south=0;
