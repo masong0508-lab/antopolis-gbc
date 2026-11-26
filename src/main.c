@@ -544,17 +544,15 @@ static uint8_t can_go(uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
   return d >= -1 && d <= 1;           // ants can't climb cliffs: terraform paths!
 }
 
+// Hatching needs one colony scan but no audio or bank-1 helper.
+// Keep this infrequent operation in ROM3 to protect the full fixed bank.
+uint8_t colony_spawn(uint8_t team, uint8_t counters[2]) BANKED;
 static uint8_t spawn(uint8_t team) {
-  uint8_t i, n = 0;
-  for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == team) n++;
-  if (n >= MAXA / 2) return 0;                    // each colony gets half the ant slots: fair fight
-  for (i = 0; i < MAXA; i++) if (!ant[i].alive) {
-    ant[i].x = nestx[team]; ant[i].y = nesty[team];
-    ant[i].team = team; ant[i].alive = 1; ant[i].carry = 0;
-    ant[i].sol = ((hatched[team]++ & 3) == 0);   // every 4th ant a colony hatches is a soldier
-    return 1;
-  }
-  return 0;
+  uint8_t result;
+  disable_interrupts();
+  result = colony_spawn(team, hatched);
+  enable_interrupts();
+  return result;
 }
 
 static uint8_t dist(uint8_t a, uint8_t b) { return a > b ? a - b : b - a; }

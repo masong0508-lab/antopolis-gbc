@@ -24,6 +24,7 @@ test:
 	mkdir -p build
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_terrain_food.c -o build/test_terrain_food
 	./build/test_terrain_food
+	python3 tools/test_colony_hatching.py
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_navigation.c -o build/test_eye_navigation
 	./build/test_eye_navigation
 	$(HOSTCC) -std=c99 -Wall -Wextra -Werror -pedantic tools/test_eye_occupancy.c -o build/test_eye_occupancy
