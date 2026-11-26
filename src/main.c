@@ -545,10 +545,16 @@ static uint8_t can_go(uint8_t x, uint8_t y, int8_t dx, int8_t dy) {
 }
 
 static uint8_t spawn(uint8_t team) {
-  uint8_t i, n = 0;
-  for (i = 0; i < MAXA; i++) if (ant[i].alive && ant[i].team == team) n++;
-  if (n >= MAXA / 2) return 0;                    // each colony gets half the ant slots: fair fight
-  for (i = 0; i < MAXA; i++) if (!ant[i].alive) {
+  uint8_t i, n = 0, slot = MAXA;
+  // Count the colony and remember its first free slot in one pass.
+  // Stop immediately when the team's existing population cap is met.
+  for (i = 0; i < MAXA; i++) {
+    if (ant[i].alive) {
+      if (ant[i].team == team && ++n >= MAXA / 2) return 0;
+    } else if (slot == MAXA) slot = i;
+  }
+  if (slot < MAXA) {
+    i = slot;
     ant[i].x = nestx[team]; ant[i].y = nesty[team];
     ant[i].team = team; ant[i].alive = 1; ant[i].carry = 0;
     ant[i].sol = ((hatched[team]++ & 3) == 0);   // every 4th ant a colony hatches is a soldier
