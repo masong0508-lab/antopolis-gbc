@@ -81,6 +81,15 @@ int main(void) {
   berries[9][10] = 1;
   assert(eye_food_bearing(terrain, berries, 10, 10) == (uint8_t)(0x80 | 0x10));
   berries[9][10] = berries[10][10] = 0;
+  // The early underfoot check must not report submerged food as reachable.
+  berries[10][10] = 1; terrain[10][10] = 0;
+  assert(!eye_food_bearing(terrain, berries, 10, 10));
+  terrain[10][10] = 1; berries[10][10] = 0;
+  // Both corners use the same early underfoot result.
+  berries[0][0] = berries[31][31] = 1;
+  assert(eye_food_bearing(terrain, berries, 0, 0) == 0x90u);
+  assert(eye_food_bearing(terrain, berries, 31, 31) == 0x90u);
+  berries[0][0] = berries[31][31] = 0;
   berries[10][13] = 1;
   berries[8][9] = 1;
   bearing = eye_food_bearing(terrain, berries, 10, 10);

@@ -103,6 +103,19 @@ int main(void) {
   // A target at the ant's own tile is never a detour.
   eye_ui_guide(row, 0, 1, 10, 10, 10, 10);
   expect("HOME: HERE");
+  // A diagonal landing with no onward leg is a misleading home arrow.
+  memset(hgt, 1, sizeof hgt);
+  hgt[11][12] = hgt[12][11] = 0;
+  eye_ui_guide(row, 0, 1, 10, 10, 12, 12);
+  expect("HOME: EAST");
+  // A diagonal step directly onto home needs no further progress leg.
+  eye_ui_guide(row, 0, 1, 10, 10, 11, 11);
+  expect("HOME: SOUTHEAST");
+  // Mirror the same trap toward the opposite quadrant.
+  memset(hgt, 1, sizeof hgt);
+  hgt[9][8] = hgt[8][9] = 3;
+  eye_ui_guide(row, 0, 1, 10, 10, 8, 8);
+  expect("HOME: WEST");
   puts("GBC ANT EYE UI: all actions, objectives and terrain labels fit 20 tiles");
   return 0;
 }
