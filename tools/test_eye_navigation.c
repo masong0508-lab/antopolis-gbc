@@ -102,7 +102,7 @@ int main(void) {
   assert(eye_food_bearing(terrain, berries, 10, 10) ==
          (uint8_t)(0x80 | 0x10 | 1)); // use farther reachable eastern food
   berries[10][13] = 0;
-  assert(!eye_food_bearing(terrain, berries, 10, 10));
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x40u);
   terrain[9][10] = 1;
   terrain[10][9] = 1;
   // A free diagonal landing is not enough: if both onward legs toward
@@ -131,7 +131,7 @@ int main(void) {
   assert(eye_food_bearing(terrain, berries, 11, 8) == (uint8_t)(0x80 | 0x10 | 2));
   // Neither bypass has a legal second step: no invented bearing.
   terrain[9][11] = terrain[9][9] = 0;
-  assert(!eye_food_bearing(terrain, berries, 10, 10));
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x40u);
   terrain[9][10] = terrain[9][11] = terrain[9][9] = 1;
   memset(berries, 0, sizeof berries);
   // Proximity is encoded in otherwise unused compass bits. These are

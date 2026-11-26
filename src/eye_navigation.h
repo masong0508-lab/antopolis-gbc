@@ -190,7 +190,7 @@ static uint8_t eye_food_first_leg(uint8_t heights[EYE_WORLD][EYE_WORLD],
 static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
                                 uint8_t berries[EYE_WORLD][EYE_WORLD],
                                 uint8_t vx, uint8_t vy) {
-  uint8_t x, y, best = 255, d, leg, bearing = 0;
+  uint8_t x, y, best = 255, d, leg, bearing = 0, seen = 0;
   uint8_t x0 = vx > EYE_NAV_RADIUS ? vx - EYE_NAV_RADIUS : 0;
   uint8_t x1 = vx < (31 - EYE_NAV_RADIUS) ? vx + EYE_NAV_RADIUS : 31;
   uint8_t y0 = vy > EYE_NAV_RADIUS ? vy - EYE_NAV_RADIUS : 0;
@@ -199,6 +199,7 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
   if (berries[vy][vx] && heights[vy][vx]) return 0x90u;
   for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) {
     if (!berries[y][x] || !heights[y][x]) continue;
+    seen = 0x40u; // nearby food exists, even without a safe local bearing
     d = (uint8_t)((x > vx ? x - vx : vx - x) +
                   (y > vy ? y - vy : vy - y));
     if (d < best) {
@@ -210,7 +211,7 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
      coarse proximity without another world scan, ray cast or RAM map.
      They are Manhattan DISTANCE bands, not promised travel times:
      NEAR <=4, MID 5..8, FAR >=9 squares. */
-  return best == 255 ? 0 : (uint8_t)(0x80u | bearing |
+  return best == 255 ? seen : (uint8_t)(0x80u | bearing |
             (best <= 4u ? 0x10u : best >= 9u ? 0x20u : 0u));
 }
 #endif
