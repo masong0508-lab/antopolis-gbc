@@ -8,8 +8,11 @@ import subprocess
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-source = (root / "src/main.c").read_text()
-match = re.search(r"static uint8_t spawn\(uint8_t team\) \{", source)
+main = (root / "src/main.c").read_text()
+assert re.search(r"disable_interrupts\(\);\s*result = colony_spawn\(team, hatched\);\s*enable_interrupts\(\);", main)
+source = (root / "src/colony_hatch.c").read_text()
+assert "#pragma bank 3" in source
+match = re.search(r"uint8_t colony_spawn\(uint8_t team, uint8_t counters\[2\]\) BANKED \{", source)
 assert match
 end = match.end()
 depth = 1
@@ -17,7 +20,8 @@ while depth:
     depth += (source[end] == "{") - (source[end] == "}")
     end += 1
 spawn = source[match.start():end]
-assert spawn.count("i < MAXA") == 1
+assert spawn.count("i < EYE_OCC_ANTS") == 1
+assert "++p" in spawn
 fixture = r"""
 #include <stdint.h>
 #include <stdio.h>
@@ -25,6 +29,9 @@ fixture = r"""
 #include <assert.h>
 typedef struct { uint8_t x,y,team,alive,carry,sol; } Ant;
 #define MAXA 50
+#define EYE_OCC_ANTS MAXA
+#define BANKED
+typedef Ant EyeAnt;
 static Ant ant[MAXA];
 static uint8_t nestx[2]={3,27}, nesty[2]={7,22}, hatched[2];
 static uint32_t seed=0x10f96ab3u;
@@ -60,7 +67,7 @@ int main(void) {
     uint8_t team=(uint8_t)(k&1), result=reference(team);
     memcpy(expected,ant,sizeof ant); memcpy(want,hatched,sizeof want);
     memcpy(ant,before,sizeof ant); memcpy(hatched,h,sizeof h);
-    assert(spawn(team)==result);
+    assert(colony_spawn(team,hatched)==result);
     assert(memcmp(expected,ant,sizeof ant)==0);
     assert(memcmp(want,hatched,sizeof want)==0);
   }
