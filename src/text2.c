@@ -104,7 +104,7 @@ const char TCARD2[] =
   "L R TURN  U D WALK\n"
   "A NEXT ANT\n"
   "B BITE  SEL SCENT\n"
-  "FOOD: NEAR MID FAR\n"
+  "GOAL: NEAR MID FAR\n"
   "START  BACK\n"
   "\0"
   "7/8 THE COLONY\n"
