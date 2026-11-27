@@ -56,13 +56,40 @@ static const int8_t EYE_OFFSETS[7][25] = {
   {0,64,40,26,20,16,13,11,10,8,8,7,6,6,5,5,5,4,4,4,4,3,3,3,3},
   {0,64,64,48,36,28,24,20,18,16,14,13,12,11,10,9,9,8,8,7,7,6,6,6,6}
 };
+// Precomputed 1-bit texture masks avoid a variable shift inside the
+// 240-tile ANT EYE sweep; 8 ROM bytes, no RAM or extra rendering passes.
+static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
+// 8px silhouettes carved out of a real ant/queen ray hit. Red and black
+// bodies remain team-colored; transparent gaps read as deep shadow.
+// Continuous head/thorax/abdomen instead of repeated checkerboard holes.
+// The two static patterns occupy the exact same 16 ROM bytes.
+// Tapered 3D silhouettes: wider head, pinched thorax, rounded abdomen.
+// Original ray count and 16 bytes of mask data stay exactly unchanged.
+static const uint8_t EYE_BODY[8]={0x18,0x3C,0x7E,0x18,0x18,0x3C,0x7E,0x3C};
+// Alternate paired leg angles instead of eight identical vertical rails.
+static const uint8_t EYE_LIMBS[8]={0x81,0x42,0x81,0x24,0x81,0x42,0x81,0x42};
+static const uint8_t PMAP[5][16] = {
+  {0,1,2,3,0,0,0,0,0,0,0}, // land
+  {0,2,3,3,1,0,0,0,0,0,0}, // water
+  {0,3,3,3,0,1,2,3,0,1,2}, // ants, gold food, segmented red/black limbs
+  {0,1,2,3,0,0,0,3,3,0,0}, // gold pheromone
+  {0,1,2,3,0,0,0,0,0,0,0}  // upper sky
+};
+extern uint8_t tcol[VR * 16];
+/* Every caller clips to the 96-pixel column. An 8-bit span count and
+   advancing byte pointer avoid a signed 16-bit index per pixel. */
+static void eye_fill_span(uint8_t start, uint8_t end, uint8_t color) {
+  uint8_t *dst = cls + start;
+  uint8_t count = (uint8_t)(end - start);
+  while (count) { *dst++ = color; --count; }
+}
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
-  int16_t px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
+  int16_t px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, rx, ry;
   uint8_t n, x, y, h, o, col, rim, carrying, lim = VR * 8, lb;
   // Same half-cell increments as the former per-column arithmetic.
   rx = eye_ray_increment(angle, c);
   ry = eye_ray_increment((uint8_t)(angle + 12u), c);
-  for (n = 0; n < VR * 8; n++) cls[n] = 0;
+  eye_fill_span(0, VR * 8, 0);
   for (n = 1; n <= VN && lim; n++) {
     px += rx; py += ry;
     if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
@@ -73,7 +100,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
     if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
       a = yt < 0 ? 0 : yt;
       col = eye_ground_class(h, x, y, n);
-      for (r = a; r < lb; r++) cls[r] = col;
+      eye_fill_span((uint8_t)a, lb, col);
       // Physical depth: foam only next to REAL land, laminated rock
       // edges, and occasional near-field grass tufts or sand pebbles.
       // These color classes reuse existing CGB palettes/96px column RAM.
@@ -137,7 +164,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
           cls[a + 2] = limb;
           cls[e - 3] = limb;
         }
-      } else for (r = a; r < e; r++) cls[r] = col;
+      } else if (e > a) eye_fill_span((uint8_t)a, (uint8_t)e, col);
       // Draw one tapered, segmented ant rather than repeating the old
       // body-and-legs checker every eight pixels for an oversized post.
       // Only a few actual outline rows become leg pixels; the thorax and
@@ -169,6 +196,51 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
 }
 
 
+
+/* Pack the 96 classified ray pixels into the original 192-byte
+   2bpp column and 12 palette attributes. Row pointers and a padded
+   16-byte palette stride avoid repeated indexing and multiplication.
+   Run in ROM3 with audio IRQs masked; caller alone writes VRAM. */
+void eye_pack_column(uint8_t c, uint8_t *scratch) BANKED {
+  uint8_t r, k, v, p, m, color, lo, hi;
+  uint8_t *t = tcol, *attrs = scratch + 504u;
+  const uint8_t *row = cls, *palette;
+  const uint8_t *antennae = scratch + ((uint16_t)c << 4) + ((uint16_t)c << 3);
+  for (r = 0; r < VR; ++r, row += 8u) {
+    m = 0;
+    for (k = 0; k < 8u; ++k) {
+      v = row[k];
+      if (v == 4) m |= 1;
+      else if (v == 8) m |= 4;
+      else if (v > 4) m |= 2;
+    }
+    p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0;
+    if (p == 0 && r < 3 && row[7] == 0) p = 4;
+    palette = &PMAP[0][0] + ((uint16_t)p << 4);
+    for (k = 0; k < 8u; ++k) {
+      v = row[k]; color = palette[v];
+      lo = (color & 1u) ? 0xFFu : 0;
+      hi = (color & 2u) ? 0xFFu : 0;
+      if (p == 4 && v == 0) {
+        lo = r >= 1 ? 0xFFu : (k >= 6 ? 0xAAu : 0);
+        hi = r >= 2 ? 0xFFu : (r == 1 && k >= 6 ? 0xAAu : 0);
+      }
+      if (p == 2 && (v == 5 || v == 6 || v == 9 || v == 10)) {
+        uint8_t mask = (v >= 9) ? EYE_LIMBS[k] : EYE_BODY[k];
+        lo &= mask; hi &= mask;
+      }
+      if ((p == 0 || p == 1) && (k & 3u) == 0) {
+        uint8_t bit = EYE_GRAIN[(c + r + k) & 7u];
+        if (v == 2) lo |= bit;
+        else if (v == 1) { lo &= (uint8_t)~bit; hi |= bit; }
+        else if (v == 3 || v == 4) lo &= (uint8_t)~bit;
+      }
+      if (r >= 9) { uint8_t ant_mask = *antennae++; lo |= ant_mask; hi |= ant_mask; }
+      *t++ = lo; *t++ = hi;
+    }
+    *attrs++ = (uint8_t)(8 | (3 + p));
+  }
+}
 
 /* Reuse the two already-loaded title walking-ant tiles for the live
    overhead colony. The first four hardware sprites are reserved for

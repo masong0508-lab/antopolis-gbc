@@ -1,3 +1,23 @@
+## Major GBC ANT EYE rendering and ROM banking pass
+
+The first-person 2bpp pixel packer and palette tables now live with the
+ROM3 renderer instead of consuming the almost-full fixed code area.
+The caller retains all actual VRAM operations and the interrupt
+opportunity between ray marching and packing. Palette attributes
+reuse 12 spare bytes of the existing 640-byte scratch buffer. The
+packer uses row pointers, one color lookup per pixel and a padded
+palette stride to avoid repeated indexing. Native differential tests
+compare 16,000 columns, every byte of tile output, palette attributes
+and surrounding scratch against the original packer.
+
+Ray clears and terrain/body spans use a byte pointer and 8-bit count
+rather than a signed 16-bit index at each pixel; the tests cover every
+valid span in the existing 96-pixel column. Ground vegetation and
+pebble motifs now mix high coordinate bits to break straight diagonal
+repetition without new assets, state, ray count or RNG. Saves and link
+protocol are unchanged. Full cartridge banking and emulator checks
+are required before merge; measured FPS is not yet available.
+
 ## Visible food-carrying ants in ANT EYE (GBC)
 
 A spare bit of the existing 32x32 occupancy map now distinguishes
