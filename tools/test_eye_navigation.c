@@ -134,6 +134,25 @@ int main(void) {
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x40u);
   terrain[9][10] = terrain[9][11] = terrain[9][9] = 1;
   memset(berries, 0, sizeof berries);
+  // A one-step berry is globally optimal. Preserve original row-order
+  // tie breaking, including blocked neighboring berries and map edges.
+  memset(berries, 0, sizeof berries);
+  berries[9][10] = berries[10][9] = berries[10][11] = berries[11][10] = 1;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x98u);
+  terrain[9][10] = 0;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x92u);
+  terrain[10][9] = 3;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x91u);
+  terrain[10][11] = 0;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x94u);
+  terrain[9][10] = terrain[10][9] = terrain[10][11] = 1;
+  memset(berries, 0, sizeof berries);
+  berries[0][1] = berries[1][0] = 1;
+  assert(eye_food_bearing(terrain, berries, 0, 0) == 0x91u);
+  memset(berries, 0, sizeof berries);
+  berries[30][31] = berries[31][30] = 1;
+  assert(eye_food_bearing(terrain, berries, 31, 31) == 0x98u);
+  memset(berries, 0, sizeof berries);
   // Proximity is encoded in otherwise unused compass bits. These are
   // approximate map distances, NOT a count of guaranteed walking steps.
   berries[10][14] = 1; // distance 4: NEAR

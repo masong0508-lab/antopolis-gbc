@@ -204,7 +204,13 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
                   (y > vy ? y - vy : vy - y));
     if (d < best) {
       leg = eye_food_first_leg(heights, vx, vy, x, y);
-      if (leg) { best = d; bearing = leg; }
+      if (leg) {
+        // Underfoot was already checked: one step is the absolute
+        // minimum. The first legal distance-one berry in the original
+        // row order cannot be beaten by any later candidate.
+        if (d == 1u) return (uint8_t)(0x90u | leg);
+        best = d; bearing = leg;
+      }
     }
   }
   /* The direction field uses bits 0..3. Spare bits 4/5 encode
