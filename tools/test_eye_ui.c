@@ -52,6 +52,8 @@ int main(void) {
   eye_ui_scent(row, 0); expect("SEL SCENT  START MAP");
   eye_ui_guide(row, 0, 0, 10, 10, 2, 2);
   expect("NO FOOD NEARBY");
+  eye_ui_guide(row, 0x40, 0, 10, 10, 2, 2);
+  expect("FOOD: CHECK MAP");
   eye_ui_guide(row, 0x80, 0, 10, 10, 2, 2);
   expect("FOOD: HERE");
   eye_ui_guide(row, 0x80 | 8 | 2, 0, 10, 10, 2, 2);

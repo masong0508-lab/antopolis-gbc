@@ -114,7 +114,7 @@ void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
     north=(nav&8u)!=0;south=(nav&4u)!=0;
     east=(nav&1u)!=0;west=(nav&2u)!=0;
   }
-  if(!carry&&!(nav&0x80u)){field(b,0,"NO FOOD NEARBY");return;}
+  if(!carry&&!(nav&0x80u)){field(b,0,(nav&0x40u)?"FOOD: CHECK MAP":"NO FOOD NEARBY");return;}
   field(b,0,carry?"HOME: ":"FOOD: ");
   if(!north&&!south&&!east&&!west){field(b,pos,"HERE");return;}
   if(north){field(b,pos,"NORTH");pos+=5;}
