@@ -1592,7 +1592,8 @@ static void eye(void) {                              // pilot a black ant; food,
           }
         }
       }
-      if (rep < 250) rep++;
+      /* Preserve repeat phase instead of saturating at 250. */
+      if (++rep == 252u) rep = 8u;
     }
   }
   // cx/cy already track the real selected worker through eye_pilot.
@@ -1744,7 +1745,8 @@ static void play(void) {
       if (dirs) {
         if (rep == 0 || (rep >= 12 && !(rep & 3)))
           help_scroll((dirs & J_RIGHT) ? HR : (dirs & J_LEFT) ? -HR : (dirs & J_DOWN) ? 1 : -1);
-        if (rep < 250) rep++;
+        /* Preserve repeat phase instead of saturating at 250. */
+        if (++rep == 252u) rep = 12u;
       }
       tt++;                            // the turn clock stands still while paused
       continue;
