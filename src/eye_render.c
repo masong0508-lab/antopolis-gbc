@@ -14,14 +14,14 @@
 #define VY0 2
 #define VN 24
 extern uint8_t hgt[H][W], food[H][W], ph[H][W], occ[H][W], cls[VR * 8], vang;
-extern int8_t OFF[7][VN + 1];
 static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
 static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
 
 // Frozen perspective offsets derived from the original formula:
 // clamp((((height - eye_height) * 4 - 3) * 16) / depth, -64, 64).
-// Keeping the table in bank 3 saves fixed ROM and avoids any __divsint call
-// while a switchable bank is mapped. Index 0 is unused and stays zero.
+// The ray marcher already runs in this bank, so read the original ROM
+// table directly rather than copying it to permanent WRAM at boot.
+// Index 0 is unused and stays zero; no runtime division is introduced.
 static const int8_t EYE_OFFSETS[7][25] = {
   {0,-64,-64,-64,-60,-48,-40,-34,-30,-26,-24,-21,-20,-18,-17,-16,-15,-14,-13,-12,-12,-11,-10,-10,-10},
   {0,-64,-64,-58,-44,-35,-29,-25,-22,-19,-17,-16,-14,-13,-12,-11,-11,-10,-9,-9,-8,-8,-8,-7,-7},
@@ -31,14 +31,6 @@ static const int8_t EYE_OFFSETS[7][25] = {
   {0,64,40,26,20,16,13,11,10,8,8,7,6,6,5,5,5,4,4,4,4,3,3,3,3},
   {0,64,64,48,36,28,24,20,18,16,14,13,12,11,10,9,9,8,8,7,7,6,6,6,6}
 };
-void eye_init_offsets(void) BANKED {
-  int8_t *destination = &OFF[0][0];
-  const int8_t *source = &EYE_OFFSETS[0][0];
-  uint8_t i;
-  for (i = 0; i < 175; ++i) *destination++ = *source++;
-}
-
-
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
   int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
   uint8_t n, x, y, h, o, col, rim, lim = VR * 8, lb;
@@ -55,7 +47,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
     if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
     x = (uint8_t)(px >> 8); y = (uint8_t)(py >> 8);
     h = hgt[y][x];
-    yt = 48 - OFF[h + 3 - eh][n];
+    yt = 48 - EYE_OFFSETS[h + 3 - eh][n];
     lb = lim;
     if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
       a = yt < 0 ? 0 : yt;

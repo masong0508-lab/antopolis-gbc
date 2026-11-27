@@ -1313,12 +1313,7 @@ const uint8_t PMAP[5][11] = {
   {0,1,2,3,0,0,0,3,3,0,0}, // gold pheromone
   {0,1,2,3,0,0,0,0,0,0,0}  // upper sky
 };
-int8_t OFF[7][VN + 1];                     // screen offset of terrain: [height - eye level + 3][depth]
 uint8_t occ[H][W], cls[VR * 8], vang;      // occ: 1 black ant, 2 red ant, 3/4 black/red queen tower
-
-// Static perspective table now lives in bank 3: no 16-bit division at boot
-// and no fixed-ROM capacity consumed by its former runtime generator.
-void eye_init_offsets(void) BANKED;
 
 uint8_t tcol[VR * 16];
 // Full atlas construction on entry and tiny old/new-cell updates during
@@ -1822,7 +1817,6 @@ void main(void) {
   cfg_load();                                            // remembered level + records from cartridge RAM
   set_sprite_data(0, 7, SPT);  // two animated carrying-food silhouettes in tiles 5/6
   fade_level(8, 0);                                 // same full-color upload from existing fb/fs scratch
-  disable_interrupts(); eye_init_offsets(); enable_interrupts();
   VBK_REG = VBK_ATTRIBUTES;                              // BG layer: palette 0, window: palette 1
   for (y = 0; y < 32; y++) for (x = 0; x < 32; x++) set_bkg_tile_xy(x, y, 0);
   for (y = 0; y < 18; y++) for (x = 0; x < 20; x++) set_win_tile_xy(x, y, 1);

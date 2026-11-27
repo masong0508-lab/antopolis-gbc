@@ -1,3 +1,15 @@
+## First-person perspective data directly in banked ROM (GBC)
+
+ANT EYE already executes its ray marcher in the bank holding the
+immutable perspective lookup table. The redundant 175-byte permanent
+WRAM copy and its startup bank call have been removed. The same
+original table values are used, preserving perspective, geometry,
+collision, ray count and artwork. The native integration regression
+checks all 175 entries against the original signed projection formula,
+including clamping, and verifies that the live renderer reads the ROM
+table. No changes to saves or link revision. Final cartridge layout
+and emulator verification are required; hardware FPS is not measured.
+
 ## Prefer directly accessible food in ANT EYE (GBC)
 
 A berry across a steep cliff could previously win a distance-one tie

@@ -54,3 +54,19 @@ for vang in range(16):
     expected = ("N" if dy[vang]<0 else "S" if dy[vang]>0 else "") + ("W" if dx[vang]<0 else "E" if dx[vang]>0 else "")
     assert labels[eval(index_expr, {"__builtins__": {}}, {"vang": vang})].strip() == expected, (vang, expected)
 print("All sixteen ANT EYE HUD bearings match actual walking directions")
+
+# The 175-byte perspective table stays in the same ROM bank as the
+# ray marcher. Verify every entry against the original signed formula.
+perspective = re.search(r"static const int8_t EYE_OFFSETS\[7\]\[25\]\s*=\s*\{(.*?)\n\};", render, re.S)
+assert perspective
+rows = [[int(n) for n in re.findall(r"-?\d+", row)]
+        for row in re.findall(r"\{([^{}]+)\}", perspective.group(1))]
+assert len(rows)==7 and all(len(row)==25 and row[0]==0 for row in rows)
+for height_index in range(7):
+    for depth in range(1,25):
+        offset=int(((height_index-3)*4-3)*16/depth)
+        assert rows[height_index][depth]==max(-64,min(64,offset))
+assert "yt = 48 - EYE_OFFSETS[h + 3 - eh][n];" in ray
+assert "eye_init_offsets" not in game+render
+assert not re.search(r"int8_t\s+OFF\s*\[",game+render)
+print("All 175 perspective entries verified; no duplicate WRAM table or boot copy")
