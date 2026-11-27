@@ -35,3 +35,22 @@ ray = render.split("void view_col(",1)[1].split("void eye_animate_walkers(",1)[0
 assert "SIN16[angle]" in ray and "SIN16[vang]" not in ray
 assert "if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }" in sweep_source
 print("ANT EYE ray camera latched across progressive sweep")
+
+# Verify the exact production compass index expression against the real
+# eight-way movement vectors at every one of the sixteen camera headings.
+import re
+nav_source = Path("src/eye_navigation.h").read_text()
+def vector(name):
+    return [int(n) for n in re.search(name + r"\[16\]\s*=\s*\{([^}]+)\}", nav_source).group(1).split(",")]
+dx, dy = vector("EYE_DX"), vector("EYE_DY")
+ui_source = Path("src/eye_ui.c").read_text()
+assert "eye_ui_ahead((char *)tbuf + 480, d, vang);" in eye
+assert "put_str(18, 0, (const char *)tbuf + 501);" in eye
+assert "COMPASS[" not in eye
+labels = re.findall(r'"([A-Z ]{2})"', re.search(r"COMPASS\[8\]\s*=\s*\{([^}]+)\}", ui_source).group(1))
+index_expr = re.search(r"const char \*heading = COMPASS\[(.*?)\];", ui_source).group(1)
+index_expr = re.sub(r"(?<=\d)u\b", "", index_expr).replace("angle","vang")
+for vang in range(16):
+    expected = ("N" if dy[vang]<0 else "S" if dy[vang]>0 else "") + ("W" if dx[vang]<0 else "E" if dx[vang]>0 else "")
+    assert labels[eval(index_expr, {"__builtins__": {}}, {"vang": vang})].strip() == expected, (vang, expected)
+print("All sixteen ANT EYE HUD bearings match actual walking directions")

@@ -1,3 +1,16 @@
+## ANT EYE compass matches actual walking direction (GBC)
+
+The two-letter DIR label used to truncate a sixteen-angle heading to
+eight compass directions. At four halfway angles, the displayed label
+did not match the actual forward walking and bite direction. The HUD
+now uses the movement table's tie-breaking convention. All sixteen
+headings are checked against the shipping movement vectors, and the
+emulator checks the rendered VRAM header against live camera heading.
+
+The compass table and formatting share the existing banked target HUD
+routine, reusing three spare scratch bytes without permanent RAM, extra
+ray casts or a link protocol change. The camera retains sixteen angles.
+
 ## Stable camera geometry during progressive ANT EYE sweeps (GBC)
 
 Previously each two-column slice used the live player position and
