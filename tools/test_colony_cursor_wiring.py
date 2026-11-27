@@ -25,3 +25,45 @@ assert "if (d->sl && !d->su) flood();" in pin, "Keep ordinary SELECT flood"
 assert "if (p & J_A) { offering();" in pin, "Keep SELECT+A trade"
 assert 'SEL UP HOME DN RIVAL' in help_text
 print("GBC nest warp wired with no drift/flood; original controls preserved")
+
+# Compile the actual first-person and pause-menu repeat conditions and
+# counter updates, keeping the existing delay and four-poll cadence.
+import re
+import os
+import shlex
+import subprocess
+import tempfile
+
+eye = source.split("static void eye(void) {", 1)[1].split(
+    "// ---------- TUTORIAL:", 1
+)[0]
+play = source.split("static void play(void) {", 1)[1]
+for section, delay in ((eye, 8), (play, 12)):
+    condition = re.search(r"if \(rep == 0 \|\| \(rep >= " + str(delay) + r" && !\(rep & 3\)\)\)", section)
+    advance = re.search(r"if \(\+\+rep == 252u\) rep = " + str(delay) + r"u;", section)
+    assert condition and advance, "Keep original repeat cadence and phase-preserving wrap"
+    program = """
+#include <stdint.h>
+#include <assert.h>
+#include <stdio.h>
+int main(void) {
+  uint8_t rep = 0;
+  unsigned moves = 0;
+  for(unsigned frame=0; frame<20000; ++frame) {
+    unsigned before=moves;
+    """ + condition.group() + """ ++moves;
+    """ + advance.group() + """
+    assert(moves-before == (unsigned)(frame==0 || (frame>=""" + str(delay) + """ && frame%4==0)));
+  }
+  rep=0;
+  """ + condition.group() + """ ++moves;
+  assert(rep==0);
+  return 0;
+}
+"""
+    with tempfile.TemporaryDirectory(prefix="eye-repeat-") as d:
+        p=Path(d)/"test.c"; exe=Path(d)/"test"
+        p.write_text(program)
+        subprocess.run(shlex.split(os.environ.get("HOSTCC","cc"))+["-std=c99","-Wall","-Wextra","-Werror","-pedantic",str(p),"-o",str(exe)],check=True)
+        subprocess.run([str(exe)],check=True)
+print("ANT EYE and pause menu hold: 40000 polls, unchanged repeat cadence")
