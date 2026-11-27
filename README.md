@@ -1,3 +1,39 @@
+## Precomputed ANT EYE ray directions (GBC)
+
+First-person rendering now reads the original signed ray increments
+from a 640-byte ROM lookup. The Y component is the X table rotated by
+90 degrees; no second table or writable-memory copy is required.
+All 320 angle/column pairs, both components, match the previous signed
+projection exactly, including negative arithmetic-shift rounding.
+The change removes two per-column signed multiplication loops and
+keeps the same ray count, collision, shading and viewport geometry.
+Cartridge banking and emulator verification are still required; the
+frame-rate improvement has not yet been measured.
+
+## First-person perspective data directly in banked ROM (GBC)
+
+ANT EYE already executes its ray marcher in the bank holding the
+immutable perspective lookup table. The redundant 175-byte permanent
+WRAM copy and its startup bank call have been removed. The same
+original table values are used, preserving perspective, geometry,
+collision, ray count and artwork. The native integration regression
+checks all 175 entries against the original signed projection formula,
+including clamping, and verifies that the live renderer reads the ROM
+table. No changes to saves or link revision. Final cartridge layout
+and emulator verification are required; hardware FPS is not measured.
+
+## Prefer directly accessible food in ANT EYE (GBC)
+
+A berry across a steep cliff could previously win a distance-one tie
+even while another adjacent berry was directly accessible. The guide
+now first checks the four cardinal neighbors with the same collision
+rule as walking. A one-step pickup wins, preserving the original
+north/west/east/south tie order. If none is accessible, the existing
+bounded food scan, proximity labels and local detour behavior remain.
+No permanent RAM, extra ray casts, save or link protocol changes.
+Native tests cover the competing direct and detour targets and the
+fallback when no direct pickup exists; full ROM CI is required.
+
 ## ANT EYE compass matches actual walking direction (GBC)
 
 The two-letter DIR label used to truncate a sixteen-angle heading to

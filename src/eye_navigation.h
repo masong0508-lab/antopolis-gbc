@@ -197,6 +197,15 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
   uint8_t y1 = vy < (31 - EYE_NAV_RADIUS) ? vy + EYE_NAV_RADIUS : 31;
   // A berry underfoot always wins. Avoid scanning the preceding rows.
   if (berries[vy][vx] && heights[vy][vx]) return 0x90u;
+#if EYE_NAV_RADIUS >= 1
+  // A berry reachable in exactly one legal step beats a similarly
+  // close berry that needs a detour. Check only four immediate cells,
+  // preserving the old north/west/east/south row-order tie break.
+  if (vy && berries[vy-1u][vx] && eye_legal_leg(heights,vx,vy,0,-1)) return 0x98u;
+  if (vx && berries[vy][vx-1u] && eye_legal_leg(heights,vx,vy,-1,0)) return 0x92u;
+  if (vx<31u && berries[vy][vx+1u] && eye_legal_leg(heights,vx,vy,1,0)) return 0x91u;
+  if (vy<31u && berries[vy+1u][vx] && eye_legal_leg(heights,vx,vy,0,1)) return 0x94u;
+#endif
   for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) {
     if (!berries[y][x] || !heights[y][x]) continue;
     seen = 0x40u; // nearby food exists, even without a safe local bearing
@@ -205,9 +214,8 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
     if (d < best) {
       leg = eye_food_first_leg(heights, vx, vy, x, y);
       if (leg) {
-        // Underfoot was already checked: one step is the absolute
-        // minimum. The first legal distance-one berry in the original
-        // row order cannot be beaten by any later candidate.
+        // Directly reachable adjacent berries were already checked.
+        // Keep the old nearest-distance detour ordering as fallback.
         if (d == 1u) return (uint8_t)(0x90u | leg);
         best = d; bearing = leg;
       }

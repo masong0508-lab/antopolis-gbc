@@ -142,9 +142,12 @@ int main(void) {
   terrain[9][10] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x92u);
   terrain[10][9] = 3;
-  // An adjacent cliff may still have a safe sidestep. Keep that
-  // original behavior, then close the bypass to test the east tie.
+  // West needs a detour; the directly accessible east berry wins.
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x91u);
+  // With no directly reachable berry, still offer the original detour.
+  berries[10][11] = berries[11][10] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x94u);
+  berries[10][11] = berries[11][10] = 1;
   terrain[11][9] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x91u);
   terrain[10][11] = 0;

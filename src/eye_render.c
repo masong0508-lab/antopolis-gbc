@@ -14,14 +14,39 @@
 #define VY0 2
 #define VN 24
 extern uint8_t hgt[H][W], food[H][W], ph[H][W], occ[H][W], cls[VR * 8], vang;
-extern int8_t OFF[7][VN + 1];
-static const int8_t SIN16[16] = {0, 24, 45, 59, 64, 59, 45, 24, 0, -24, -45, -59, -64, -59, -45, -24};
+// Original signed ray X increment for each of 16 angles and 20 columns.
+// Y is the same table rotated by -90 degrees. Integer arithmetic shifts
+// are already baked into these values, including negative rounding.
+// Flat indexing via shifts/adds keeps bank-3 code free of __mulint.
+static const int16_t EYE_RAY_X[320] = {
+  128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
+  146,143,140,137,134,131,128,125,122,119,116,113,110,107,104,101,98,95,92,89,
+  143,137,132,126,120,115,109,104,98,92,87,81,75,70,64,59,53,47,42,36,
+  118,110,103,95,88,81,73,66,59,51,44,36,29,22,14,7,0,-8,-15,-23,
+  76,68,60,52,44,36,28,20,12,4,-4,-12,-20,-28,-36,-44,-52,-60,-68,-76,
+  22,14,7,-1,-8,-15,-23,-30,-37,-45,-52,-60,-67,-74,-82,-89,-96,-104,-111,-119,
+  -37,-43,-48,-54,-60,-65,-71,-76,-82,-88,-93,-99,-105,-110,-116,-121,-127,-133,-138,-144,
+  -90,-93,-96,-99,-102,-105,-108,-111,-114,-117,-120,-123,-126,-129,-132,-135,-138,-141,-144,-147,
+  -128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,-128,
+  -147,-144,-141,-138,-135,-132,-129,-126,-123,-120,-117,-114,-111,-108,-105,-102,-99,-96,-93,-90,
+  -144,-138,-133,-127,-121,-116,-110,-105,-99,-93,-88,-82,-76,-71,-65,-60,-54,-48,-43,-37,
+  -119,-111,-104,-96,-89,-82,-74,-67,-60,-52,-45,-37,-30,-23,-15,-8,-1,7,14,22,
+  -76,-68,-60,-52,-44,-36,-28,-20,-12,-4,4,12,20,28,36,44,52,60,68,76,
+  -23,-15,-8,0,7,14,22,29,36,44,51,59,66,73,81,88,95,103,110,118,
+  36,42,47,53,59,64,70,75,81,87,92,98,104,109,115,120,126,132,137,143,
+  89,92,95,98,101,104,107,110,113,116,119,122,125,128,131,134,137,140,143,146
+};
+static int16_t eye_ray_increment(uint8_t angle, uint8_t column) {
+  uint16_t row = (uint16_t)(angle & 15u);
+  return EYE_RAY_X[(row << 4) + (row << 2) + column];
+}
 static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 2, 2, 2, 2};
 
 // Frozen perspective offsets derived from the original formula:
 // clamp((((height - eye_height) * 4 - 3) * 16) / depth, -64, 64).
-// Keeping the table in bank 3 saves fixed ROM and avoids any __divsint call
-// while a switchable bank is mapped. Index 0 is unused and stays zero.
+// The ray marcher already runs in this bank, so read the original ROM
+// table directly rather than copying it to permanent WRAM at boot.
+// Index 0 is unused and stays zero; no runtime division is introduced.
 static const int8_t EYE_OFFSETS[7][25] = {
   {0,-64,-64,-64,-60,-48,-40,-34,-30,-26,-24,-21,-20,-18,-17,-16,-15,-14,-13,-12,-12,-11,-10,-10,-10},
   {0,-64,-64,-58,-44,-35,-29,-25,-22,-19,-17,-16,-14,-13,-12,-11,-11,-10,-9,-9,-8,-8,-8,-7,-7},
@@ -31,31 +56,19 @@ static const int8_t EYE_OFFSETS[7][25] = {
   {0,64,40,26,20,16,13,11,10,8,8,7,6,6,5,5,5,4,4,4,4,3,3,3,3},
   {0,64,64,48,36,28,24,20,18,16,14,13,12,11,10,9,9,8,8,7,7,6,6,6,6}
 };
-void eye_init_offsets(void) BANKED {
-  int8_t *destination = &OFF[0][0];
-  const int8_t *source = &EYE_OFFSETS[0][0];
-  uint8_t i;
-  for (i = 0; i < 175; ++i) *destination++ = *source++;
-}
-
-
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
-  int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
+  int16_t px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
   uint8_t n, x, y, h, o, col, rim, lim = VR * 8, lb;
-  // Never use 16-bit variable '*' inside a banked routine. GBDK would
-  // call __mulint from switchable ROM1, switching out this ROM3 routine.
-  rx = (int16_t)SIN16[(angle + 4) & 15] * 32 -
-       eye_mul_small(SIN16[angle], (int8_t)t);
-  ry = (int16_t)SIN16[angle] * 32 +
-       eye_mul_small(SIN16[(angle + 4) & 15], (int8_t)t);
-  rx >>= 4; ry >>= 4;                                // one step = half a cell forward
+  // Same half-cell increments as the former per-column arithmetic.
+  rx = eye_ray_increment(angle, c);
+  ry = eye_ray_increment((uint8_t)(angle + 12u), c);
   for (n = 0; n < VR * 8; n++) cls[n] = 0;
   for (n = 1; n <= VN && lim; n++) {
     px += rx; py += ry;
     if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
     x = (uint8_t)(px >> 8); y = (uint8_t)(py >> 8);
     h = hgt[y][x];
-    yt = 48 - OFF[h + 3 - eh][n];
+    yt = 48 - EYE_OFFSETS[h + 3 - eh][n];
     lb = lim;
     if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
       a = yt < 0 ? 0 : yt;
