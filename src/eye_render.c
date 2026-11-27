@@ -39,15 +39,15 @@ void eye_init_offsets(void) BANKED {
 }
 
 
-void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED {
+void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
   int16_t t = (int16_t)c * 2 - 19, px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
   uint8_t n, x, y, h, o, col, rim, lim = VR * 8, lb;
   // Never use 16-bit variable '*' inside a banked routine. GBDK would
   // call __mulint from switchable ROM1, switching out this ROM3 routine.
-  rx = (int16_t)SIN16[(vang + 4) & 15] * 32 -
-       eye_mul_small(SIN16[vang], (int8_t)t);
-  ry = (int16_t)SIN16[vang] * 32 +
-       eye_mul_small(SIN16[(vang + 4) & 15], (int8_t)t);
+  rx = (int16_t)SIN16[(angle + 4) & 15] * 32 -
+       eye_mul_small(SIN16[angle], (int8_t)t);
+  ry = (int16_t)SIN16[angle] * 32 +
+       eye_mul_small(SIN16[(angle + 4) & 15], (int8_t)t);
   rx >>= 4; ry >>= 4;                                // one step = half a cell forward
   for (n = 0; n < VR * 8; n++) cls[n] = 0;
   for (n = 1; n <= VN && lim; n++) {

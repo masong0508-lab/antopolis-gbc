@@ -1326,15 +1326,15 @@ uint8_t tcol[VR * 16];
 void eye_occ_init(void) BANKED;
 void eye_occ_pair(uint8_t ox, uint8_t oy, uint8_t nx, uint8_t ny) BANKED;
 // Draws view columns c0..c1-1. A whole column's 12 tiles are built in RAM and sent with ONE set_bkg_data call.
-void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh) BANKED; // isolated pure ray march in ROM bank 3
+void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED; // isolated pure ray march in ROM bank 3
 void eye_build_antennae(uint8_t *scratch) BANKED; // 480-byte procedural mask, once per entry
-static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1) {
+static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1, uint8_t angle) {
   uint8_t c, r, k, v, p, m, eh = hgt[vy][vx], *t;
   VBK_REG = VBK_ATTRIBUTES;                          // tile data + attributes both go to bank 1 here
   for (c = c0; c < c1; c++) {
     // Keep the bank-1 audio interrupt from entering while ROM bank 3 is active.
     disable_interrupts();
-    view_col(c, vx, vy, eh);
+    view_col(c, vx, vy, eh, angle);
     enable_interrupts();
     t = tcol;
     for (r = 0; r < VR; r++) {
@@ -1463,7 +1463,7 @@ static uint8_t eye_bite(uint8_t vi, uint8_t vx, uint8_t vy) {
 
 static void eye(void) {                              // pilot a black ant; food, scents and combat persist in the colony
   uint8_t i, x, y, k, p, prev, vi = MAXA, best = 255, d, rep = 0, go = 1, vx = 0, vy = 0, vcol = VX, dirty = 0, dirs, last = 0, nav = 0, need_nav = 1;
-  uint8_t notice = 0;
+  uint8_t notice = 0, render_x = 0, render_y = 0, render_angle = 0;
   tev |= 16;
   for (i = 0; i < MAXA; i++) if (vok(i)) { d = dist(ant[i].x, cx) + dist(ant[i].y, cy); if (d < best) { best = d; vi = i; } }
   // There is no controllable ant until the colony hatches a living worker.
@@ -1535,7 +1535,10 @@ static void eye(void) {                              // pilot a black ant; food,
     // get sampled more often during the same 240-tile redraw.
     if (vcol < VX) {
 #ifndef EYE_DIAG_NO_RAY
-      view_cols(vx, vy, vcol, (uint8_t)(vcol + 2));
+      // One sweep uses a single camera pose even while new input arrives.
+      // The dirty flag still queues the newest pose for the next sweep.
+      if (!vcol) { render_x = vx; render_y = vy; render_angle = vang; }
+      view_cols(render_x, render_y, vcol, (uint8_t)(vcol + 2), render_angle);
 #endif
       vcol += 2;
       if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }

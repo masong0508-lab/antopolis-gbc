@@ -24,3 +24,14 @@ assert "occ[y][x] = food[y][x] ? 5u : 0u;" in module, (
     "Full initialization must clear empty cells as well as restore food")
 assert "occ[" in render, "The native first-person view must use this exact atlas"
 print("PASS: GBC ROM3 initializes occupancy once, then refreshes only touched tiles")
+
+# The shipping ray sweep must latch a single camera pose on column zero.
+# Gameplay continues using live controls, and a dirty sweep schedules a refresh.
+sweep_source = Path("src/main.c").read_text()
+assert "if (!vcol) { render_x = vx; render_y = vy; render_angle = vang; }" in sweep_source
+assert "view_cols(render_x, render_y, vcol, (uint8_t)(vcol + 2), render_angle);" in sweep_source
+assert "view_col(c, vx, vy, eh, angle);" in sweep_source
+ray = render.split("void view_col(",1)[1].split("void eye_animate_walkers(",1)[0]
+assert "SIN16[angle]" in ray and "SIN16[vang]" not in ray
+assert "if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }" in sweep_source
+print("ANT EYE ray camera latched across progressive sweep")
