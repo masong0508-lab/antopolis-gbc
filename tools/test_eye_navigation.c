@@ -142,10 +142,14 @@ int main(void) {
   terrain[9][10] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x92u);
   terrain[10][9] = 3;
+  // An adjacent cliff may still have a safe sidestep. Keep that
+  // original behavior, then close the bypass to test the east tie.
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x94u);
+  terrain[11][9] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x91u);
   terrain[10][11] = 0;
   assert(eye_food_bearing(terrain, berries, 10, 10) == 0x94u);
-  terrain[9][10] = terrain[10][9] = terrain[10][11] = 1;
+  terrain[9][10] = terrain[10][9] = terrain[10][11] = terrain[11][9] = 1;
   memset(berries, 0, sizeof berries);
   berries[0][1] = berries[1][0] = 1;
   assert(eye_food_bearing(terrain, berries, 0, 0) == 0x91u);
