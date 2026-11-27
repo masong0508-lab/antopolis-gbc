@@ -238,8 +238,8 @@ def run_case(rom, name, out):
                 check("the old pilot stays in place", workers[0]["x"] == workers[0]["y"] == 10)
                 check("the new pilot collects its own island's berry",
                       workers[1]["carry"] == 1 and cart.tile("food", 23, 22) == 0)
-                check("only the old/new 3D cells change during walking",
-                      cart.tile("occ", workers[1]["x"], 22) == 1 and
+                check("only the old/new 3D cells change during walking; new worker carries food",
+                      cart.tile("occ", workers[1]["x"], 22) == 9 and
                       cart.tile("occ", 22, 22) == 0 and cart.tile("occ", 10, 10) == 1)
             elif name == "switch-backward":
                 check("A+DOWN retreats on the new island", 20 <= workers[1]["x"] < 22 and workers[1]["y"] == 22)
@@ -274,7 +274,7 @@ def run_case(rom, name, out):
             elif name == "food-save-continue":
                 check("ordinary dry movement still collects food", workers[0]["carry"] == 1 and cart.tile("food", 11, 10) == 0)
                 check("first-person food pickup leaves exact rendered occupancy",
-                      cart.tile("occ", workers[0]["x"], 10) == 1 and cart.tile("occ", 10, 10) == 0)
+                      cart.tile("occ", workers[0]["x"], 10) == 9 and cart.tile("occ", 10, 10) == 0)
                 cart.press("start", 18, 6)
                 cart.press("start", 18, 40)
                 cart.press("a", 18, 40)
@@ -315,7 +315,8 @@ def main():
     for name in CASES:
         result = run_case(args.rom, name, args.out / name)
         report["cases"].append(result)
-        print(name, result["result"], result.get("error", ""), flush=True)
+        failed = [item["name"] for item in result["checks"] if not item["passed"]]
+        print(name, result["result"], result.get("error", ""), "; ".join(failed), flush=True)
     report["result"] = "PASS" if all(case["result"] == "PASS" for case in report["cases"]) else "FAIL"
     report["emulated_frames"] = sum(case["emulated_frames"] for case in report["cases"])
     (args.out / "report.json").write_text(json.dumps(report, indent=2) + "\n")

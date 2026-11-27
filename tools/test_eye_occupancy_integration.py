@@ -88,3 +88,9 @@ for angle in range(16):
         assert ray_values[((angle+12)&15)*20+col] == expected_y
 assert "EYE_RAY_X[(row << 4) + (row << 2) + column]" in render
 print("All 640 original signed ray direction components match ROM lookup")
+
+assert "eye_occ_worker(&ant[i])" in module
+assert "carrying = o & 8u; o &= 7u;" in ray
+assert "if (!rim && carrying && o <= 2u && e > a + 4)" in ray
+assert "cls[a + 2] = 7;" in ray and "cls[a + 3] = 7;" in ray
+print("Live occupancy keeps carrier bit, and renderer marks visible food packets")

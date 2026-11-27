@@ -1,3 +1,16 @@
+## Visible food-carrying ants in ANT EYE (GBC)
+
+A spare bit of the existing 32x32 occupancy map now distinguishes
+workers carrying food, without changing its size. Both the full
+initialization and incremental movement/pickup refresh preserve the
+real carrier state and original ant/queen overlap priority. Nearby
+visible carriers show a gold packet, and the forward target HUD
+identifies friendly and enemy food carriers. Collision and bite rules
+are unchanged. Native occupancy tests cover 8,000 updates with carrier
+changes, and the emulator pickup regression checks the real atlas
+value. No additional permanent RAM, fixed-bank code, saved fields or
+link revision. Full cartridge and emulator verification required.
+
 ## Continuous overhead colony cursor (GBC)
 
 The live strategy-map cursor no longer periodically repeats its

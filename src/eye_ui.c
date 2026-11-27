@@ -33,12 +33,13 @@ void eye_ui_scent(char *b,uint8_t active) BANKED {
 void eye_ui_ahead(char *b,uint8_t target,uint8_t angle) BANKED {
   static const char *const COMPASS[8]={"E ","SE","S ","SW","W ","NW","N ","NE"};
   const char *heading = COMPASS[((angle + ((angle & 4u) != 0)) & 15u) >> 1];
-  static const char *const names[9]={
+  static const char *const names[11]={
     "AHEAD: MAP EDGE", "AHEAD: WATER BLOCKS", "AHEAD: STEEP CLIFF",
     "AHEAD: CLEAR PATH", "AHEAD: FOOD WALK", "AHEAD: FRIENDLY ANT",
-    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
+    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN",
+    "AHEAD: FRIEND FOOD", "AHEAD: ENEMY FOOD"
   };
-  blank(b); field(b,0,names[target<9?target:0]);
+  blank(b); field(b,0,names[target<11?target:0]);
   b[21]=heading[0]; b[22]=heading[1]; b[23]=0;
 }
 // Check the real colony heights before announcing a homeward step.

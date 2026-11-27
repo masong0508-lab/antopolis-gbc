@@ -185,6 +185,15 @@ int main(void) {
   assert(eye_food_bearing(terrain, berries, 0, 0) == 0x95u);
   assert(eye_food_bearing(terrain, berries, 31, 31) == 0x9Au);
   memset(berries, 0, sizeof berries);
+  // Carriers preserve their team identity in the forward target HUD.
+  memset(terrain,1,sizeof terrain); memset(berries,0,sizeof berries);
+  berries[10][11]=9;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0)==9);
+  berries[10][11]=10;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0)==10);
+  terrain[10][11]=3;
+  assert(eye_ahead_kind(terrain, berries, 10, 10, 0)==2);
+  terrain[10][11]=1; berries[10][11]=0;
   // Proximity is encoded in otherwise unused compass bits. These are
   // approximate map distances, NOT a count of guaranteed walking steps.
   berries[10][14] = 1; // distance 4: NEAR
