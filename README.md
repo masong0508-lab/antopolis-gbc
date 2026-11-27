@@ -1,3 +1,15 @@
+## Precomputed ANT EYE ray directions (GBC)
+
+First-person rendering now reads the original signed ray increments
+from a 640-byte ROM lookup. The Y component is the X table rotated by
+90 degrees; no second table or writable-memory copy is required.
+All 320 angle/column pairs, both components, match the previous signed
+projection exactly, including negative arithmetic-shift rounding.
+The change removes two per-column signed multiplication loops and
+keeps the same ray count, collision, shading and viewport geometry.
+Cartridge banking and emulator verification are still required; the
+frame-rate improvement has not yet been measured.
+
 ## First-person perspective data directly in banked ROM (GBC)
 
 ANT EYE already executes its ray marcher in the bank holding the

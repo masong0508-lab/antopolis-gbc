@@ -32,7 +32,9 @@ assert "if (!vcol) { render_x = vx; render_y = vy; render_angle = vang; }" in sw
 assert "view_cols(render_x, render_y, vcol, (uint8_t)(vcol + 2), render_angle);" in sweep_source
 assert "view_col(c, vx, vy, eh, angle);" in sweep_source
 ray = render.split("void view_col(",1)[1].split("void eye_animate_walkers(",1)[0]
-assert "SIN16[angle]" in ray and "SIN16[vang]" not in ray
+assert "rx = eye_ray_increment(angle, c);" in ray
+assert "ry = eye_ray_increment((uint8_t)(angle + 12u), c);" in ray
+assert "eye_mul_small(" not in ray
 assert "if (vcol >= VX && dirty) { vcol = 0; dirty = 0; }" in sweep_source
 print("ANT EYE ray camera latched across progressive sweep")
 
@@ -70,3 +72,19 @@ assert "yt = 48 - EYE_OFFSETS[h + 3 - eh][n];" in ray
 assert "eye_init_offsets" not in game+render
 assert not re.search(r"int8_t\s+OFF\s*\[",game+render)
 print("All 175 perspective entries verified; no duplicate WRAM table or boot copy")
+
+# Compare all 640 direction components with the original signed shifts.
+ray_table = re.search(r"static const int16_t EYE_RAY_X\[320\]\s*=\s*\{(.*?)\n\};", render, re.S)
+assert ray_table
+ray_values = [int(n) for n in re.findall(r"-?\d+", ray_table.group(1))]
+assert len(ray_values) == 320
+sine16 = [0,24,45,59,64,59,45,24,0,-24,-45,-59,-64,-59,-45,-24]
+for angle in range(16):
+    for col in range(20):
+        t = col*2-19
+        expected_x = (sine16[(angle+4)&15]*32 - sine16[angle]*t) >> 4
+        expected_y = (sine16[angle]*32 + sine16[(angle+4)&15]*t) >> 4
+        assert ray_values[angle*20+col] == expected_x
+        assert ray_values[((angle+12)&15)*20+col] == expected_y
+assert "EYE_RAY_X[(row << 4) + (row << 2) + column]" in render
+print("All 640 original signed ray direction components match ROM lookup")
