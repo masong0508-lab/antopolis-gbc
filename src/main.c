@@ -1392,13 +1392,12 @@ static void view_cols(uint8_t vx, uint8_t vy, uint8_t c0, uint8_t c1, uint8_t an
   }
   VBK_REG = VBK_TILES;
 }
-static const char *const COMPASS[8] = {"E ", "SE", "S ", "SW", "W ", "NW", "N ", "NE"};   // vang 0 looks east, turning right = clockwise
 // Moved to switchable bank 3, preserving scarce fixed bank space.
 void eye_step(uint8_t *vx, uint8_t *vy, int8_t dir) BANKED;
 uint8_t eye_food_hint(uint8_t vx, uint8_t vy) BANKED;
 uint8_t eye_bite_target(uint8_t vx, uint8_t vy, uint8_t *tx, uint8_t *ty) BANKED;
 uint8_t eye_ahead(uint8_t vx, uint8_t vy) BANKED;
-void eye_ui_ahead(char *b, uint8_t target) BANKED;
+void eye_ui_ahead(char *b, uint8_t target, uint8_t angle) BANKED;
 void eye_ui_notice(char *b, uint8_t result) BANKED;
 void eye_ui_scent(char *b, uint8_t active) BANKED;
 void eye_ui_guide(char *b, uint8_t nav, uint8_t carry,
@@ -1514,15 +1513,12 @@ static void eye(void) {                              // pilot a black ant; food,
       // The selected ant and ahead object have their own information bars.
       // Rendering is updated only on a player action, not each frame.
       put_num(11, 0, (uint8_t)(vi + 1u));
-      // Each compass string is exactly two characters, with space padding
-      // for N/S/E/W; do not waste fixed ROM clearing its last cell twice.
-      // Match EYE_DX/DY's tie-breaking at the half-angle headings.
-      // SW/W/NE/E use the next octant at headings 5,7,13,15.
-      put_str(18, 0, COMPASS[((vang + ((vang & 4u) != 0)) & 15u) >> 1]);
-      disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
+      // Format the bearing and target in the existing banked HUD scratch.
       disable_interrupts();
-      eye_ui_ahead((char *)tbuf + 480, d);
+      d = eye_ahead(vx, vy);
+      eye_ui_ahead((char *)tbuf + 480, d, vang);
       enable_interrupts();
+      put_str(18, 0, (const char *)tbuf + 501);
       put_str(0, 1, (const char *)tbuf + 480);
       disable_interrupts();
       eye_ui_guide((char *)tbuf + 480, nav, ant[vi].carry,

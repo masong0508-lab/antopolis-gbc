@@ -7,8 +7,9 @@ now uses the movement table's tie-breaking convention. All sixteen
 headings are checked against the shipping movement vectors, and the
 emulator checks the rendered VRAM header against live camera heading.
 
-No new table, permanent RAM, ray cast, control mapping or link protocol
-change. The camera itself retains its original sixteen angles.
+The compass table and formatting share the existing banked target HUD
+routine, reusing three spare scratch bytes without permanent RAM, extra
+ray casts or a link protocol change. The camera retains sixteen angles.
 
 ## Stable camera geometry during progressive ANT EYE sweeps (GBC)
 

@@ -9,7 +9,7 @@
 uint8_t hgt[32][32];
 #include "../src/eye_ui.c"
 
-static char row[21];
+static char row[24];
 static void expect(const char *want) {
   size_t n = strlen(want), i;
   assert(n <= 20);
@@ -40,10 +40,18 @@ int main(void) {
   };
   unsigned i;
   for (i=0; i<9; ++i) {
-    eye_ui_ahead(row, (uint8_t)i);
+    eye_ui_ahead(row, (uint8_t)i, 0);
     expect(hazards[i]);
   }
-  eye_ui_ahead(row, 255); expect("AHEAD: MAP EDGE");
+  eye_ui_ahead(row, 255, 0); expect("AHEAD: MAP EDGE");
+  {
+    static const char *const headings[16]={"E ","E ","SE","SE","S ","SW","SW","W ","W ","W ","NW","NW","N ","NE","NE","E "};
+    for (i=0;i<16;i++){
+      eye_ui_ahead(row,3,(uint8_t)i);
+      expect("AHEAD: CLEAR PATH");
+      assert(row[21]==headings[i][0] && row[22]==headings[i][1] && row[23]==0);
+    }
+  }
   for (i=0; i<8; ++i) {
     eye_ui_notice(row, (uint8_t)i);
     expect(actions[i]);

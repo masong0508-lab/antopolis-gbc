@@ -43,9 +43,13 @@ nav_source = Path("src/eye_navigation.h").read_text()
 def vector(name):
     return [int(n) for n in re.search(name + r"\[16\]\s*=\s*\{([^}]+)\}", nav_source).group(1).split(",")]
 dx, dy = vector("EYE_DX"), vector("EYE_DY")
-labels = re.findall(r'"([A-Z ]{2})"', re.search(r"COMPASS\[8\]\s*=\s*\{([^}]+)\}", game).group(1))
-index_expr = re.search(r"put_str\(18, 0, COMPASS\[(.*?)\]\);", eye).group(1)
-index_expr = re.sub(r"(?<=\d)u\b", "", index_expr)
+ui_source = Path("src/eye_ui.c").read_text()
+assert "eye_ui_ahead((char *)tbuf + 480, d, vang);" in eye
+assert "put_str(18, 0, (const char *)tbuf + 501);" in eye
+assert "COMPASS[" not in eye
+labels = re.findall(r'"([A-Z ]{2})"', re.search(r"COMPASS\[8\]\s*=\s*\{([^}]+)\}", ui_source).group(1))
+index_expr = re.search(r"const char \*heading = COMPASS\[(.*?)\];", ui_source).group(1)
+index_expr = re.sub(r"(?<=\d)u\b", "", index_expr).replace("angle","vang")
 for vang in range(16):
     expected = ("N" if dy[vang]<0 else "S" if dy[vang]>0 else "") + ("W" if dx[vang]<0 else "E" if dx[vang]>0 else "")
     assert labels[eval(index_expr, {"__builtins__": {}}, {"vang": vang})].strip() == expected, (vang, expected)
