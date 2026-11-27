@@ -1516,7 +1516,9 @@ static void eye(void) {                              // pilot a black ant; food,
       put_num(11, 0, (uint8_t)(vi + 1u));
       // Each compass string is exactly two characters, with space padding
       // for N/S/E/W; do not waste fixed ROM clearing its last cell twice.
-      put_str(18, 0, COMPASS[vang >> 1]);
+      // Match EYE_DX/DY's tie-breaking at the half-angle headings.
+      // SW/W/NE/E use the next octant at headings 5,7,13,15.
+      put_str(18, 0, COMPASS[((vang + ((vang & 4u) != 0)) & 15u) >> 1]);
       disable_interrupts(); d = eye_ahead(vx, vy); enable_interrupts();
       disable_interrupts();
       eye_ui_ahead((char *)tbuf + 480, d);

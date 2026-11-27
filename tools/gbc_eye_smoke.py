@@ -46,6 +46,7 @@ def main():
             raise AssertionError("Game cursor not in WRAM: " + symbol)
         return address
     cursor_x, cursor_y = world_address("cx"), world_address("cy")
+    camera_angle = world_address("vang")
     def world_position():
         return pyboy.memory[cursor_x], pyboy.memory[cursor_y]
 
@@ -431,9 +432,20 @@ def main():
         report["hud_target_tile"] = target_tile
         report["ui"]["eye_commands_grouped"] = True
 
+        # Read actual HUD glyphs and live heading. The tie headings must
+        # follow movement quantization, rather than simply halving angle.
+        def check_heading():
+            labels = ("E ", "E ", "SE", "SE", "S ", "SW", "SW", "W ",
+                      "W ", "W ", "NW", "NW", "N ", "NE", "NE", "E ")
+            angle = pyboy.memory[camera_angle] & 15
+            expected = labels[angle]
+            assert all(tile0(18+i, 0)==glyph(ch) for i,ch in enumerate(expected)), (
+                "Compass differs from walking heading", angle, expected)
+        check_heading()
         # Real camera turning should redraw the view, not freeze one half.
         press("right", 18)
         pyboy.tick(120, True, False)
+        check_heading()
         rotated = snapshot("04_turned_camera")
         if not ImageChops.difference(eye.convert("RGB"), rotated.convert("RGB")).getbbox():
             raise AssertionError("ANT EYE camera did not visibly update on turn")
