@@ -1,3 +1,18 @@
+## Stable camera geometry during progressive ANT EYE sweeps (GBC)
+
+Previously each two-column slice used the live player position and
+heading. Turning or walking midway through the ten-slice sweep could
+produce a stitched image of different camera poses. Column zero now
+captures x, y and heading, and every remaining column uses that pose.
+Controls and the dirty-redraw queue remain live, so the next sweep
+catches up to the newest player position.
+
+Three local bytes hold the pose, with no additional world buffer,
+framebuffer, saved data or ray count. This avoids mixing camera geometry
+within a sweep, not all progressive display updates or live entity
+changes. Native source integration checks the latch and the explicit
+banked angle; cartridge bank limits and emulator tests must pass.
+
 ## Colony workers and soldiers act at their destination (GBC)
 
 Previously the autonomous movement loop always searched for a neighboring
