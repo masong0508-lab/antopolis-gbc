@@ -1,3 +1,15 @@
+## Prefer directly accessible food in ANT EYE (GBC)
+
+A berry across a steep cliff could previously win a distance-one tie
+even while another adjacent berry was directly accessible. The guide
+now first checks the four cardinal neighbors with the same collision
+rule as walking. A one-step pickup wins, preserving the original
+north/west/east/south tie order. If none is accessible, the existing
+bounded food scan, proximity labels and local detour behavior remain.
+No permanent RAM, extra ray casts, save or link protocol changes.
+Native tests cover the competing direct and detour targets and the
+fallback when no direct pickup exists; full ROM CI is required.
+
 ## ANT EYE compass matches actual walking direction (GBC)
 
 The two-letter DIR label used to truncate a sixteen-angle heading to
