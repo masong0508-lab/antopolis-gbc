@@ -1,3 +1,25 @@
+## Continuous overhead colony cursor (GBC)
+
+The live strategy-map cursor no longer periodically repeats its
+initial button-hold delay when the eight-bit counter wraps. Recycling
+252 to 12 keeps the existing three-poll repeat phase indefinitely.
+SELECT home/rival chords and ordinary flood controls are unchanged.
+The native harness checks the actual repeat expressions for 20,000
+polls. No new permanent RAM or save data; use matching link revision
+5D/A4 for both cartridges. Cartridge and emulator verification pending.
+
+## One-move diagonal food navigation (GBC)
+
+ANT EYE food guidance now recognizes a legal diagonal pickup as a
+single move, prioritizing it over an adjacent cliff requiring a detour.
+Cardinal pickups keep their earlier priority. Diagonal candidates use
+the same terrain and corner checks as walking, so the guide never
+introduces an illegal diagonal shortcut. If no one-move pickup exists,
+the existing bounded food scan and detour guidance continue to work.
+No permanent RAM, save format, link revision or fixed-bank changes.
+Native tests cover direct, detour and blocked corner choices; full
+cartridge banking and emulator verification remain required.
+
 ## Precomputed ANT EYE ray directions (GBC)
 
 First-person rendering now reads the original signed ray increments

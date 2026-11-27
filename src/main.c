@@ -1172,8 +1172,8 @@ static void records_screen(void) {
 // ---------- 2 PLAYERS ----------
 // Only matching multiplayer revisions should handshake. The distinct pair of
 // greeting bytes rejects older ROMs before either side applies a foreign seed.
-#define LINK_HELLO 0x5C
-#define LINK_ACK   0xA5
+#define LINK_HELLO 0x5D
+#define LINK_ACK   0xA4
 // LINK CABLE: the GBs swap their joypad bytes every frame and run the same game in lockstep (same seed, same rules).
 // Swap one byte with the other GB. The GB that pressed START clocks (master); the other waits on its clock and
 // never sends 0xFF, so 0xFF means "not ready yet". lkl = 1 when nothing came back for ~3 s.
@@ -1683,7 +1683,7 @@ static void pin(uint8_t k, Pad *d) {               // one player's controls (the
       if ((dirs & J_UP) && cy > 0) cy--;
       if ((dirs & J_DOWN) && cy < H - 1) cy++;
     }
-    d->rp++; /* Wrap naturally instead of accelerating at 250 frames */
+    if (++d->rp == 252u) d->rp = 12u; /* preserve the 3-poll phase */
   }
   if (k & J_SELECT) {                              // SELECT is a modifier: SEL+A trade, SEL+B fast, release flood
     if (p & J_A) { offering(); d->su = 1; }
