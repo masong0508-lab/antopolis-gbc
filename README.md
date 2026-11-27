@@ -1,3 +1,13 @@
+## Continuous overhead colony cursor (GBC)
+
+The live strategy-map cursor no longer periodically repeats its
+initial button-hold delay when the eight-bit counter wraps. Recycling
+252 to 12 keeps the existing three-poll repeat phase indefinitely.
+SELECT home/rival chords and ordinary flood controls are unchanged.
+The native harness checks the actual repeat expressions for 20,000
+polls. No new permanent RAM or save data; use matching link revision
+5D/A4 for both cartridges. Cartridge and emulator verification pending.
+
 ## One-move diagonal food navigation (GBC)
 
 ANT EYE food guidance now recognizes a legal diagonal pickup as a

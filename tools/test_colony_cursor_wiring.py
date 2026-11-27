@@ -18,8 +18,8 @@ assert pin.index("if (p & J_SELECT) d->su = 0;") < pin.index(
     "SELECT reset must happen before jump consumes SELECT on the same frame"
 )
 assert "(d->rp % 3) == 1" in pin, "Keep the original repeat cadence"
-assert "d->rp++;" in pin and "d->rp < 250" not in pin, (
-    "Very long holds must not accelerate from a saturated repeat counter"
+assert "if (++d->rp == 252u) d->rp = 12u;" in pin, (
+    "Very long holds must preserve repeat phase, not restart the delay"
 )
 assert "if (d->sl && !d->su) flood();" in pin, "Keep ordinary SELECT flood"
 assert "if (p & J_A) { offering();" in pin, "Keep SELECT+A trade"
@@ -67,3 +67,28 @@ int main(void) {
         subprocess.run(shlex.split(os.environ.get("HOSTCC","cc"))+["-std=c99","-Wall","-Wextra","-Werror","-pedantic",str(p),"-o",str(exe)],check=True)
         subprocess.run([str(exe)],check=True)
 print("ANT EYE and pause menu hold: 40000 polls, unchanged repeat cadence")
+
+# Test live overhead repeat timing for continuous map movement.
+condition = re.search(r"if \(d->rp == 0 \|\| \(d->rp >= 10 && \(d->rp % 3\) == 1\)\)", pin)
+advance = re.search(r"if \(\+\+d->rp == 252u\) d->rp = 12u;", pin)
+assert condition and advance
+program = """
+#include <stdint.h>
+#include <assert.h>
+int main(void) {
+  uint8_t rep=0;
+  for(unsigned frame=0;frame<20000;frame++){
+    unsigned moves=0;
+""" + condition.group().replace("d->rp","rep") + """ ++moves;
+""" + advance.group().replace("d->rp","rep") + """
+    assert(moves==(frame==0||(frame>=10&&frame%3==1)));
+  }
+  return 0;
+}
+"""
+with tempfile.TemporaryDirectory(prefix="map-repeat-") as d:
+    p=Path(d)/"test.c";exe=Path(d)/"test";p.write_text(program)
+    subprocess.run(shlex.split(os.environ.get("HOSTCC","cc"))+
+        ["-std=c99","-Wall","-Wextra","-Werror","-pedantic",str(p),"-o",str(exe)],check=True)
+    subprocess.run([str(exe)],check=True)
+print("GBC overhead cursor: 20000 polls without repeat-delay resets")
