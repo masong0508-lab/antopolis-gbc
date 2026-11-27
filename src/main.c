@@ -767,6 +767,10 @@ static void step_ant(Ant *a) {
   }
   if (!a->carry && food[a->y][a->x]) { food[a->y][a->x] = 0; a->carry = 1; draw_cell(a->x, a->y); }
   if (a->carry) { uint8_t p = ph[a->y][a->x]; ph[a->y][a->x] = p > 215 ? 255 : p + 40; }
+  // A reached target is an action, not a reason to wander away.
+  // Loaded workers take priority over local defense and siege orders.
+  if (a->carry ? (a->x == nestx[t] && a->y == nesty[t]) :
+      (soldier && a->x == goal_x && a->y == goal_y)) goto target_reached;
   for (d = 0; d < 4; d++) {
     if (!can_go(a->x, a->y, DX[d], DY[d])) continue;
     tx = a->x + DX[d]; ty = a->y + DY[d];
@@ -788,6 +792,7 @@ static void step_ant(Ant *a) {
     if (sc > best) { best = sc; bd = d; found = 1; }
   }
   if (found) { a->x += DX[bd]; a->y += DY[bd]; }
+target_reached:
   if (a->carry && a->x == nestx[t] && a->y == nesty[t]) {
     a->carry = 0; if (stock[t] < 99) stock[t]++;
     if (t == pl || mp) {                         // mana workflow, step 2: food delivered home is also tribute to its ruler
@@ -1167,8 +1172,8 @@ static void records_screen(void) {
 // ---------- 2 PLAYERS ----------
 // Only matching multiplayer revisions should handshake. The distinct pair of
 // greeting bytes rejects older ROMs before either side applies a foreign seed.
-#define LINK_HELLO 0x5B
-#define LINK_ACK   0xA6
+#define LINK_HELLO 0x5C
+#define LINK_ACK   0xA5
 // LINK CABLE: the GBs swap their joypad bytes every frame and run the same game in lockstep (same seed, same rules).
 // Swap one byte with the other GB. The GB that pressed START clocks (master); the other waits on its clock and
 // never sends 0xFF, so 0xFF means "not ready yet". lkl = 1 when nothing came back for ~3 s.
