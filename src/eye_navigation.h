@@ -205,6 +205,17 @@ static uint8_t eye_food_bearing(uint8_t heights[EYE_WORLD][EYE_WORLD],
   if (vx && berries[vy][vx-1u] && eye_legal_leg(heights,vx,vy,-1,0)) return 0x92u;
   if (vx<31u && berries[vy][vx+1u] && eye_legal_leg(heights,vx,vy,1,0)) return 0x91u;
   if (vy<31u && berries[vy+1u][vx] && eye_legal_leg(heights,vx,vy,0,1)) return 0x94u;
+  // ANT EYE supports diagonal walking too. A diagonal pickup that
+  // passes both corner checks also takes only one move. Keep cardinal
+  // pickups first, then prefer a real diagonal over a cliff detour.
+  for (y = vy ? vy - 1u : vy; y <= (vy < 31u ? vy + 1u : vy); ++y) {
+    if (y == vy) continue;
+    for (x = vx ? vx - 1u : vx; x <= (vx < 31u ? vx + 1u : vx); ++x) {
+      if (x == vx || !berries[y][x]) continue;
+      leg = eye_food_first_leg(heights, vx, vy, x, y);
+      if ((leg & 3u) && (leg & 12u)) return (uint8_t)(0x90u | leg);
+    }
+  }
 #endif
   for (y = y0; y <= y1; y++) for (x = x0; x <= x1; x++) {
     if (!berries[y][x] || !heights[y][x]) continue;

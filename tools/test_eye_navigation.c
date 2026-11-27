@@ -160,6 +160,30 @@ int main(void) {
   berries[30][31] = berries[31][30] = 1;
   assert(eye_food_bearing(terrain, berries, 31, 31) == 0x98u);
   memset(berries, 0, sizeof berries);
+  // Diagonal pickups are also a single legal move. Prefer one to
+  // a closer-looking cardinal berry that requires a cliff detour.
+  memset(berries, 0, sizeof berries);
+  berries[10][9] = berries[11][11] = 1;
+  terrain[10][9] = 3;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x95u);
+  // An actual cardinal pickup retains priority.
+  berries[10][11] = 1;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x91u);
+  berries[10][11] = 0;
+  terrain[10][11] = 0;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x94u);
+  terrain[10][9] = terrain[10][11] = 1;
+  memset(berries, 0, sizeof berries);
+  berries[9][9] = berries[9][11] = berries[11][9] = berries[11][11] = 1;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x9Au);
+  terrain[9][10] = 0;
+  assert(eye_food_bearing(terrain, berries, 10, 10) == 0x96u);
+  terrain[9][10] = 1;
+  memset(berries, 0, sizeof berries);
+  berries[1][1] = 1; berries[30][30] = 1;
+  assert(eye_food_bearing(terrain, berries, 0, 0) == 0x95u);
+  assert(eye_food_bearing(terrain, berries, 31, 31) == 0x9Au);
+  memset(berries, 0, sizeof berries);
   // Proximity is encoded in otherwise unused compass bits. These are
   // approximate map distances, NOT a count of guaranteed walking steps.
   berries[10][14] = 1; // distance 4: NEAR
