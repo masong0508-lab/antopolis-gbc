@@ -58,7 +58,7 @@ static const int8_t EYE_OFFSETS[7][25] = {
 };
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
   int16_t px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, r, rx, ry;
-  uint8_t n, x, y, h, o, col, rim, lim = VR * 8, lb;
+  uint8_t n, x, y, h, o, col, rim, carrying, lim = VR * 8, lb;
   // Same half-cell increments as the former per-column arithmetic.
   rx = eye_ray_increment(angle, c);
   ry = eye_ray_increment((uint8_t)(angle + 12u), c);
@@ -118,6 +118,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
       lim = (uint8_t)a;
     }
     o = occ[y][x];
+    carrying = o & 8u; o &= 7u;
     if (o && !(x == vx && y == vy) && eye_entity_centered((uint16_t)px, (uint16_t)py)) {
       rim = eye_entity_outer((uint16_t)px, (uint16_t)py);
       // Food is a small nugget, not a two-cell-wide yellow block.
@@ -155,6 +156,12 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
       if (!rim && (o == 3 || o == 4) && a < e) {
         cls[a] = 7;
         if (a + 1 < e) cls[a + 1] = 7;
+      }
+      // Gold is already part of the ant tile palette (class 7).
+      // A food packet marks the jaws only on a visible carrier body.
+      if (!rim && carrying && o <= 2u && e > a + 4) {
+        cls[a + 2] = 7;
+        cls[a + 3] = 7;
       }
       if (!rim && a < lim) lim = (uint8_t)a;
     }

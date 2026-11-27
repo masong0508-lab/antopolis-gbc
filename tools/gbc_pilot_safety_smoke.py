@@ -274,7 +274,7 @@ def run_case(rom, name, out):
             elif name == "food-save-continue":
                 check("ordinary dry movement still collects food", workers[0]["carry"] == 1 and cart.tile("food", 11, 10) == 0)
                 check("first-person food pickup leaves exact rendered occupancy",
-                      cart.tile("occ", workers[0]["x"], 10) == 1 and cart.tile("occ", 10, 10) == 0)
+                      cart.tile("occ", workers[0]["x"], 10) == 9 and cart.tile("occ", 10, 10) == 0)
                 cart.press("start", 18, 6)
                 cart.press("start", 18, 40)
                 cart.press("a", 18, 40)

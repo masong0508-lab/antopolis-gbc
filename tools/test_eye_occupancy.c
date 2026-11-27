@@ -22,7 +22,7 @@ static void rebuild(void) {
   memset(expected,0,sizeof expected);
   for(y=0;y<32;y++)for(x=0;x<32;x++)if(berries[y][x])expected[y][x]=5u;
   for(i=0;i<EYE_OCC_ANTS;i++)if(ants[i].alive)
-    expected[ants[i].y][ants[i].x]=(uint8_t)(ants[i].team+1u);
+    expected[ants[i].y][ants[i].x]=(uint8_t)(ants[i].team+1u+(ants[i].carry?8u:0u));
   for(i=0;i<2;i++)if(queen_hp[i])
     expected[ny[i]][nx[i]]=(uint8_t)(3u+i);
 }
@@ -48,6 +48,8 @@ int main(void) {
   assert(seen[ny[0]][nx[0]]==2);
   ants[1].alive=0;update_tile(nx[0],ny[0]);
   assert(seen[ny[0]][nx[0]]==1);
+  ants[0].carry=1;update_tile(nx[0],ny[0]);assert(seen[ny[0]][nx[0]]==9);
+  ants[0].team=1;update_tile(nx[0],ny[0]);assert(seen[ny[0]][nx[0]]==10);
   ants[0].alive=0;update_tile(nx[0],ny[0]);
   assert(seen[ny[0]][nx[0]]==5);
   berries[ny[0]][nx[0]]=0;update_tile(nx[0],ny[0]);assert(seen[ny[0]][nx[0]]==0);
@@ -56,7 +58,7 @@ int main(void) {
   for(i=0;i<EYE_OCC_ANTS;i++) {
     ants[i].x=(uint8_t)(rnd()&31u);ants[i].y=(uint8_t)(rnd()&31u);
     ants[i].team=(uint8_t)(rnd()&1u);ants[i].alive=(uint8_t)(rnd()&1u);
-    ants[i].carry=0;ants[i].sol=0;
+    ants[i].carry=(uint8_t)(rnd()&1u);ants[i].sol=0;
   }
   for(y=0;y<32;y++)for(x=0;x<32;x++)berries[y][x]=(uint8_t)(rnd()%7u==0u);
   rebuild();memcpy(seen,expected,sizeof seen);
@@ -67,11 +69,11 @@ int main(void) {
     switch(n%6u) {
       case 0: ants[i].x=x;ants[i].y=y;break;  // old/new worker tiles
       case 1: ants[i].alive^=1u;break;       // kill/resurrect
-      case 2: berries[oy][ox]^=1u;break;     // pickup or regrowth
+      case 2: berries[oy][ox]^=1u;ants[i].carry^=1u;break;     // pickup or regrowth
       case 3: ants[i].team^=1u;break;       // overlap colors
       case 4: if(x==nx[1]&&y==ny[1])queen_hp[1]^=1u;
               else {x=nx[1];y=ny[1];queen_hp[1]^=1u;}break;
-      default: ants[i].x=x;ants[i].y=y;berries[y][x]=0u;break;
+      default: ants[i].x=x;ants[i].y=y;berries[y][x]=0u;ants[i].carry=1;break;
     }
     update_tile(ox,oy);
     update_tile(ants[i].x,ants[i].y);

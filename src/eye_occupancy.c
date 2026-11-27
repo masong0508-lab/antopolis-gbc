@@ -21,7 +21,7 @@ void eye_occ_init(void) BANKED {
     for (x = 0; x < 32u; ++x)
       occ[y][x] = food[y][x] ? 5u : 0u;
   for (i = 0; i < EYE_OCC_ANTS; ++i)
-    if (ant[i].alive) occ[ant[i].y][ant[i].x] = (uint8_t)(ant[i].team + 1u);
+    if (ant[i].alive) occ[ant[i].y][ant[i].x] = eye_occ_worker(&ant[i]);
   for (i = 0; i < 2u; ++i)
     if (qhp[i]) occ[nesty[i]][nestx[i]] = (uint8_t)(3u + i);
 }

@@ -31,7 +31,8 @@ int main(void) {
   static const char *const hazards[] = {
     "AHEAD: MAP EDGE", "AHEAD: WATER BLOCKS", "AHEAD: STEEP CLIFF",
     "AHEAD: CLEAR PATH", "AHEAD: FOOD WALK", "AHEAD: FRIENDLY ANT",
-    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN"
+    "AHEAD: ENEMY BITE", "AHEAD: HOME NEST", "AHEAD: RED QUEEN",
+    "AHEAD: FRIEND FOOD", "AHEAD: ENEMY FOOD"
   };
   static const char *const actions[] = {
     "", "BLOCKED: TURN FIRST", "FOOD PICKED UP", "FOOD DELIVERED",
@@ -39,7 +40,7 @@ int main(void) {
     "PRACTICE QUEEN SAFE"
   };
   unsigned i;
-  for (i=0; i<9; ++i) {
+  for (i=0; i<11; ++i) {
     eye_ui_ahead(row, (uint8_t)i, 0);
     expect(hazards[i]);
   }

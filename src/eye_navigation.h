@@ -117,6 +117,8 @@ static uint8_t eye_ahead_kind(uint8_t heights[EYE_WORLD][EYE_WORLD],
   o = entities[ty][tx];
   if (!o) return 3;
   if (o == 5) return 4;
+  if (o == 9u) return 9u;  // friendly carrier
+  if (o == 10u) return 10u; // enemy carrier
   if (o == 1) return 5;
   if (o == 2) return 6;
   if (o == 3) return 7;
