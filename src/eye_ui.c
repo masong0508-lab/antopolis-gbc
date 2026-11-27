@@ -121,8 +121,12 @@ void eye_ui_guide(char *b,uint8_t nav,uint8_t carry,
   else if(south){field(b,pos,"SOUTH");pos+=5;}
   if(east){field(b,pos,"EAST");pos+=4;}
   else if(west){field(b,pos,"WEST");pos+=4;}
-  /* A short proximity cue improves foraging without claiming a
-     guaranteed route across the map. There are only 20 HUD cells. */
-  if(!carry && (nav&0x80u))
+  /* Show coarse map distance for both food and home. The existing
+     20-cell row fits even HOME: NORTHWEST NEAR exactly. Detour and
+     check-map messages above remain unchanged; these are not travel times. */
+  if(carry) {
+    uint8_t distance=(uint8_t)((x>hx?x-hx:hx-x)+(y>hy?y-hy:hy-y));
+    field(b,pos,distance<=4u?" NEAR":distance<=8u?" MID":" FAR");
+  } else if(nav&0x80u)
     field(b,pos,(nav&0x10u)?" NEAR":(nav&0x20u)?" FAR":" MID");
 }

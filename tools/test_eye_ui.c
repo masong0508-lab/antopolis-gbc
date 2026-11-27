@@ -67,22 +67,22 @@ int main(void) {
   eye_ui_guide(row, 0x80 | 0x20 | 4 | 1, 0, 10, 10, 2, 2);
   expect("FOOD: SOUTHEAST FAR");
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
-  expect("HOME: NORTHWEST");
+  expect("HOME: NORTHWEST FAR");
   eye_ui_guide(row, 0, 1, 2, 2, 2, 2);
   expect("HOME: HERE");
   eye_ui_guide(row, 0, 1, 0, 0, 2, 2);
-  expect("HOME: SOUTHEAST");
+  expect("HOME: SOUTHEAST NEAR");
   // Northward ground is water but west is open: do not advertise NW.
   hgt[9][10] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
-  expect("HOME: WEST");
+  expect("HOME: WEST FAR");
   hgt[10][9] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("DETOUR: EAST"); // north is accessible after a safe east step
   // After obeying EAST, the compass must not immediately say WEST
   // and oscillate back into the original dead end. Choose NORTH.
   eye_ui_guide(row, 0, 1, 11, 10, 2, 2);
-  expect("HOME: NORTH");
+  expect("HOME: NORTH FAR");
   hgt[9][11] = 0; // east would be a dead end; south then west is open
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
   expect("DETOUR: SOUTH");
@@ -93,7 +93,7 @@ int main(void) {
   hgt[9][10] = hgt[10][9] = hgt[9][11] = hgt[11][9] = 1;
   hgt[9][9] = 3;
   eye_ui_guide(row, 0, 1, 10, 10, 2, 2);
-  expect("HOME: WEST");
+  expect("HOME: WEST FAR");
   // Directly north and blocked: no false "HOME: NORTH" bearing.
   hgt[9][10] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 10, 4);
@@ -109,15 +109,23 @@ int main(void) {
   memset(hgt, 1, sizeof hgt);
   hgt[11][12] = hgt[12][11] = 0;
   eye_ui_guide(row, 0, 1, 10, 10, 12, 12);
-  expect("HOME: EAST");
+  expect("HOME: EAST NEAR");
   // A diagonal step directly onto home needs no further progress leg.
   eye_ui_guide(row, 0, 1, 10, 10, 11, 11);
-  expect("HOME: SOUTHEAST");
+  expect("HOME: SOUTHEAST NEAR");
   // Mirror the same trap toward the opposite quadrant.
   memset(hgt, 1, sizeof hgt);
   hgt[9][8] = hgt[8][9] = 3;
   eye_ui_guide(row, 0, 1, 10, 10, 8, 8);
-  expect("HOME: WEST");
+  expect("HOME: WEST NEAR");
+  // Exact distance thresholds, maximum diagonal width and corners.
+  memset(hgt,1,sizeof hgt);
+  eye_ui_guide(row,0,1,10,10,6,10); expect("HOME: WEST NEAR");
+  eye_ui_guide(row,0,1,10,10,5,10); expect("HOME: WEST MID");
+  eye_ui_guide(row,0,1,10,10,2,10); expect("HOME: WEST MID");
+  eye_ui_guide(row,0,1,10,10,1,10); expect("HOME: WEST FAR");
+  eye_ui_guide(row,0,1,31,31,0,0); expect("HOME: NORTHWEST FAR");
+  eye_ui_guide(row,0,1,10,10,8,8); expect("HOME: NORTHWEST NEAR");
   puts("GBC ANT EYE UI: all actions, objectives and terrain labels fit 20 tiles");
   return 0;
 }
