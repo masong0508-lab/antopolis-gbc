@@ -57,21 +57,27 @@ for vang in range(16):
     assert labels[eval(index_expr, {"__builtins__": {}}, {"vang": vang})].strip() == expected, (vang, expected)
 print("All sixteen ANT EYE HUD bearings match actual walking directions")
 
-# The 175-byte perspective table stays in the same ROM bank as the
+# The depth-major perspective table stays in the same ROM bank as the
 # ray marcher. Verify every entry against the original signed formula.
-perspective = re.search(r"static const int8_t EYE_OFFSETS\[7\]\[25\]\s*=\s*\{(.*?)\n\};", render, re.S)
+perspective = re.search(r"static const int8_t EYE_OFFSETS\[25\]\[8\]\s*=\s*\{(.*?)\n\};", render, re.S)
 assert perspective
 rows = [[int(n) for n in re.findall(r"-?\d+", row)]
         for row in re.findall(r"\{([^{}]+)\}", perspective.group(1))]
-assert len(rows)==7 and all(len(row)==25 and row[0]==0 for row in rows)
-for height_index in range(7):
-    for depth in range(1,25):
-        offset=int(((height_index-3)*4-3)*16/depth)
-        assert rows[height_index][depth]==max(-64,min(64,offset))
-assert "yt = 48 - EYE_OFFSETS[h + 3 - eh][n];" in ray
+assert len(rows)==25 and all(len(row)==8 and row[7]==0 for row in rows)
+assert rows[0] == [0]*8
+for eye_height in range(4):
+    for height in range(4):
+        for depth in range(1,25):
+            height_index=height+3-eye_height
+            offset=int(((height-eye_height)*4-3)*16/depth)
+            assert rows[depth][height_index]==max(-64,min(64,offset))
+assert "const uint8_t height_bias = (uint8_t)(3u - eh);" in ray
+assert "const int8_t (*depth_offsets)[8] = EYE_OFFSETS + 1;" in ray
+assert "n++, ++depth_offsets" in ray
+assert "yt = 48 - (*depth_offsets)[(uint8_t)(h + height_bias)];" in ray
 assert "eye_init_offsets" not in game+render
 assert not re.search(r"int8_t\s+OFF\s*\[",game+render)
-print("All 175 perspective entries verified; no duplicate WRAM table or boot copy")
+print("All 384 eye-height/terrain-height/depth combinations verified; no duplicate WRAM table or boot copy")
 
 # Compare all 640 direction components with the original signed shifts.
 ray_table = re.search(r"static const int16_t EYE_RAY_X\[320\]\s*=\s*\{(.*?)\n\};", render, re.S)

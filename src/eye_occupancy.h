@@ -19,13 +19,17 @@ static uint8_t eye_occupancy_at(uint8_t x, uint8_t y,
                                 const uint8_t queens[2],
                                 const uint8_t queens_x[2],
                                 const uint8_t queens_y[2]) {
-  uint8_t i, value = berries[y][x] ? 5u : 0u;
-  for (i = 0; i < EYE_OCC_ANTS; i++)
-    if (ants[i].alive && ants[i].x == x && ants[i].y == y)
-      value = eye_occ_worker(&ants[i]);
-  for (i = 0; i < 2u; i++)
-    if (queens[i] && queens_x[i] == x && queens_y[i] == y)
-      value = (uint8_t)(3u + i);
-  return value;
+  /* The atlas overlays queens last and highest ant slot last.
+     Query in reverse priority, so a queen or occupied tile can return
+     immediately. Walk a pointer rather than multiplying each slot by
+     sizeof(EyeAnt). No cache, allocation, or visibility rule changes. */
+  const EyeAnt *a = ants + EYE_OCC_ANTS;
+  if (queens[1] && queens_x[1] == x && queens_y[1] == y) return 4u;
+  if (queens[0] && queens_x[0] == x && queens_y[0] == y) return 3u;
+  while (a != ants) {
+    --a;
+    if (a->alive && a->x == x && a->y == y) return eye_occ_worker(a);
+  }
+  return berries[y][x] ? 5u : 0u;
 }
 #endif

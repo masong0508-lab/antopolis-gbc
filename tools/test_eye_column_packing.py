@@ -127,6 +127,20 @@ int main(void){
       ++cases;
     }
   }
+  // Exhaustive class pairs in each pixel position, all twenty columns.
+  // This catches an early priority exit hiding a later higher class,
+  // and mismatched packed low/high palette planes (including sky).
+  for(unsigned a=0;a<11;a++)for(unsigned b=0;b<11;b++)for(unsigned pos=0;pos<8;pos++){
+    memset(cls,(int)a,sizeof cls);
+    for(unsigned r=0;r<VR;r++)cls[r*8+pos]=(uint8_t)b;
+    for(unsigned c=0;c<20;c++){
+      original_pack((uint8_t)c,old);memcpy(expected,tcol,sizeof expected);
+      memset(tcol,0xAD,sizeof tcol);
+      eye_pack_column((uint8_t)c,scratch);
+      assert(!memcmp(tcol,expected,sizeof expected));
+      assert(!memcmp(old,scratch,sizeof scratch));++cases;
+    }
+  }
   printf("GBC banked packing: %u identical columns, 4753 span bounds PASS\n",cases);
   return 0;
 }
