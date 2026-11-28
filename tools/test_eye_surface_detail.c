@@ -22,6 +22,15 @@ int main(void) {
                                    (uint8_t)n,(uint8_t)shore));
     }
   for(unsigned i=1;i<5;i++)assert(seen[i]);
+  // Keep exactly one-quarter motifs on each 32x32 material and break
+  // the old perfectly straight diagonal stripe.
+  for(h=1;h<=2;h++){
+    unsigned count=0,diagonal=0;
+    for(x=0;x<32;x++)for(y=0;y<32;y++)
+      count+=eye_surface_accent((uint8_t)h,(uint8_t)x,(uint8_t)y,4,0)!=0;
+    for(x=0;x<32;x++)diagonal+=eye_surface_accent((uint8_t)h,(uint8_t)x,(uint8_t)x,4,0)!=0;
+    assert(count==256 && diagonal>0 && diagonal<32);
+  }
   // Live ROM3 raymarch must clip raised silhouettes inside 96px,
   // respect occluding ground, and keep nearer pheromone render intact.
     puts("GBC bank-3 ANT EYE environment PASS: shoreline foam, rock strata, grass and pebbles");
