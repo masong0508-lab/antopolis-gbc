@@ -47,14 +47,35 @@ static const uint8_t BBH[VN + 1] = {0, 40, 32, 21, 16, 12, 10, 9, 8, 7, 6, 5, 5,
 // The ray marcher already runs in this bank, so read the original ROM
 // table directly rather than copying it to permanent WRAM at boot.
 // Index 0 is unused and stays zero; no runtime division is introduced.
-static const int8_t EYE_OFFSETS[7][25] = {
-  {0,-64,-64,-64,-60,-48,-40,-34,-30,-26,-24,-21,-20,-18,-17,-16,-15,-14,-13,-12,-12,-11,-10,-10,-10},
-  {0,-64,-64,-58,-44,-35,-29,-25,-22,-19,-17,-16,-14,-13,-12,-11,-11,-10,-9,-9,-8,-8,-8,-7,-7},
-  {0,-64,-56,-37,-28,-22,-18,-16,-14,-12,-11,-10,-9,-8,-8,-7,-7,-6,-6,-5,-5,-5,-5,-4,-4},
-  {0,-48,-24,-16,-12,-9,-8,-6,-6,-5,-4,-4,-4,-3,-3,-3,-3,-2,-2,-2,-2,-2,-2,-2,-2},
-  {0,16,8,5,4,3,2,2,2,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0},
-  {0,64,40,26,20,16,13,11,10,8,8,7,6,6,5,5,5,4,4,4,4,3,3,3,3},
-  {0,64,64,48,36,28,24,20,18,16,14,13,12,11,10,9,9,8,8,7,7,6,6,6,6}
+/* Depth-major perspective table: stride eight, seven real height
+   offsets and one zero pad. Advance a row per ray step; no per-sample
+   multiply by 25 and no extra WRAM lookup cache. */
+static const int8_t EYE_OFFSETS[25][8] = {
+  {0,0,0,0,0,0,0,0},
+  {-64,-64,-64,-48,16,64,64,0},
+  {-64,-64,-56,-24,8,40,64,0},
+  {-64,-58,-37,-16,5,26,48,0},
+  {-60,-44,-28,-12,4,20,36,0},
+  {-48,-35,-22,-9,3,16,28,0},
+  {-40,-29,-18,-8,2,13,24,0},
+  {-34,-25,-16,-6,2,11,20,0},
+  {-30,-22,-14,-6,2,10,18,0},
+  {-26,-19,-12,-5,1,8,16,0},
+  {-24,-17,-11,-4,1,8,14,0},
+  {-21,-16,-10,-4,1,7,13,0},
+  {-20,-14,-9,-4,1,6,12,0},
+  {-18,-13,-8,-3,1,6,11,0},
+  {-17,-12,-8,-3,1,5,10,0},
+  {-16,-11,-7,-3,1,5,9,0},
+  {-15,-11,-7,-3,1,5,9,0},
+  {-14,-10,-6,-2,0,4,8,0},
+  {-13,-9,-6,-2,0,4,8,0},
+  {-12,-9,-5,-2,0,4,7,0},
+  {-12,-8,-5,-2,0,4,7,0},
+  {-11,-8,-5,-2,0,3,6,0},
+  {-10,-8,-5,-2,0,3,6,0},
+  {-10,-7,-4,-2,0,3,6,0},
+  {-10,-7,-4,-2,0,3,6,0}
 };
 // Precomputed 1-bit texture masks avoid a variable shift inside the
 // 240-tile ANT EYE sweep; 8 ROM bytes, no RAM or extra rendering passes.
@@ -68,12 +89,15 @@ static const uint8_t EYE_GRAIN[8]={0x80,0x40,0x20,0x10,0x08,0x04,0x02,0x01};
 static const uint8_t EYE_BODY[8]={0x18,0x3C,0x7E,0x18,0x18,0x3C,0x7E,0x3C};
 // Alternate paired leg angles instead of eight identical vertical rails.
 static const uint8_t EYE_LIMBS[8]={0x81,0x42,0x81,0x24,0x81,0x42,0x81,0x42};
-static const uint8_t PMAP[5][16] = {
-  {0,1,2,3,0,0,0,0,0,0,0}, // land
-  {0,2,3,3,1,0,0,0,0,0,0}, // water
-  {0,3,3,3,0,1,2,3,0,1,2}, // ants, gold food, segmented red/black limbs
-  {0,1,2,3,0,0,0,3,3,0,0}, // gold pheromone
-  {0,1,2,3,0,0,0,0,0,0,0}  // upper sky
+/* Same five palettes, with each class's two untextured 2bpp bytes
+   already expanded. 80 extra ROM bytes replace two per-pixel decisions.
+   The texture, sky, ant outline and antenna overlays still run below. */
+static const uint8_t PMAP[5][32] = {
+  {0,0,255,0,0,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,0,255,255,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,255,255,255,255,255,255,0,0,255,0,0,255,255,255,0,0,255,0,0,255,0,0,0,0,0,0,0,0,0,0},
+  {0,0,255,0,0,255,255,255,0,0,0,0,0,0,255,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+  {0,0,255,0,0,255,255,255,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
 };
 extern uint8_t tcol[VR * 16];
 /* Every caller clips to the 96-pixel column. An 8-bit span count and
@@ -86,16 +110,18 @@ static void eye_fill_span(uint8_t start, uint8_t end, uint8_t color) {
 void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANKED {
   int16_t px = (int16_t)vx * 256 + 128, py = (int16_t)vy * 256 + 128, yt, a, e, rx, ry;
   uint8_t n, x, y, h, o, col, rim, carrying, lim = VR * 8, lb;
+  const uint8_t height_bias = (uint8_t)(3u - eh);
+  const int8_t (*depth_offsets)[8] = EYE_OFFSETS + 1;
   // Same half-cell increments as the former per-column arithmetic.
   rx = eye_ray_increment(angle, c);
   ry = eye_ray_increment((uint8_t)(angle + 12u), c);
   eye_fill_span(0, VR * 8, 0);
-  for (n = 1; n <= VN && lim; n++) {
+  for (n = 1; n <= VN && lim; n++, ++depth_offsets) {
     px += rx; py += ry;
     if (px < 0 || py < 0 || px >= W * 256 || py >= H * 256) break;
     x = (uint8_t)(px >> 8); y = (uint8_t)(py >> 8);
     h = hgt[y][x];
-    yt = 48 - EYE_OFFSETS[h + 3 - eh][n];
+    yt = 48 - (*depth_offsets)[(uint8_t)(h + height_bias)];
     lb = lim;
     if (yt < lb) {                                   // terrain pokes above everything nearer: paint it
       a = yt < 0 ? 0 : yt;
@@ -202,7 +228,7 @@ void view_col(uint8_t c, uint8_t vx, uint8_t vy, uint8_t eh, uint8_t angle) BANK
    16-byte palette stride avoid repeated indexing and multiplication.
    Run in ROM3 with audio IRQs masked; caller alone writes VRAM. */
 void eye_pack_column(uint8_t c, uint8_t *scratch) BANKED {
-  uint8_t r, k, v, p, m, color, lo, hi;
+  uint8_t r, k, v, p, m, lo, hi;
   uint8_t *t = tcol, *attrs = scratch + 504u;
   const uint8_t *row = cls, *palette;
   const uint8_t *antennae = scratch + ((uint16_t)c << 4) + ((uint16_t)c << 3);
@@ -212,15 +238,16 @@ void eye_pack_column(uint8_t c, uint8_t *scratch) BANKED {
       v = row[k];
       if (v == 4) m |= 1;
       else if (v == 8) m |= 4;
-      else if (v > 4) m |= 2;
+      else if (v > 4) { m |= 2; break; }  // highest priority: no later class can change p
     }
     p = (m & 2) ? 2 : (m & 4) ? 3 : (m & 1) ? 1 : 0;
     if (p == 0 && r < 3 && row[7] == 0) p = 4;
-    palette = &PMAP[0][0] + ((uint16_t)p << 4);
+    palette = PMAP[p];
     for (k = 0; k < 8u; ++k) {
-      v = row[k]; color = palette[v];
-      lo = (color & 1u) ? 0xFFu : 0;
-      hi = (color & 2u) ? 0xFFu : 0;
+      const uint8_t *plane;
+      v = row[k]; plane = palette + (uint8_t)(v << 1);
+      lo = plane[0];
+      hi = plane[1];
       if (p == 4 && v == 0) {
         lo = r >= 1 ? 0xFFu : (k >= 6 ? 0xAAu : 0);
         hi = r >= 2 ? 0xFFu : (r == 1 && k >= 6 ? 0xAAu : 0);
@@ -229,7 +256,7 @@ void eye_pack_column(uint8_t c, uint8_t *scratch) BANKED {
         uint8_t mask = (v >= 9) ? EYE_LIMBS[k] : EYE_BODY[k];
         lo &= mask; hi &= mask;
       }
-      if ((p == 0 || p == 1) && (k & 3u) == 0) {
+      if (p < 2 && (k & 3u) == 0) {
         uint8_t bit = EYE_GRAIN[(c + r + k) & 7u];
         if (v == 2) lo |= bit;
         else if (v == 1) { lo &= (uint8_t)~bit; hi |= bit; }

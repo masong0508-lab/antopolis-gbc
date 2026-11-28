@@ -54,6 +54,17 @@ int main(void) {
   assert(seen[ny[0]][nx[0]]==5);
   berries[ny[0]][nx[0]]=0;update_tile(nx[0],ny[0]);assert(seen[ny[0]][nx[0]]==0);
   queen_hp[0]=5;
+  /* Two live queens sharing a tile: the highest queen index still wins.
+     The same rule holds for the final worker slot versus earlier slots. */
+  nx[1]=nx[0];ny[1]=ny[0];
+  assert(eye_occupancy_at(nx[0],ny[0],ants,berries,queen_hp,nx,ny)==4u);
+  queen_hp[0]=queen_hp[1]=0;
+  ants[0]=(EyeAnt){nx[0],ny[0],0,1,0,0};
+  ants[EYE_OCC_ANTS-1]=(EyeAnt){nx[0],ny[0],1,1,1,0};
+  assert(eye_occupancy_at(nx[0],ny[0],ants,berries,queen_hp,nx,ny)==10u);
+  ants[EYE_OCC_ANTS-1].alive=0;
+  assert(eye_occupancy_at(nx[0],ny[0],ants,berries,queen_hp,nx,ny)==1u);
+  nx[1]=27;ny[1]=5;queen_hp[0]=queen_hp[1]=5;
   /* Randomized legal worlds (all coordinates always in range). */
   for(i=0;i<EYE_OCC_ANTS;i++) {
     ants[i].x=(uint8_t)(rnd()&31u);ants[i].y=(uint8_t)(rnd()&31u);
